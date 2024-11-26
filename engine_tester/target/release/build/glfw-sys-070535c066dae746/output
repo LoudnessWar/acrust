@@ -1,0 +1,72 @@
+CMAKE_TOOLCHAIN_FILE_x86_64-pc-windows-gnu = None
+CMAKE_TOOLCHAIN_FILE_x86_64_pc_windows_gnu = None
+HOST_CMAKE_TOOLCHAIN_FILE = None
+CMAKE_TOOLCHAIN_FILE = None
+CMAKE_GENERATOR_x86_64-pc-windows-gnu = None
+CMAKE_GENERATOR_x86_64_pc_windows_gnu = None
+HOST_CMAKE_GENERATOR = None
+CMAKE_GENERATOR = None
+CMAKE_PREFIX_PATH_x86_64-pc-windows-gnu = None
+CMAKE_PREFIX_PATH_x86_64_pc_windows_gnu = None
+HOST_CMAKE_PREFIX_PATH = None
+CMAKE_PREFIX_PATH = None
+CMAKE_x86_64-pc-windows-gnu = None
+CMAKE_x86_64_pc_windows_gnu = None
+HOST_CMAKE = None
+CMAKE = None
+running: "cmake" "C:\\Users\\aiden\\.cargo\\registry\\src\\index.crates.io-6f17d22bba15001f\\glfw-sys-5.0.0+3.3.9\\glfw" "-G" "MinGW Makefiles" "-DGLFW_BUILD_EXAMPLES=OFF" "-DGLFW_BUILD_TESTS=OFF" "-DGLFW_BUILD_DOCS=OFF" "-DCMAKE_INSTALL_LIBDIR=lib" "-DGLFW_USE_WAYLAND=OFF" "-DCMAKE_INSTALL_PREFIX=C:\\Users\\aiden\\Stuff\\rust\\acrust\\engine_tester\\target\\release\\build\\glfw-sys-070535c066dae746\\out" "-DCMAKE_C_FLAGS= -ffunction-sections -fdata-sections -m64" "-DCMAKE_CXX_FLAGS= -ffunction-sections -fdata-sections -m64" "-DCMAKE_ASM_FLAGS= -ffunction-sections -fdata-sections -m64" "-DCMAKE_BUILD_TYPE=Release"
+-- The C compiler identification is GNU 14.1.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: C:/Users/aiden/Stuff/rust/msys2/mingw64/bin/cc.exe - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Looking for dinput.h
+-- Looking for dinput.h - found
+-- Looking for xinput.h
+-- Looking for xinput.h - found
+-- Performing Test _GLFW_HAS_DEP
+-- Performing Test _GLFW_HAS_DEP - Success
+-- Performing Test _GLFW_HAS_ASLR
+-- Performing Test _GLFW_HAS_ASLR - Success
+-- Performing Test _GLFW_HAS_64ASLR
+-- Performing Test _GLFW_HAS_64ASLR - Success
+-- Using Win32 for window creation
+-- Configuring done (8.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/build
+running: "cmake" "--build" "." "--target" "install" "--config" "Release" "--parallel" "16"
+[  6%] Building C object src/CMakeFiles/glfw.dir/context.c.obj
+[ 12%] Building C object src/CMakeFiles/glfw.dir/init.c.obj
+[ 18%] Building C object src/CMakeFiles/glfw.dir/input.c.obj
+[ 25%] Building C object src/CMakeFiles/glfw.dir/monitor.c.obj
+[ 31%] Building C object src/CMakeFiles/glfw.dir/vulkan.c.obj
+[ 37%] Building C object src/CMakeFiles/glfw.dir/window.c.obj
+[ 43%] Building C object src/CMakeFiles/glfw.dir/win32_init.c.obj
+[ 50%] Building C object src/CMakeFiles/glfw.dir/win32_joystick.c.obj
+[ 56%] Building C object src/CMakeFiles/glfw.dir/win32_monitor.c.obj
+[ 62%] Building C object src/CMakeFiles/glfw.dir/win32_time.c.obj
+[ 68%] Building C object src/CMakeFiles/glfw.dir/win32_thread.c.obj
+[ 75%] Building C object src/CMakeFiles/glfw.dir/win32_window.c.obj
+[ 81%] Building C object src/CMakeFiles/glfw.dir/wgl_context.c.obj
+[ 87%] Building C object src/CMakeFiles/glfw.dir/egl_context.c.obj
+[ 93%] Building C object src/CMakeFiles/glfw.dir/osmesa_context.c.obj
+[100%] Linking C static library libglfw3.a
+[100%] Built target glfw
+Install the project...
+-- Install configuration: "Release"
+-- Installing: C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/lib/libglfw3.a
+-- Installing: C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/include/GLFW
+-- Installing: C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/include/GLFW/glfw3.h
+-- Installing: C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/include/GLFW/glfw3native.h
+-- Installing: C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/lib/cmake/glfw3/glfw3Config.cmake
+-- Installing: C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/lib/cmake/glfw3/glfw3ConfigVersion.cmake
+-- Installing: C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/lib/cmake/glfw3/glfw3Targets.cmake
+-- Installing: C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/lib/cmake/glfw3/glfw3Targets-release.cmake
+-- Installing: C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/lib/pkgconfig/glfw3.pc
+cargo:root=C:\Users\aiden\Stuff\rust\acrust\engine_tester\target\release\build\glfw-sys-070535c066dae746\out
+cargo:rustc-link-search=native=C:\Users\aiden\Stuff\rust\acrust\engine_tester\target\release\build\glfw-sys-070535c066dae746\out\lib
+cargo:rustc-link-lib=dylib=glfw3

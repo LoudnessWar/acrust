@@ -1,0 +1,9 @@
+[package]
+name = "engine_tester"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+acrust = { path = "../" }
+gl = "0.14.0"
+cgmath = "0.18"

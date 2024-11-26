@@ -1,0 +1,8 @@
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/debug/build/glfw-sys-2cbaafbbe160cbd4/out/lib/libglfw3.a
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/debug/build/glfw-sys-2cbaafbbe160cbd4/out/include/GLFW/glfw3.h
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/debug/build/glfw-sys-2cbaafbbe160cbd4/out/include/GLFW/glfw3native.h
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/debug/build/glfw-sys-2cbaafbbe160cbd4/out/lib/cmake/glfw3/glfw3Config.cmake
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/debug/build/glfw-sys-2cbaafbbe160cbd4/out/lib/cmake/glfw3/glfw3ConfigVersion.cmake
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/debug/build/glfw-sys-2cbaafbbe160cbd4/out/lib/cmake/glfw3/glfw3Targets.cmake
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/debug/build/glfw-sys-2cbaafbbe160cbd4/out/lib/cmake/glfw3/glfw3Targets-debug.cmake
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/debug/build/glfw-sys-2cbaafbbe160cbd4/out/lib/pkgconfig/glfw3.pc

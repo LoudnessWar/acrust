@@ -1,0 +1,8 @@
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/lib/libglfw3.a
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/include/GLFW/glfw3.h
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/include/GLFW/glfw3native.h
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/lib/cmake/glfw3/glfw3Config.cmake
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/lib/cmake/glfw3/glfw3ConfigVersion.cmake
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/lib/cmake/glfw3/glfw3Targets.cmake
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/lib/cmake/glfw3/glfw3Targets-release.cmake
+C:/Users/aiden/Stuff/rust/acrust/engine_tester/target/release/build/glfw-sys-070535c066dae746/out/lib/pkgconfig/glfw3.pc
