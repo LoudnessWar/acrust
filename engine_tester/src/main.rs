@@ -4,6 +4,9 @@ use acrust::graphics::camera::Camera;
 use acrust::input::input::{InputSystem, InputEvent, Key};
 use acrust::graphics::gl_wrapper::*;
 
+use crate::voxel_render::VoxelRenderer;
+use crate::voxel_render::VoxelChunk;
+
 //use gl::types::*;
 //use std::mem;
 //use std::ptr;
@@ -11,6 +14,7 @@ use cgmath::*;
 //use std::env;
 
 mod voxel_render;
+mod collision;
 
 fn main() {
     let mut window = Window::new(720, 720, "CUBE!", 60);
@@ -37,7 +41,21 @@ fn main() {
     let mut camera = Camera::new(perspective);
 
     // Initialize Voxel Renderer
-    let mut voxel_renderer = voxel_render::VoxelRenderer::new();
+    let mut chunk = VoxelChunk::new(16, 16, 16);
+    for x in 0..16 {
+        for y in 0..16 {
+            for z in 0..16 {
+                chunk.set_block(x, y, z, 1); // Fill the chunk with solid blocks
+            }
+        }
+    }
+
+    let voxel_renderer = VoxelRenderer::from_chunk(&chunk);
+
+    let mut collision_system = CollisionSystem::new(&chunk);
+    let mut camera_position = Vector3::new(0.0, 0.0, 0.0);
+
+    let mut camera_speed = 0.1;
 
     while !window.should_close() {
         // Clear the screen
@@ -66,16 +84,20 @@ fn main() {
 
         window.process_input_events(&mut input_system);
         if input_system.is_key_pressed(&Key::W) {
-            camera.move_forward(0.1);
+            camera.move_forward(camera_speed);
         }
         if input_system.is_key_pressed(&Key::S) {
-            camera.move_backward(0.1);
+            camera.move_backward(camera_speed);
         }
         if input_system.is_key_pressed(&Key::A) {
-            camera.move_left(0.1);
+            camera.move_left(camera_speed);
         }
         if input_system.is_key_pressed(&Key::D) {
-            camera.move_right(0.1);
+            camera.move_right(camera_speed);
+        }
+
+        if collision_system.resolve_collision(&mut camera_position, proposed_position) {
+            camera.position = camera_position;
         }
         
         camera.update_view();
@@ -85,6 +107,12 @@ fn main() {
             match event {
                 InputEvent::KeyPressed(Key::Space) => {
                     println!("Jump");
+                }
+                InputEvent::KeyPressed(Key::LShift) => {
+                    camera_speed = 0.3;
+                }
+                InputEvent::KeyReleased(Key::LShift) => {
+                    camera_speed = 0.1;
                 }
                 _ => {}
             }

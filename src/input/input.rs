@@ -11,6 +11,7 @@ pub enum Key {
     Left,
     Up,
     Down,
+    LShift,
     Space,
     Escape,
     // TODO: need to make this erm like editable idk what the correct word is... not editable from here thouhg ytkyk 
@@ -38,6 +39,7 @@ pub fn map_glfw_key(glfw_key: glfw::Key) -> Option<Key> {
         glfw::Key::Left => Some(Key::Left),
         glfw::Key::Up => Some(Key::Up),
         glfw::Key::Down => Some(Key::Down),
+        glfw::Key::LeftShift => Some(Key::LShift),
         glfw::Key::Space => Some(Key::Space),
         glfw::Key::Escape => Some(Key::Escape),
         _ => None,
@@ -78,6 +80,7 @@ impl InputSystem {
         &mut self.event_queue
     }
 
+    //a check for like holding
     pub fn is_key_pressed(&self, key: &Key) -> bool {
         self.pressed_keys.contains(key)
     }
