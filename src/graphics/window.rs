@@ -124,14 +124,6 @@ impl Window {
         self.window_handle.set_cursor_mode(glfw::CursorMode::Normal);
     }
 
-    // pub fn lock_cursor(&mut self) {
-    //     self.window_handle.set_input_mode_cursor(glfw::CursorMode::Disabled);
-    // }
-    
-    // pub fn unlock_cursor(&mut self) {
-    //     self.window_handle.set_input_mode_cursor(glfw::CursorMode::Normal);
-    // }
-
     //this is to process events
     pub fn process_input_events(&mut self, input_system: &mut InputSystem) {
         for (_, event) in glfw::flush_messages(&self.events) {
@@ -160,74 +152,4 @@ impl Window {
             }
         }
     }
-    
-
-    // pub fn process_input_events(&mut self, input_system: &mut InputSystem) {
-    //     for (_, event) in glfw::flush_messages(&self.events) {
-    //         match event {
-    //             glfw::WindowEvent::Key(glfw_key, _, action, _) => {
-    //                 if let Some(key) = map_glfw_key(glfw_key) {
-    //                     match action {
-    //                         glfw::Action::Press => input_system.queue_event(InputEvent::KeyPressed(key)),
-    //                         glfw::Action::Release => input_system.queue_event(InputEvent::KeyReleased(key)),
-    //                         _ => {}
-    //                     }
-    //                 }
-    //             }
-    //             // glfw::WindowEvent::CursorPos(x, y) => {
-    //             //     //println!("Mouse moved to: {}, {}", x, y);
-    //             //     input_system.queue_event(InputEvent::MouseMoved(x, y));
-    //             // }
-    //             glfw::WindowEvent::MouseButton(button, action, _) => {
-    //                 let button_index = button as u8;
-    //                 //println!("Mouse button: {} action: {:?}", button_index, action);
-    //                 match action {
-    //                     glfw::Action::Press => {
-    //                         input_system.queue_event(InputEvent::MouseButtonPressed(button_index));
-    //                     }
-    //                     glfw::Action::Release => {
-    //                         input_system.queue_event(InputEvent::MouseButtonReleased(button_index));
-    //                     }
-    //                     _ => {}
-    //                 }
-    //             }
-    //             _ => {}
-    //         }
-    //     }
-    // }
-    
 }
-
-
-//lol this is an old thing I am going to just use a ghetter for now in the future I might use this though
-// pub fn process_input_events(&mut self, input_system: &mut InputSystem) {
-//     for (_, event) in glfw::flush_messages(&self.events) {
-//         match event {
-//             glfw::WindowEvent::Key(glfw_key, _, action, _) => {
-//                 if let Some(key) = map_glfw_key(glfw_key) {
-//                     match action {
-//                         glfw::Action::Press => input_system.queue_event(InputEvent::KeyPressed(key)),
-//                         glfw::Action::Release => input_system.queue_event(InputEvent::KeyReleased(key)),
-//                         _ => {}
-//                     }
-//                 }
-//             }
-//             glfw::WindowEvent::CursorPos(x, y) => {
-//                 input_system.queue_event(InputEvent::MouseMoved(x, y));
-//             }
-//             glfw::WindowEvent::MouseButton(button, action, _) => {
-//                 let button_index = button as u8;
-//                 match action {
-//                     glfw::Action::Press => {
-//                         input_system.queue_event(InputEvent::MouseButtonPressed(button_index));
-//                     }
-//                     glfw::Action::Release => {
-//                         input_system.queue_event(InputEvent::MouseButtonReleased(button_index));
-//                     }
-//                     _ => {}
-//                 }
-//             }
-//             _ => {}
-//         }
-//     }
-// }

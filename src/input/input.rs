@@ -21,11 +21,8 @@ pub enum Key {
 pub enum InputEvent {
     KeyPressed(Key),
     KeyReleased(Key),
-    //MouseMoved(f64, f64), remove all the juck TODO
     MouseButtonPressed(u8),//erm u8 girl 
     MouseButtonReleased(u8),
-    // MouseButtonPressed(glfw::MouseButton),//might use this so I left it you can see below where it can be changed 
-    // MouseButtonReleased(glfw::MouseButton),
 }
 
 //this is to make it a bit more abstract and to keep glfw out of da mains,erm might be ass but who cares ig rn
@@ -98,65 +95,3 @@ impl InputSystem {
     }
 }
 
-
-
-
-
-//there is a better way to do this ngl ngl
-//     pub fn process_events(&mut self, glfw_events: &mut glfw::FlushedMessages<(f64, glfw::WindowEvent)>) {//erm like idk why this just miraculously worked
-//         for (_, event) in glfw_events{
-//             match event {
-//                 glfw::WindowEvent::Key(glfw_key, _, action, _) => {
-//                     if let Some(key) = map_glfw_key(glfw_key) {
-//                         match action {//wow it can activate on press or release LIT!!!
-//                             glfw::Action::Press => self.event_queue.push(InputEvent::KeyPressed(key)),
-//                             glfw::Action::Release => self.event_queue.push(InputEvent::KeyReleased(key)),
-//                             _ => {}
-//                         }
-//                     }
-//                 }//lol this is also in window soz
-//                 glfw::WindowEvent::CursorPos(x, y) => {
-//                     self.event_queue.push(InputEvent::MouseMoved(x, y))
-//                 }//cool
-//                 glfw::WindowEvent::MouseButton(button, action, _) => {
-//                     let button_index = button as u8; // customize this as needed ie might just use glfw::mouse or whatever
-//                     match action {
-//                         glfw::Action::Press => {
-//                             self.event_queue.push(InputEvent::MouseButtonPressed(button_index))
-//                         }
-//                         glfw::Action::Release => {
-//                             self.event_queue.push(InputEvent::MouseButtonReleased(button_index))
-//                         }
-//                         _ => {}
-//                     }
-//                 }
-//                 _ => {}
-//             }
-//         }
-//     }
-
-//     pub fn get_event_queue(&mut self) -> &mut EventQueue {
-//         &mut self.event_queue
-//     }
-// }
-
-//can just use input que no need for antoher wrapper 
-// pub struct EventQueue {
-//     events: VecDeque<InputEvent>,
-// }
-
-// impl EventQueue {
-//     pub fn new() -> Self {
-//         EventQueue {
-//             events: VecDeque::new(),
-//         }
-//     }
-
-//     pub fn push(&mut self, event: InputEvent) {
-//         self.events.push_back(event);
-//     }
-
-//     pub fn pop(&mut self) -> Option<InputEvent> {
-//         self.events.pop_front()
-//     }
-// }
