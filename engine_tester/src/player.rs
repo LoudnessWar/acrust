@@ -9,9 +9,9 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new() -> Self {
+    pub fn new(x: f32, y: f32, z:f32, rotation: f32) -> Self {
         Player {
-            transform: WorldCoords::new(),
+            transform: WorldCoords::new(x, y ,z , rotation),
             speed: 0.1,
         }
     }

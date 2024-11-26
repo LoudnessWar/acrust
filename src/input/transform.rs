@@ -7,7 +7,15 @@ pub struct WorldCoords {
 }
 
 impl WorldCoords {
-    pub fn new() -> Self {
+    pub fn new(x: f32, y: f32, z: f32, rotation: f32) -> Self {//do not need f32 for all these prolly lets be honest
+        WorldCoords {
+            position: Vector3::new(x, y, z),
+            rotation: Quaternion::from_angle_y(Rad(rotation)),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        }
+    }
+
+    pub fn new_empty() -> Self {
         WorldCoords {
             position: Vector3::new(0.0, 0.0, 0.0),
             rotation: Quaternion::from_angle_y(Rad(0.0)),

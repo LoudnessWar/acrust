@@ -3,6 +3,9 @@ use gl::types::*;
 use std::mem;
 use std::ptr;
 
+use rand::prelude::*;
+use std::collections::{HashMap, HashSet};
+
 // VoxelRenderer for rendering voxels or chunks
 pub struct VoxelRenderer {
     vao: Vao,
@@ -136,7 +139,18 @@ impl VoxelRenderer {
     }
 }
 
-// VoxelChunk represents a grid of blocks
+// Tile rules define how different block types can be placed next to each other
+#[derive(Clone, Debug)]
+struct TileRules {
+    // Mapping of block types to their allowed neighbors in each direction
+    north_rules: HashMap<u8, HashSet<u8>>,
+    south_rules: HashMap<u8, HashSet<u8>>,
+    east_rules: HashMap<u8, HashSet<u8>>,
+    west_rules: HashMap<u8, HashSet<u8>>,
+    up_rules: HashMap<u8, HashSet<u8>>,
+    down_rules: HashMap<u8, HashSet<u8>>,
+}
+
 pub struct VoxelChunk {
     size: (usize, usize, usize), // Dimensions of the chunk
     blocks: Vec<u8>,             // Block data
@@ -150,6 +164,184 @@ impl VoxelChunk {
             blocks,
         }
     }
+    
+    pub fn generate_wave_function_collapse(&mut self, seed: u32) {
+        let mut rng = StdRng::seed_from_u64(seed as u64);
+        
+        // Define block types
+        let block_types = vec![0, 1, 2, 3]; // 0: air, 1: grass, 2: dirt, 3: stone
+        
+        // Define tile rules
+        let rules = TileRules {
+            // Example rules - these can be much more complex
+            north_rules: Self::create_default_rules(&block_types),
+            south_rules: Self::create_default_rules(&block_types),
+            east_rules: Self::create_default_rules(&block_types),
+            west_rules: Self::create_default_rules(&block_types),
+            up_rules: Self::create_default_rules(&block_types),
+            down_rules: Self::create_default_rules(&block_types),
+        };
+
+        let (width, height, depth) = self.size;
+
+        // Initialize all possible states for each cell
+        let mut wave = vec![block_types.clone(); width * height * depth];
+        let mut collapsed = vec![false; width * height * depth];
+
+        // Start with a seed point
+        let start_x = width / 2;
+        let start_z = depth / 2;
+        let start_y = height / 2;
+        
+        // Collapse initial point
+        self.collapse_point(&mut wave, &mut collapsed, &rules, 
+                            start_x, start_y, start_z, &mut rng);
+
+        // Propagate constraints
+        for _ in 0..width * height * depth {
+            if !self.iterate_wave(&mut wave, &mut collapsed, &rules, &mut rng) {
+                break;
+            }
+        }
+
+        // Convert wave to block data
+        for x in 0..width {
+            for y in 0..height {
+                for z in 0..depth {
+                    let index = x + y * width + z * width * height;
+                    if !collapsed[index] {
+                        // If not collapsed, choose randomly from remaining possibilities
+                        let block_type = wave[index][rng.gen_range(0..wave[index].len())];
+                        self.set_block(x, y, z, block_type);
+                    } else {
+                        self.set_block(x, y, z, wave[index][0]);
+                    }
+                }
+            }
+        }
+    }
+
+    // Create default rules where most blocks can be next to each other
+    fn create_default_rules(block_types: &[u8]) -> HashMap<u8, HashSet<u8>> {
+        let mut rules = HashMap::new();
+        for &block_type in block_types {
+            let allowed = block_types.iter()
+                .filter(|&&x| x != block_type || block_type == 0)
+                .cloned()
+                .collect();
+            rules.insert(block_type, allowed);
+        }
+        rules
+    }
+
+    // Collapse a specific point in the wave
+    fn collapse_point(&mut self, 
+                      wave: &mut Vec<Vec<u8>>, 
+                      collapsed: &mut Vec<bool>, 
+                      rules: &TileRules,
+                      x: usize, y: usize, z: usize, 
+                      rng: &mut StdRng) -> bool {
+        let (width, height, depth) = self.size;
+        let index = x + y * width + z * width * height;
+
+        // If already collapsed, return
+        if collapsed[index] {
+            return false;
+        }
+
+        // Choose a block type randomly from possible states
+        if !wave[index].is_empty() {
+            let chosen_index = rng.gen_range(0..wave[index].len());
+            let chosen_block = wave[index][chosen_index];
+            
+            // Keep only the chosen block
+            wave[index] = vec![chosen_block];
+            collapsed[index] = true;
+
+            // Propagate constraints to neighbors
+            self.propagate_constraints(wave, collapsed, rules, x, y, z);
+
+            true
+        } else {
+            false
+        }
+    }
+
+    // Propagate constraints to neighboring cells
+    fn propagate_constraints(&mut self, 
+                              wave: &mut Vec<Vec<u8>>, 
+                              collapsed: &mut Vec<bool>, 
+                              rules: &TileRules,
+                              x: usize, y: usize, z: usize) {
+        let (width, height, depth) = self.size;
+        
+        // Check and update each neighbor
+        let neighbors = [
+            (x.wrapping_sub(1), y, z, &rules.east_rules),   // West
+            (x + 1, y, z, &rules.west_rules),               // East
+            (x, y.wrapping_sub(1), z, &rules.up_rules),     // Down
+            (x, y + 1, z, &rules.down_rules),               // Up
+            (x, y, z.wrapping_sub(1), &rules.south_rules),  // North
+            (x, y, z + 1, &rules.north_rules),              // South
+        ];
+
+        for (nx, ny, nz, neighbor_rules) in neighbors.iter() {
+            // Check if neighbor is within bounds
+            if *nx < width && *ny < height && *nz < depth {
+                let neighbor_index = nx + ny * width + nz * width * height;
+                
+                // Skip if already collapsed
+                if collapsed[neighbor_index] {
+                    continue;
+                }
+
+                // Filter possible states based on current cell's state
+                let current_block = wave[x + y * width + z * width * height][0];
+                wave[neighbor_index].retain(|&block| 
+                    neighbor_rules.get(&block)
+                        .map(|allowed| allowed.contains(&current_block))
+                        .unwrap_or(false)
+                );
+            }
+        }
+    }
+
+    // Iterate through the wave and attempt to collapse points
+    fn iterate_wave(&mut self, 
+                    wave: &mut Vec<Vec<u8>>, 
+                    collapsed: &mut Vec<bool>, 
+                    rules: &TileRules, 
+                    rng: &mut StdRng) -> bool {
+        let (width, height, depth) = self.size;
+        
+        // Find the cell with the lowest entropy (least possible states)
+        let mut min_entropy_index = None;
+        let mut min_entropy = usize::MAX;
+
+        for x in 0..width {
+            for y in 0..height {
+                for z in 0..depth {
+                    let index = x + y * width + z * width * height;
+                    
+                    if !collapsed[index] && !wave[index].is_empty() {
+                        let entropy = wave[index].len();
+                        if entropy > 1 && entropy < min_entropy {
+                            min_entropy = entropy;
+                            min_entropy_index = Some((x, y, z));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Collapse the point with lowest entropy
+        if let Some((x, y, z)) = min_entropy_index {
+            self.collapse_point(wave, collapsed, rules, x, y, z, rng);
+            true
+        } else {
+            false
+        }
+    }
 
     pub fn set_block(&mut self, x: usize, y: usize, z: usize, block_type: u8) {
         let (width, height, _) = self.size;
@@ -160,5 +352,5 @@ impl VoxelChunk {
         let (width, height, _) = self.size;
         self.blocks[x + y * width + z * width * height]
     }
-    
+
 }

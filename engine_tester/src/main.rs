@@ -32,7 +32,7 @@ fn main() {
 
     shader_program.enable_depth();
 
-    let mut player = Player::new();
+    let mut player = Player::new(10.0, 20.0, 10.0 , 1.0);
 
     let perspective = PerspectiveFov {
         fovy: Rad(1.0), // Field of view (vertical)
@@ -48,13 +48,7 @@ fn main() {
 
     // Initialize Voxel Renderer
     let mut chunk = VoxelChunk::new(16, 16, 16);
-    for x in 0..16 {
-        for y in 0..16 {
-            for z in 0..16 {
-                chunk.set_block(x, y, z, 1);
-            }
-        }
-    }
+    chunk.generate_wave_function_collapse(12);
 
     let voxel_renderer = VoxelRenderer::from_chunk(&chunk);
 

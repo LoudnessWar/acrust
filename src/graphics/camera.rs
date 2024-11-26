@@ -17,7 +17,7 @@ impl Camera {
             Vector3::new(0.0, 1.0, 0.0),
         );
         Camera {
-            transform: WorldCoords::new(),
+            transform: WorldCoords::new_empty(),
             projection,
             view,
             parent: None,
