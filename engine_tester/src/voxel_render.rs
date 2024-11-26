@@ -160,4 +160,5 @@ impl VoxelChunk {
         let (width, height, _) = self.size;
         self.blocks[x + y * width + z * width * height]
     }
+    
 }

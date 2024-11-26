@@ -1,5 +1,5 @@
 use acrust::input::transform::WorldCoords;
-use cgmath::{Vector3, Matrix4, Rotation, Transform, InnerSpace};
+use cgmath::Vector3;
 
 
 //ok so I need a game object abstract class or smthing because this and camera lowkey have like the same functions
@@ -16,37 +16,34 @@ impl Player {
         }
     }
 
-    // Method to calculate forward vector based on rotation
-    fn get_forward_vector(&self, rotation: cgmath::Quaternion<f32>) -> Vector3<f32> {
-        let rotation_matrix = Matrix4::from(rotation);
-        let forward = rotation_matrix.transform_vector(Vector3::new(0.0, 0.0, -1.0));
-        forward.normalize()
+    pub fn move_forward(&mut self, for_vec: Vector3<f32>) {
+        self.transform.move_forward(for_vec, self.speed)
     }
 
-    // Method to calculate left vector based on forward vector
-    fn get_left_vector(&self, rotation: cgmath::Quaternion<f32>) -> Vector3<f32> {
-        let forward = self.get_forward_vector(rotation);
-        let up = Vector3::new(0.0, 1.0, 0.0); // World-up vector
-        forward.cross(up).normalize()
+    pub fn move_backward(&mut self, for_vec: Vector3<f32>) {
+        self.transform.move_backward(for_vec, self.speed)
     }
 
-    pub fn move_forward(&mut self, camera_rotation: cgmath::Quaternion<f32>) {
-        let forward = self.get_forward_vector(camera_rotation);
-        self.transform.position += forward * self.speed;
+    pub fn move_left(&mut self, left_vec: Vector3<f32>) {
+        self.transform.move_left(left_vec, self.speed)
     }
 
-    pub fn move_backward(&mut self, camera_rotation: cgmath::Quaternion<f32>) {
-        let forward = self.get_forward_vector(camera_rotation);
-        self.transform.position -= forward * self.speed;
+    pub fn move_right(&mut self, left_vec: Vector3<f32>) {
+        self.transform.move_right(left_vec, self.speed)
     }
 
-    pub fn move_left(&mut self, camera_rotation: cgmath::Quaternion<f32>) {
-        let left = self.get_left_vector(camera_rotation);
-        self.transform.position -= left * self.speed;
+    //ok theoretically the up vector is just the cross product of the left and forward vector
+    //most games just let you move up or down... why dont I do that... WAIT bruh lol
+    //where is my old player code lol
+    // pub fn move_forward(&mut self, for_vec: Vector3<f32>) {
+    //     self.transform.move_forward(for_vec, self.speed)
+    // }
+
+    pub fn move_up(&mut self) {
+        self.transform.position += Vector3::new(0.0, self.speed, 0.0);
     }
 
-    pub fn move_right(&mut self, camera_rotation: cgmath::Quaternion<f32>) {
-        let left = self.get_left_vector(camera_rotation);
-        self.transform.position += left * self.speed;
+    pub fn move_down(&mut self) {
+        self.transform.position -= Vector3::new(0.0, self.speed, 0.0);
     }
 }

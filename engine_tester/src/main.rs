@@ -30,10 +30,10 @@ fn main() {
 
     shader_program.create_uniform("transform");
 
-    shader_program.enable_depth();//BRQO I had this commented out and I could not for the life of me figure out why depth buffering was not working 😭😭😭
+    shader_program.enable_depth();
 
-    //camera innit herm yeah might do this diff idk
     let mut player = Player::new();
+
     let perspective = PerspectiveFov {
         fovy: Rad(1.0), // Field of view (vertical)
         aspect: 1.0,    // Aspect ratio
@@ -43,23 +43,20 @@ fn main() {
 
     let mut camera = Camera::new(perspective);
 
+    //attaching the camera to the player
     camera.attach_to(&player.transform);
-
 
     // Initialize Voxel Renderer
     let mut chunk = VoxelChunk::new(16, 16, 16);
     for x in 0..16 {
         for y in 0..16 {
             for z in 0..16 {
-                chunk.set_block(x, y, z, 1); // Fill the chunk with solid blocks
+                chunk.set_block(x, y, z, 1);
             }
         }
     }
 
     let voxel_renderer = VoxelRenderer::from_chunk(&chunk);
-    
-
-    let mut camera_speed = 0.1;
 
     while !window.should_close() {
         // Clear the screen
@@ -70,11 +67,8 @@ fn main() {
 
         voxel_renderer.render();
 
-        //mouse stuff maybe make a delta function somewhere to make this less messy
         let current_mouse_position = window.get_mouse_position();
         let (delta_x, delta_y) = input_system.update_mouse_position(current_mouse_position);
-
-        //window.reset_cursor();
 
         window.lock_cursor();
 
@@ -84,31 +78,36 @@ fn main() {
 
         window.process_input_events(&mut input_system);
         if input_system.is_key_pressed(&Key::W) {
-            player.move_forward(camera.transform.rotation);
+            player.move_forward(camera.get_forward_vector());
         }
         if input_system.is_key_pressed(&Key::S) {
-            player.move_backward(camera.transform.rotation);
+            player.move_backward(camera.get_forward_vector());
         }
         if input_system.is_key_pressed(&Key::A) {
-            player.move_left(camera.transform.rotation);
+            player.move_left(camera.get_left_vector());
         }
         if input_system.is_key_pressed(&Key::D) {
-            player.move_right(camera.transform.rotation);
+            player.move_right(camera.get_left_vector());
+        }
+        if input_system.is_key_pressed(&Key::Space) {
+            player.move_up();
+        }
+        if input_system.is_key_pressed(&Key::LShift) {
+            player.move_down();
         }
         
         camera.update_view();
-        
     
         while let Some(event) = input_system.get_event_queue().pop_front() {
             match event {
                 InputEvent::KeyPressed(Key::Space) => {
                     println!("Jump");
                 }
-                InputEvent::KeyPressed(Key::LShift) => {
-                    camera_speed = 0.3;
+                InputEvent::KeyPressed(Key::Lctrl) => {
+                    player.speed = 0.3;
                 }
-                InputEvent::KeyReleased(Key::LShift) => {
-                    camera_speed = 0.1;
+                InputEvent::KeyReleased(Key::Lctrl) => {
+                    player.speed = 0.1;
                 }
                 _ => {}
             }

@@ -12,6 +12,7 @@ pub enum Key {
     Up,
     Down,
     LShift,
+    Lctrl,
     Space,
     Escape,
     // TODO: need to make this erm like editable idk what the correct word is... not editable from here thouhg ytkyk 
@@ -37,6 +38,7 @@ pub fn map_glfw_key(glfw_key: glfw::Key) -> Option<Key> {
         glfw::Key::Up => Some(Key::Up),
         glfw::Key::Down => Some(Key::Down),
         glfw::Key::LeftShift => Some(Key::LShift),
+        glfw::Key::LeftControl => Some(Key::Lctrl),
         glfw::Key::Space => Some(Key::Space),
         glfw::Key::Escape => Some(Key::Escape),
         _ => None,
