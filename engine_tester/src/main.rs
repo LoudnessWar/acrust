@@ -79,25 +79,21 @@ fn main() {
         window.lock_cursor();
 
         let sensitivity = 0.002;
-        camera.transform.rotation.v.y -= (-delta_x as f32) * sensitivity; // Invert X to match common FPS controls
-        camera.transform.rotation.v.x -= (-delta_y as f32) * sensitivity;
-
-        //TODO: tihs is a little broken rn
-        camera.transform.rotation.v.x = camera.transform.rotation.v.x.clamp(-std::f32::consts::FRAC_PI_2, std::f32::consts::FRAC_PI_2);
+        camera.rotate(-delta_x as f32 * sensitivity, -delta_y as f32 * sensitivity);
 
 
         window.process_input_events(&mut input_system);
         if input_system.is_key_pressed(&Key::W) {
-            player.move_forward();
+            player.move_forward(camera.transform.rotation);
         }
         if input_system.is_key_pressed(&Key::S) {
-            player.move_backward();
+            player.move_backward(camera.transform.rotation);
         }
         if input_system.is_key_pressed(&Key::A) {
-            player.move_left();
+            player.move_left(camera.transform.rotation);
         }
         if input_system.is_key_pressed(&Key::D) {
-            player.move_right();
+            player.move_right(camera.transform.rotation);
         }
         
         camera.update_view();

@@ -36,15 +36,18 @@ impl Camera {
     
         let forward = self.get_forward_vector();
         let target = global_position + forward;
+        
+        // Use a more robust up vector calculation
         let up = Vector3::new(0.0, 1.0, 0.0);
+        let right = forward.cross(up).normalize();
+        let corrected_up = right.cross(forward).normalize();
     
         self.view = Matrix4::look_at_rh(
             Point3::from_vec(global_position),
             Point3::from_vec(target),
-            up,
+            corrected_up
         );
     }
-    
 
     pub fn attach_to(&mut self, parent: &WorldCoords) {
         self.parent = Some(parent as *const WorldCoords);
@@ -73,33 +76,64 @@ impl Camera {
     //todo make it so that these all dont have an update view in them
     //its very redundant!!! can just do one update at the end prolly
     pub fn move_forward(&mut self, distance: f32) {
-    let forward = self.get_forward_vector();
-    self.transform.position += forward * distance;
-    self.update_view();
+        let forward = self.get_forward_vector();
+        self.transform.position += forward * distance;
     }
 
     pub fn move_backward(&mut self, distance: f32) {
         let forward = self.get_forward_vector();
         self.transform.position -= forward * distance;
-        self.update_view();
     }
 
     pub fn move_left(&mut self, distance: f32) {
         let left = self.get_left_vector();
         self.transform.position -= left * distance;
-        self.update_view();
     }
 
     pub fn move_right(&mut self, distance: f32) {
         let left = self.get_left_vector();
         self.transform.position += left * distance;
-        self.update_view();
     }
 
     pub fn rotate(&mut self, delta_yaw: f32, delta_pitch: f32) {
-        let yaw = Quaternion::from_angle_y(Rad(delta_yaw));
-        let pitch = Quaternion::from_angle_x(Rad(delta_pitch));
-        self.transform.rotation = self.transform.rotation * yaw * pitch;
+        // First, create quaternions for rotation
+        let yaw_rotation = Quaternion::from_angle_y(Rad(delta_yaw));
+        let pitch_rotation = Quaternion::from_angle_x(Rad(delta_pitch));
+    
+        // Combine rotations
+        let combined_rotation = yaw_rotation * self.transform.rotation * pitch_rotation;
+    
+        // Update rotation
+        self.transform.rotation = combined_rotation;
+    
+        // Clamp pitch to prevent extreme rotations
+        let pitch_limit = Rad(std::f32::consts::FRAC_PI_2 - 0.1); // Slightly less than 90 degrees
+        let current_pitch = self.get_pitch_angle();
+    
+        if current_pitch.abs() > pitch_limit.0 {
+            // If pitch exceeds limit, project back to the limit
+            let corrected_rotation = if current_pitch > 0.0 {
+                Quaternion::from_angle_x(pitch_limit)
+            } else {
+                Quaternion::from_angle_x(-pitch_limit)
+            };
+            self.transform.rotation = corrected_rotation;
+        }
+    
+        // Update view after rotation
         self.update_view();
     }
+
+    fn get_pitch_angle(&self) -> f32 {
+        // Convert quaternion to a rotation matrix
+        let rotation_matrix: Matrix4<f32> = Matrix4::from(self.transform.rotation);
+    
+        // Get the forward vector (z-axis in local space)
+        let forward = rotation_matrix.transform_vector(Vector3::new(0.0, 0.0, -1.0));
+    
+        // Calculate pitch using the normalized forward vector
+        forward.y.asin()
+    }
+
 }
+
