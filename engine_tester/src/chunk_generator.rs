@@ -1,6 +1,7 @@
-
 use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
+
+use crate::octo::{build_octree, OctreeNode};
 
 
 // Tile rules define how different block types can be placed next to each other
@@ -15,6 +16,7 @@ struct TileRules {
     down_rules: HashMap<u8, HashSet<u8>>,
 }
 
+#[derive(Clone)]
 pub struct VoxelChunk {
     size: (usize, usize, usize), // Dimensions of the chunk
     blocks: Vec<u8>,             // Block data
