@@ -103,7 +103,7 @@ impl BufferObject {
 }
 
 /// # Vertex Attribute
-/// Discribes vertex data
+/// Discribes vertex data(the stuff from the buffer)
 ///
 /// ## Example
 /// ```

@@ -5,7 +5,7 @@ use acrust::input::input::{InputSystem, InputEvent, Key};
 use acrust::graphics::gl_wrapper::*;
 
 use crate::voxel_render::VoxelRenderer;
-use crate::voxel_render::VoxelChunk;
+use crate::chunk_generator::VoxelChunk;
 
 use crate::player::Player;
 
@@ -17,6 +17,7 @@ use cgmath::*;
 
 mod voxel_render;
 mod player;
+mod chunk_generator;
 
 fn main() {
     let mut window = Window::new(720, 720, "CUBE!", 60);
@@ -48,7 +49,7 @@ fn main() {
 
     // Initialize Voxel Renderer
     let mut chunk = VoxelChunk::new(16, 16, 16);
-    chunk.generate_wave_function_collapse(12);
+    chunk.generate_wave_function_collapse(100);
 
     let voxel_renderer = VoxelRenderer::from_chunk(&chunk);
 
