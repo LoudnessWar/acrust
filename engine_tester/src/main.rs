@@ -54,26 +54,36 @@ fn main() {
     camera.attach_to(&player.transform);
 
     // Initialize Voxel Renderer
+    let mut chunk = VoxelChunk::new(64, 64, 64);
+    chunk.generate_hierarchical_terrain(42); // 42 is the seed
     let mut chunk_manager = ChunkManager::new();
 
+    let position = (
+                    0.0, // Spread chunks along x-axis
+                    0.0,             // Same height
+                    0.0  // Spread chunks along z-axis
+                );
+
+    chunk_manager.add_chunk(chunk, position);
+
     // Add multiple chunks at different positions
-    for x in 0..3 {
-        for z in 0..3 {
-            let mut chunk = VoxelChunk::new(16, 16, 16);
-            let start = Instant::now();
-            chunk.generate_wave_function_collapse(1);
-            println!("Chunk generation took {:?}", start.elapsed());
+    // for x in 0..3 {
+    //     for z in 0..3 {
+    //         let mut chunk = VoxelChunk::new(16, 16, 16);
+    //         let start = Instant::now();
+    //         chunk.generate_wave_function_collapse(1);
+    //         println!("Chunk generation took {:?}", start.elapsed());
                         
-            // Position chunks with some spacing
-            let position = (
-                x as f32 * 5.0, // Spread chunks along x-axis
-                0.0,             // Same height
-                z as f32 * 5.0  // Spread chunks along z-axis
-            );
+    //         // Position chunks with some spacing
+    //         let position = (
+    //             x as f32 * 5.0, // Spread chunks along x-axis
+    //             0.0,             // Same height
+    //             z as f32 * 5.0  // Spread chunks along z-axis
+    //         );
             
-            chunk_manager.add_chunk(chunk, position);
-        }
-    }
+    //         chunk_manager.add_chunk(chunk, position);
+    //     }
+    // }
 
     // let mut chunk2 = VoxelChunk::new(16, 16, 16);
     // chunk2.generate_wave_function_collapse(1223);
