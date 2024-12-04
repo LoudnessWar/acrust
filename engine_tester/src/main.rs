@@ -55,9 +55,10 @@ fn main() {
     camera.attach_to(&player.transform);
 
     let mut chunk_manager = ChunkManager::new();
+    let mut terrain = TerrainGenerator::new(100, 8);
 
-    let octree = generate_terrain_octree(8, 1000);
-    chunk_manager.add_octree(octree, (0.0, 0.0, 0.0));
+    let octree = terrain.get_root();
+    chunk_manager.add_octree(octree.clone(), (0.0, 0.0, 0.0));
 
     while !window.should_close() {
         // Clear the screen
