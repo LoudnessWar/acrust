@@ -14,7 +14,7 @@ pub fn build_octree(chunk: &VoxelChunk, x: usize, y: usize, z: usize, size: usiz
         return OctreeNode {
             block_type: if block_type == 0 { None } else { Some(block_type) },
             children: None,
-            needs_generation: true,
+            needs_generation: false,
         };
     }
 
@@ -114,7 +114,7 @@ impl OctreeNode {
             self.children = Some(children.map(|child| child.unwrap()));
         }
 
-        self.needs_generation = false;
+        self.needs_generation = true;
     }
 
     pub fn needs_detail(camera_distance: f32, node_size: f32) -> bool {

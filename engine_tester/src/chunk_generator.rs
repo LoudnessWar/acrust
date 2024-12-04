@@ -20,23 +20,23 @@ impl VoxelChunk {
 
     // Hierarchical terrain generation method
     pub fn generate_hierarchical_terrain(&mut self, seed: u32) {
-        // Create a root octree with hierarchical generation
+        println!("Starting hierarchical terrain generation...");
         let octree = self.generate_terrain_octree(seed);
-
-        // Convert octree to block data
+        println!("Octree generation complete.");
         self.populate_from_octree(&octree);
     }
 
     // Generate terrain octree
     fn generate_terrain_octree(&self, seed: u32) -> OctreeNode {
         let mut rng = StdRng::seed_from_u64(seed as u64);
-        hierarchical_terrain_generation(None, 0, 0, 0, self.size.0, &mut rng)
+        hierarchical_terrain_generation(None, 0, 0, 0, self.size.0, &mut rng, 0)
     }
 
     // Populate chunk blocks from octree
     fn populate_from_octree(&mut self, octree: &OctreeNode) {
         self.recursive_octree_fill(octree, 0, 0, 0, self.size.0);
     }
+
 
     // Recursively fill chunk with octree data
     fn recursive_octree_fill(&mut self, 
@@ -46,27 +46,13 @@ impl VoxelChunk {
                               z: usize, 
                               size: usize) {
         if size == 1 {
-            // Single voxel
             if let Some(block_type) = node.block_type() {
                 self.set_block(x, y, z, block_type);
+                println!("Set block at ({}, {}, {}) to type {}", x, y, z, block_type);
             }
             return;
         }
 
-        // If node is a leaf
-        if node.children().is_none() {
-            let block_type = node.block_type().unwrap_or(0);
-            for dx in 0..size {
-                for dy in 0..size {
-                    for dz in 0..size {
-                        self.set_block(x + dx, y + dy, z + dz, block_type);
-                    }
-                }
-            }
-            return;
-        }
-
-        // Recursive descent
         if let Some(children) = node.children() {
             let half = size / 2;
             for (i, child) in children.iter().enumerate() {
@@ -108,61 +94,44 @@ fn hierarchical_terrain_generation(
     y: usize, 
     z: usize, 
     size: usize,
-    rng: &mut StdRng
+    rng: &mut StdRng,
+    depth: usize,
 ) -> OctreeNode {
-    // Deterministic seed based on coordinates
-    let seed = calculate_seed(x, y, z, size);
-    let mut local_rng = StdRng::seed_from_u64(seed);
+    //println!("Generating terrain node at depth {} for region ({}, {}, {}) size {}", depth, x, y, z, size);
 
-    // Base case: single voxel
+    // Base case
     if size == 1 {
         return OctreeNode {
-            block_type: generate_single_block(parent_block_type, &mut local_rng),
+            block_type: Some(1 + rng.gen_range(0..4)), // Randomized block type
             children: None,
-            needs_generation: true,
+            needs_generation: false,
         };
     }
 
-    // Determine terrain type based on parent or generate top-level terrain
-    let terrain_type = match parent_block_type {
-        None => generate_top_level_terrain(&mut local_rng),
-        Some(block_type) => derive_child_terrain(block_type, &mut local_rng)
-    };
-
-    // If uniform terrain, create a leaf node
-    if local_rng.gen_range(0.0..1.0) > 0.3 {
+    // Subdivision threshold adjustment
+    if rng.gen_range(0.0..1.0) > 0.1 {
+        let half = size / 2;
+        let mut children: [Box<OctreeNode>; 8] = Default::default();
+        for i in 0..8 {
+            let (dx, dy, dz) = (
+                (i & 1) * half,
+                ((i >> 1) & 1) * half,
+                ((i >> 2) & 1) * half,
+            );
+            children[i] = Box::new(hierarchical_terrain_generation(None, x + dx, y + dy, z + dz, half, rng, depth + 1));
+        }
         return OctreeNode {
-            block_type: terrain_type,
-            children: None,
-            needs_generation: true,
+            block_type: None,
+            children: Some(children),
+            needs_generation: false,
         };
     }
 
-    // Recursive child generation
-    let half = size / 2;
-    let mut children: [Box<OctreeNode>; 8] = Default::default();
-
-    for i in 0..8 {
-        let (dx, dy, dz) = (
-            (i & 1) * half,
-            ((i >> 1) & 1) * half,
-            ((i >> 2) & 1) * half,
-        );
-
-        children[i] = Box::new(hierarchical_terrain_generation(
-            terrain_type, 
-            x + dx, 
-            y + dy, 
-            z + dz, 
-            half,
-            &mut local_rng
-        ));
-    }
-
+    // Homogeneous node
     OctreeNode {
-        block_type: None, // Mixed node
-        children: Some(children),
-        needs_generation: true,
+        block_type: Some(1 + rng.gen_range(0..4)), // Assign a block type
+        children: None,
+        needs_generation: false,
     }
 }
 

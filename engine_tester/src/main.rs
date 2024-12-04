@@ -54,9 +54,10 @@ fn main() {
     camera.attach_to(&player.transform);
 
     // Initialize Voxel Renderer
-    let mut chunk = VoxelChunk::new(64, 64, 64);
-    chunk.generate_hierarchical_terrain(42); // 42 is the seed
+    let mut chunk = VoxelChunk::new(8, 8, 8);
+    //chunk.generate_hierarchical_terrain(10); // 1000 is the seed
     let mut chunk_manager = ChunkManager::new();
+    chunk_manager.generate_large_terrain(10, 8);
 
     let position = (
                     0.0, // Spread chunks along x-axis
@@ -64,7 +65,7 @@ fn main() {
                     0.0  // Spread chunks along z-axis
                 );
 
-    chunk_manager.add_chunk(chunk, position);
+    //chunk_manager.add_chunk(chunk, position);
 
     // Add multiple chunks at different positions
     // for x in 0..3 {
@@ -119,6 +120,18 @@ fn main() {
         }
         if input_system.is_key_pressed(&Key::D) {
             player.move_right(camera.get_left_vector());
+        }
+        if input_system.is_key_pressed(&Key::Left) {
+            camera.rotate(10.0 as f32 * sensitivity, 0.0);
+        }
+        if input_system.is_key_pressed(&Key::Right) {
+            camera.rotate(-10.0 as f32 * sensitivity, 0.0);
+        }
+        if input_system.is_key_pressed(&Key::Up) {
+            camera.rotate(0.0, 10.0 as f32 * sensitivity);
+        }
+        if input_system.is_key_pressed(&Key::Down) {
+            camera.rotate(0.0, -10.0 as f32 * sensitivity);
         }
         if input_system.is_key_pressed(&Key::Space) {
             player.move_up();
