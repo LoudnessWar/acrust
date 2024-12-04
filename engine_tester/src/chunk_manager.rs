@@ -24,9 +24,14 @@ impl ChunkManager {
         let mut indices = Vec::new();
         let mut offset = 0;
 
+        let mut count = 0;
+
         for (octree, pos) in &self.octrees {
+            count += 1;
             self.generate_geometry(octree, pos.0, pos.1, pos.2, &mut vertices, &mut indices, &mut offset);
         }
+
+        println!("Voxel Count: {}", count);
 
         self.renderer = Some(VoxelRenderer::new(&vertices, &indices));
     }

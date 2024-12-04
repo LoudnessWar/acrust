@@ -51,6 +51,15 @@ impl VoxelRenderer {
         }
     }
 
+    pub fn render_wireframe(&self) {
+        self.vao.bind();
+        unsafe {
+            gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
+            gl::DrawElements(gl::TRIANGLES, self.index_count, gl::UNSIGNED_INT, ptr::null());
+            gl::PolygonMode(gl::FRONT_AND_BACK, gl::FILL); // Reset to default solid rendering
+        }
+    }
+
     /// Render the stored geometry.
     pub fn render(&self) {
         self.vao.bind();

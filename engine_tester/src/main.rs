@@ -40,7 +40,7 @@ fn main() {
 
     shader_program.enable_depth();
 
-    let mut player = Player::new(10.0, 20.0, 10.0 , 1.0);
+    let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
 
     let perspective = PerspectiveFov {
         fovy: Rad(1.0), // Field of view (vertical)
@@ -55,7 +55,7 @@ fn main() {
     camera.attach_to(&player.transform);
 
     let mut chunk_manager = ChunkManager::new();
-    let mut terrain = TerrainGenerator::new(100, 8);
+    let mut terrain = TerrainGenerator::new(42, 16);
 
     let octree = terrain.get_root();
     chunk_manager.add_octree(octree.clone(), (0.0, 0.0, 0.0));
