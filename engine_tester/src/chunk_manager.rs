@@ -1,11 +1,7 @@
-// src/chunk_manager.rs
-
-use crate::chunk_generator::VoxelChunk;
+use crate::octo::OctreeNode;
 use crate::voxel_render::VoxelRenderer;
-use crate::octo::{build_octree, OctreeNode};
 
 pub struct ChunkManager {
-    chunks: Vec<(VoxelChunk, (f32, f32, f32))>,
     octrees: Vec<(OctreeNode, (f32, f32, f32))>,
     renderer: Option<VoxelRenderer>,
 }
@@ -13,18 +9,17 @@ pub struct ChunkManager {
 impl ChunkManager {
     pub fn new() -> Self {
         Self {
-            chunks: Vec::new(),
             octrees: Vec::new(),
             renderer: None,
         }
     }
 
-    pub fn add_chunk(&mut self, chunk: VoxelChunk, position: (f32, f32, f32)) {
-        // Build and store the octree
-        let octree = build_octree(&chunk, 0, 0, 0, chunk.get_size().0);
+    pub fn add_octree(&mut self, octree: OctreeNode, position: (f32, f32, f32)) {
         self.octrees.push((octree, position));
+        self.update_renderer();
+    }
 
-        // Generate renderer data
+    fn update_renderer(&mut self) {
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
         let mut offset = 0;
@@ -33,7 +28,6 @@ impl ChunkManager {
             self.generate_geometry(octree, pos.0, pos.1, pos.2, &mut vertices, &mut indices, &mut offset);
         }
 
-        // Recreate renderer
         self.renderer = Some(VoxelRenderer::new(&vertices, &indices));
     }
 
@@ -49,7 +43,6 @@ impl ChunkManager {
     ) {
         if let Some(block_type) = octree.block_type() {
             if block_type != 0 {
-                //println!("{:?}", block_type);
                 let color = VoxelRenderer::get_block_color(block_type);
                 let (cube_vertices, cube_indices) = VoxelRenderer::generate_cube(x, y, z, color);
 
@@ -67,25 +60,6 @@ impl ChunkManager {
                 );
                 self.generate_geometry(child, x + dx, y + dy, z + dz, vertices, indices, offset);
             }
-        }
-    }
-
-    pub fn generate_large_terrain(&mut self, num_chunks: usize, chunk_size: usize) {
-        for pos in 0..num_chunks {
-            let mut chunk = VoxelChunk::new(chunk_size, chunk_size, chunk_size);
-            chunk.generate_hierarchical_terrain(rand::random());
-            
-            // Random positioning
-            let position = (
-                pos as f32 * 5.0,
-                0.0,
-                0.0
-                // rand::random::<f32>() * 10.0, 
-                // rand::random::<f32>() * 10.0, 
-                // rand::random::<f32>() * 10.0
-            );
-            
-            self.add_chunk(chunk, position);
         }
     }
 

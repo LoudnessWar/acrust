@@ -1,91 +1,33 @@
 use rand::{prelude::*, rngs::StdRng, SeedableRng};
 use std::collections::{HashMap, HashSet};
 
-use crate::octo::{OctreeNode, build_octree};
+use crate::octo::OctreeNode;
 
-#[derive(Clone)]
-pub struct VoxelChunk {
-    size: (usize, usize, usize), // Dimensions of the chunk
-    blocks: Vec<u8>,             // Block data
+pub fn generate_terrain_octree(size: usize, seed: u32) -> OctreeNode {
+    let mut rng = StdRng::seed_from_u64(seed as u64);
+    hierarchical_terrain_generation(None, 0, 0, 0, size, &mut rng, 0)
 }
 
-impl VoxelChunk {
-    pub fn new(width: usize, height: usize, depth: usize) -> Self {
-        let blocks = vec![0; width * height * depth]; // All blocks initially empty
-        VoxelChunk {
-            size: (width, height, depth),
-            blocks,
-        }
-    }
+// pub fn set_block(&mut self, x: usize, y: usize, z: usize, block_type: u8) {
+//     let (width, height, _) = self.size;
+//     if x < width && y < height {
+//         self.blocks[x + y * width + z * width * height] = block_type;
+//     }
+// }
 
-    // Hierarchical terrain generation method
-    pub fn generate_hierarchical_terrain(&mut self, seed: u32) {
-        println!("Starting hierarchical terrain generation...");
-        let octree = self.generate_terrain_octree(seed);
-        println!("Octree generation complete.");
-        self.populate_from_octree(&octree);
-    }
+// pub fn get_block(&self, x: usize, y: usize, z: usize) -> u8 {
+//     let (width, height, _) = self.size;
+//     if x < width && y < height {
+//         self.blocks[x + y * width + z * width * height]
+//     } else {
+//         0 //air
+//     }
+// }
 
-    // Generate terrain octree
-    fn generate_terrain_octree(&self, seed: u32) -> OctreeNode {
-        let mut rng = StdRng::seed_from_u64(seed as u64);
-        hierarchical_terrain_generation(None, 0, 0, 0, self.size.0, &mut rng, 0)
-    }
+// pub fn get_size(&self) ->  (usize, usize, usize) {
+//     self.size
+// }
 
-    // Populate chunk blocks from octree
-    fn populate_from_octree(&mut self, octree: &OctreeNode) {
-        self.recursive_octree_fill(octree, 0, 0, 0, self.size.0);
-    }
-
-
-    // Recursively fill chunk with octree data
-    fn recursive_octree_fill(&mut self, 
-                              node: &OctreeNode, 
-                              x: usize, 
-                              y: usize, 
-                              z: usize, 
-                              size: usize) {
-        if size == 1 {
-            if let Some(block_type) = node.block_type() {
-                self.set_block(x, y, z, block_type);
-                println!("Set block at ({}, {}, {}) to type {}", x, y, z, block_type);
-            }
-            return;
-        }
-
-        if let Some(children) = node.children() {
-            let half = size / 2;
-            for (i, child) in children.iter().enumerate() {
-                let (dx, dy, dz) = (
-                    (i & 1) * half,
-                    ((i >> 1) & 1) * half,
-                    ((i >> 2) & 1) * half,
-                );
-                self.recursive_octree_fill(child, x + dx, y + dy, z + dz, half);
-            }
-        }
-    }
-
-    pub fn set_block(&mut self, x: usize, y: usize, z: usize, block_type: u8) {
-        let (width, height, _) = self.size;
-        if x < width && y < height {
-            self.blocks[x + y * width + z * width * height] = block_type;
-        }
-    }
-
-    pub fn get_block(&self, x: usize, y: usize, z: usize) -> u8 {
-        let (width, height, _) = self.size;
-        if x < width && y < height {
-            self.blocks[x + y * width + z * width * height]
-        } else {
-            0 // Default to air for out-of-bounds
-        }
-    }
-
-    pub fn get_size(&self) ->  (usize, usize, usize) {
-        self.size
-    }
-}
 
 // Hierarchical terrain generation function
 fn hierarchical_terrain_generation(
@@ -97,7 +39,7 @@ fn hierarchical_terrain_generation(
     rng: &mut StdRng,
     depth: usize,
 ) -> OctreeNode {
-    //println!("Generating terrain node at depth {} for region ({}, {}, {}) size {}", depth, x, y, z, size);
+    println!("Generating terrain node at depth {} for region ({}, {}, {}) size {}", depth, x, y, z, size);
 
     // Base case
     if size == 1 {
@@ -189,3 +131,65 @@ fn generate_single_block(parent_type: Option<u8>, rng: &mut StdRng) -> Option<u8
         Some(block_type) => derive_child_terrain(block_type, rng)
     }
 }
+
+
+    // pub fn lazy_generate(&mut self, chunk: &VoxelChunk, x: usize, y: usize, z: usize, size: usize) {
+    //     // Only generate if marked as needing generation
+    //     if !self.needs_generation {
+    //         return;
+    //     }
+
+    //     // Similar to existing build_octree logic, but with wave function collapse
+    //     if size == 1 {
+    //         let block_type = chunk.get_block(x, y, z);
+    //         self.block_type = if block_type == 0 { None } else { Some(block_type) };
+    //         self.needs_generation = false;
+    //         return;
+    //     }
+
+    //     let half = size / 2;
+    //     let mut children: [Option<Box<OctreeNode>>; 8] = Default::default();
+    //     let mut block_types = Vec::new();
+    //     let mut is_homogeneous = true;
+
+    //     for i in 0..8 {
+    //         let (dx, dy, dz) = (
+    //             (i & 1) * half,
+    //             ((i >> 1) & 1) * half,
+    //             ((i >> 2) & 1) * half,
+    //         );
+
+    //         let mut child = OctreeNode {
+    //             block_type: None,
+    //             children: None,
+    //             needs_generation: true, // Mark child for lazy generation
+    //         };
+
+    //         // Only generate if near view or needed
+    //         child.lazy_generate(&chunk.clone(), x + dx, y + dy, z + dz, half);
+
+    //         if let Some(block_type) = child.block_type {
+    //             block_types.push(block_type);
+    //         } else {
+    //             is_homogeneous = false;
+    //         }
+    //         children[i] = Some(Box::new(child));
+    //     }
+
+    //     // Optimization for homogeneous regions
+    //     if is_homogeneous && !block_types.is_empty() && block_types.iter().all(|&t| t == block_types[0]) {
+    //         self.block_type = Some(block_types[0]);
+    //         self.children = None;
+    //     } else {
+    //         self.block_type = None;
+    //         self.children = Some(children.map(|child| child.unwrap()));
+    //     }
+
+    //     self.needs_generation = true;
+    // }
+
+    // pub fn needs_detail(camera_distance: f32, node_size: f32) -> bool {
+    //     // Example threshold logic
+    //     //camera_distance < node_size * 2.0
+    //     true //rn true but later it will be better
+    // }

@@ -4,10 +4,11 @@ use acrust::graphics::window::Window;
 use acrust::graphics::camera::Camera;
 use acrust::input::input::{InputSystem, InputEvent, Key};
 use acrust::graphics::gl_wrapper::*;
-use crate::octo::{build_octree, OctreeNode};
 
+
+use crate::octo::OctreeNode;
 use crate::voxel_render::VoxelRenderer;
-use crate::chunk_generator::VoxelChunk;
+use crate::chunk_generator::*;
 use crate::chunk_manager::ChunkManager;
 
 use crate::player::Player;
@@ -53,44 +54,10 @@ fn main() {
     //attaching the camera to the player
     camera.attach_to(&player.transform);
 
-    // Initialize Voxel Renderer
-    let mut chunk = VoxelChunk::new(8, 8, 8);
-    //chunk.generate_hierarchical_terrain(10); // 1000 is the seed
     let mut chunk_manager = ChunkManager::new();
-    chunk_manager.generate_large_terrain(10, 8);
 
-    let position = (
-                    0.0, // Spread chunks along x-axis
-                    0.0,             // Same height
-                    0.0  // Spread chunks along z-axis
-                );
-
-    //chunk_manager.add_chunk(chunk, position);
-
-    // Add multiple chunks at different positions
-    // for x in 0..3 {
-    //     for z in 0..3 {
-    //         let mut chunk = VoxelChunk::new(16, 16, 16);
-    //         let start = Instant::now();
-    //         chunk.generate_wave_function_collapse(1);
-    //         println!("Chunk generation took {:?}", start.elapsed());
-                        
-    //         // Position chunks with some spacing
-    //         let position = (
-    //             x as f32 * 5.0, // Spread chunks along x-axis
-    //             0.0,             // Same height
-    //             z as f32 * 5.0  // Spread chunks along z-axis
-    //         );
-            
-    //         chunk_manager.add_chunk(chunk, position);
-    //     }
-    // }
-
-    // let mut chunk2 = VoxelChunk::new(16, 16, 16);
-    // chunk2.generate_wave_function_collapse(1223);
-    // chunk_manager.add_chunk(chunk2, (128.0, 0.0, 0.0));
-
-    // let voxel_renderer = VoxelRenderer::from_chunk(&chunk);
+    let octree = generate_terrain_octree(8, 1000);
+    chunk_manager.add_octree(octree, (0.0, 0.0, 0.0));
 
     while !window.should_close() {
         // Clear the screen
