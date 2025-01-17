@@ -19,6 +19,12 @@ impl ChunkManager {
         self.update_renderer();
     }
 
+    // pub fn multiple_octree_gen(){
+    //     for dx in -radius..radius{
+            
+    //     }
+    // }
+
     fn update_renderer(&mut self) {
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
@@ -33,7 +39,7 @@ impl ChunkManager {
 
         println!("Voxel Count: {}", count);
 
-        self.renderer = Some(VoxelRenderer::new(&vertices, &indices));
+        self.renderer = Some(VoxelRenderer::new(&vertices, &indices));//ok so maybe this needs not a new voxelrenderer for each one? idk could run in parr
     }
 
     fn generate_geometry(

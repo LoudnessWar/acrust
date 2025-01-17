@@ -15,7 +15,7 @@ pub struct VoxelRenderer {
 }
 
 impl VoxelRenderer {
-    /// Create a new renderer from precomputed vertex and index data.
+    /// Create a new renderer from precomputed vertex and index data in the chunkmanager like generate geometry btw that function should maybe just be in here
     pub fn new(vertices: &[f32], indices: &[i32]) -> Self {
         let vao = Vao::new();
         vao.bind();

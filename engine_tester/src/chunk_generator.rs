@@ -36,10 +36,59 @@ impl TerrainGenerator {
         root
     }
 
+    pub fn generate_multiple_chunks(
+        &mut self, 
+        center_x: usize, 
+        center_y: usize, 
+        center_z: usize, 
+        x_radius: isize,  // Radius along X axis
+        z_radius: isize,  // Radius along Z axis
+        chunk_size: usize
+    ) -> Vec<(OctreeNode, (f32, f32, f32))> {
+        let mut chunks = Vec::new();
+
+        // Iterate through a region along X and Z, keeping Y constant
+        for dx in -x_radius..=x_radius {
+            for dz in -z_radius..=z_radius {
+                // Convert signed offsets to signed chunk coordinates
+                let signed_chunk_x = center_x as isize + (dx * chunk_size as isize);
+                let signed_chunk_z = center_z as isize + (dz * chunk_size as isize);
+
+                // Safely convert back to usize, handling potential overflow
+                let chunk_x = signed_chunk_x.try_into().unwrap_or(0);
+                let chunk_z = signed_chunk_z.try_into().unwrap_or(0);
+
+                // Use the constant Y coordinate
+                let chunk_y = center_y;
+
+                // Calculate world position for rendering
+                let world_x = signed_chunk_x as f32;
+                let world_y = center_y as f32;
+                let world_z = signed_chunk_z as f32;
+
+                // Generate a seed for this specific chunk
+                let chunk_seed = Self::calculate_seed(chunk_x, chunk_y, chunk_z, chunk_size);
+                
+                // Use the chunk seed to create a deterministic RNG
+                let mut chunk_rng = StdRng::seed_from_u64(chunk_seed);
+
+                // Generate the octree for this chunk
+                let mut chunk_octree = OctreeNode::new(None, true);
+                chunk_octree.lazy_generate(chunk_x, chunk_y, chunk_z, chunk_size, &mut chunk_rng);
+
+                // Add the chunk to the collection
+                chunks.push((chunk_octree, (world_x, world_y, world_z)));
+            }
+        }
+
+        chunks
+    }
+
     // New method to refine the octree, using the stored RNG
     pub fn refine_octree(&mut self, camera_position: (f32, f32, f32), camera_distance: f32) {
         self.root.refine_octree(camera_position, camera_distance, self.root.size(), &mut self.rng);
     }
+
 
     // Seed calculation method
     pub fn calculate_seed(x: usize, y: usize, z: usize, size: usize) -> u64 {

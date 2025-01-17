@@ -10,6 +10,7 @@ use crate::octo::OctreeNode;
 use crate::voxel_render::VoxelRenderer;
 use crate::chunk_generator::*;
 use crate::chunk_manager::ChunkManager;
+use crate::wave_generator::WaterRender;
 
 use crate::player::Player;
 
@@ -24,6 +25,7 @@ mod player;
 mod chunk_generator;
 mod chunk_manager;
 mod octo;
+mod wave_generator;
 
 
 fn main() {
@@ -33,7 +35,8 @@ fn main() {
 
     let mut input_system = InputSystem::new();//need to make this so that it is like added on window init or something
 
-    let mut shader_program = ShaderProgram::new("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
+    //let mut shader_program = ShaderProgram::new("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
+    let mut shader_program = ShaderProgram::new("shaders/water_vertex_shader.glsl", "shaders/fragment_shader.glsl");
     shader_program.bind();
 
     shader_program.create_uniform("transform");
@@ -54,8 +57,17 @@ fn main() {
     //attaching the camera to the player
     camera.attach_to(&player.transform);
 
+    let mut water = WaterRender::new(20.0, 20.0, 5.0);
+
     let mut chunk_manager = ChunkManager::new();
     let mut terrain = TerrainGenerator::new(42, 16);
+
+    let chunks = terrain.generate_multiple_chunks(0, 64, 0, 2, 1, 16);
+
+    for (octree, position) in chunks {
+        chunk_manager.add_octree(octree, position);
+    }
+
 
     let octree = terrain.get_root();
     chunk_manager.add_octree(octree.clone(), (0.0, 0.0, 0.0));
@@ -109,6 +121,8 @@ fn main() {
         }
 
         chunk_manager.render_all();
+
+        water.render();
         
         camera.update_view();
     

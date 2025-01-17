@@ -7,4 +7,5 @@ READ ME TODO
 - [ ] more realistic terrain
 - [ ] improved render optimization
 - [ ] Hieristic and LOD Voxel Octree Rendering Implementation
+- [ ] refine_octree thingies
 - [ ] remember what was on the old TODO list

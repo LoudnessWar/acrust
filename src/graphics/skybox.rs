@@ -2,8 +2,8 @@ use crate::graphics::gl_wrapper::*;
 //use image::GenericImageView;
 
 use gl::types::*;
-use std::mem;
-use std::ptr;
+// use std::mem;
+// use std::ptr;
 
 pub struct Skybox {
     vao: Vao,
