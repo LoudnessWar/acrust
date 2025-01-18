@@ -84,11 +84,11 @@ impl VoxelRenderer {
 
         let indices = vec![
             0, 1, 2, 0, 2, 3, // Front
-            4, 5, 6, 4, 6, 7, // Back
-            0, 4, 7, 0, 7, 3, // Left
+            6, 5, 4, 7, 6, 4, // Back
+            7, 4, 0, 3, 7, 0, // Left
             1, 5, 6, 1, 6, 2, // Right
             3, 2, 6, 3, 6, 7, // Top
-            0, 1, 5, 0, 5, 4, // Bottom
+            5, 1, 0, 4, 5, 0, // Bottom
         ];
 
         (vertices, indices)

@@ -35,13 +35,15 @@ fn main() {
 
     let mut input_system = InputSystem::new();//need to make this so that it is like added on window init or something
 
-    //let mut shader_program = ShaderProgram::new("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
-    let mut shader_program = ShaderProgram::new("shaders/water_vertex_shader.glsl", "shaders/fragment_shader.glsl");
-    shader_program.bind();
+    let mut shaders_land = ShaderProgram::new("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
+    let mut shaders_water = ShaderProgram::new("shaders/water_vertex_shader.glsl", "shaders/fragment_shader.glsl");
 
-    shader_program.create_uniform("transform");
+    shaders_land.enable_backface_culling();
+    shaders_land.enable_depth();
 
-    shader_program.enable_depth();
+    let mut material1 = Material::new(shaders_land);
+
+    let mut material2 = Material::new(shaders_water);
 
     let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
 
@@ -120,10 +122,6 @@ fn main() {
             player.move_down();
         }
 
-        chunk_manager.render_all();
-
-        water.render();
-        
         camera.update_view();
     
         while let Some(event) = input_system.get_event_queue().pop_front() {
@@ -142,7 +140,14 @@ fn main() {
         }
 
         let transform = camera.get_vp_matrix();
-        shader_program.set_matrix4fv_uniform("transform", &transform);
+
+        material1.apply();
+        material1.set_matrix4fv_uniform("transform", &transform);
+        chunk_manager.render_all();
+
+        material2.apply();
+        material2.set_matrix4fv_uniform("transform", &transform);
+        water.render();
         
 
         window.update();

@@ -150,50 +150,57 @@ pub struct ShaderProgram {
 
 #[allow(temporary_cstring_as_ptr)]
 impl ShaderProgram {
-    pub fn new(vertex_shader_path: &str, fragment_shader_path: &str) -> ShaderProgram {
-        let mut vertex_shader_file = File::open(vertex_shader_path)
-            .unwrap_or_else(|_| panic!("Failed to open {}", vertex_shader_path));
-        let mut fragment_shader_file = File::open(fragment_shader_path)
-            .unwrap_or_else(|_| panic!("Failed to open {}", fragment_shader_path));
-        let mut vertex_shader_source = String::new();
-        let mut fragment_shader_source = String::new();
-        vertex_shader_file
-            .read_to_string(&mut vertex_shader_source)
-            .expect("Failed to read vertex shader");
-        fragment_shader_file
-            .read_to_string(&mut fragment_shader_source)
-            .expect("Failed to read fragment shader");
-        unsafe {
-            let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
-            let c_str_vert = CString::new(vertex_shader_source.as_bytes()).unwrap();
-            gl::ShaderSource(vertex_shader, 1, &c_str_vert.as_ptr(), ptr::null());
-            gl::CompileShader(vertex_shader);
-            let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
-            let c_str_frag = CString::new(fragment_shader_source.as_bytes()).unwrap();
-            gl::ShaderSource(fragment_shader, 1, &c_str_frag.as_ptr(), ptr::null());
-            gl::CompileShader(fragment_shader);
-            let program_handle = gl::CreateProgram();
-            gl::AttachShader(program_handle, vertex_shader);
-            gl::AttachShader(program_handle, fragment_shader);
-            gl::LinkProgram(program_handle);
+    pub fn new(vertex_shader_path: &str, fragment_shader_path: &str) -> Self {
+        let vertex_shader_source = Self::read_shader_source(vertex_shader_path);
+        let fragment_shader_source = Self::read_shader_source(fragment_shader_path);
+        let program_handle = unsafe {
+            let vertex_shader = Self::compile_shader(&vertex_shader_source, gl::VERTEX_SHADER);
+            let fragment_shader = Self::compile_shader(&fragment_shader_source, gl::FRAGMENT_SHADER);
+            let handle = gl::CreateProgram();
+            gl::AttachShader(handle, vertex_shader);
+            gl::AttachShader(handle, fragment_shader);
+            gl::LinkProgram(handle);
             gl::DeleteShader(vertex_shader);
             gl::DeleteShader(fragment_shader);
-            ShaderProgram {
-                program_handle,
-                uniform_ids: HashMap::new(),
-            }
+            handle
+        };
+
+        ShaderProgram {
+            program_handle,
+            uniform_ids: HashMap::new(),
         }
     }
+
+    fn read_shader_source(path: &str) -> String {
+        let mut file = File::open(path).unwrap_or_else(|_| panic!("Failed to open {}", path));
+        let mut source = String::new();
+        file.read_to_string(&mut source)
+            .expect("Failed to read shader file");
+        source
+    }
+
+    fn compile_shader(source: &str, shader_type: GLenum) -> GLuint {
+        let shader = unsafe { gl::CreateShader(shader_type) };
+        let c_str = CString::new(source).unwrap();
+        unsafe {
+            gl::ShaderSource(shader, 1, &c_str.as_ptr(), ptr::null());
+            gl::CompileShader(shader);
+        }
+        shader
+    }
+
     pub fn bind(&self) {
         unsafe {
             gl::UseProgram(self.program_handle);
         }
     }
+
     pub fn unbind() {
         unsafe {
             gl::UseProgram(0);
         }
     }
+
     pub fn create_uniform(&mut self, uniform_name: &str) {
         let uniform_location = unsafe {
             gl::GetUniformLocation(
@@ -204,11 +211,11 @@ impl ShaderProgram {
         if uniform_location < 0 {
             panic!("Cannot locate uniform: {}", uniform_name);
         } else {
-            self.uniform_ids
-                .insert(uniform_name.to_string(), uniform_location);
+            self.uniform_ids.insert(uniform_name.to_string(), uniform_location);
         }
     }
-    pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &cgmath::Matrix4<f32>) {
+
+    pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {
         unsafe {
             gl::UniformMatrix4fv(
                 self.uniform_ids[uniform_name],
@@ -219,10 +226,71 @@ impl ShaderProgram {
         }
     }
 
-    pub fn enable_depth(&self){
+    pub fn enable_depth(&self) {
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthFunc(gl::LESS);
+        }
+    }
+
+    pub fn enable_backface_culling(&self) {
+        unsafe {
+            gl::Enable(gl::CULL_FACE);     // Enable face culling
+            gl::CullFace(gl::BACK);        // Cull back faces
+            //gl::FrontFace(gl::CCW);        // Use counter-clockwise vertex winding for front faces
+        }
+    }
+}
+
+/// Represents a material (combination of shaders and properties)
+pub struct Material {
+    shader: ShaderProgram,
+    properties: HashMap<String, f32>, // Add texture or vec3 support as needed
+    transforming: bool,
+}
+
+impl Material {
+    pub fn new(shader: ShaderProgram) -> Self {
+        let mut mat = Material {
+            shader,
+            properties: HashMap::new(),
+            transforming: true,
+        };
+
+        mat.shader.create_uniform("transform");//im not sure if I like this solution its just, I dont want to have
+        //to apply/send the transformation to every single thing
+
+        mat
+    }
+
+    //This is the other appraoch I could have taken and just had Material in new
+    // fn initialize_uniforms(&mut self) {
+    //     let uniforms = vec!["transform"]; // Add other uniforms dynamically if needed
+    //     for uniform in uniforms {
+    //         self.shader.create_uniform(uniform);
+    //     }
+    // }
+
+    pub fn add_uniform(&mut self, uniform_name: &str) {
+        self.shader.create_uniform(uniform_name);
+    }
+
+    pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {
+        self.shader.set_matrix4fv_uniform(uniform_name, matrix);
+    }
+
+    pub fn set_property(&mut self, key: &str, value: f32) {
+        self.properties.insert(key.to_string(), value);
+    }
+
+    pub fn apply(&self) {
+        self.shader.bind();//eeh needed here just yeah
+        for (key, value) in &self.properties {
+            if let Some(&uniform_location) = self.shader.uniform_ids.get(key) {//this is always kinda confusing to me ngl
+                unsafe {
+                    gl::Uniform1f(uniform_location, *value);
+                }
+            }
         }
     }
 }
