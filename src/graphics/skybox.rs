@@ -135,18 +135,9 @@ impl Skybox {
 
 
     //ok so this is for if you want to render the skybox seperate, if I were doing it someway else I could use this code and just put it in my other render
-    pub fn render(
-        &self, 
-        shader_program: &ShaderProgram, 
-        view_matrix: &cgmath::Matrix4<f32>, 
-        projection_matrix: &cgmath::Matrix4<f32>
-    ) {
-        shader_program.bind();
+    pub fn render(&self, shader_program: &ShaderProgram, view_matrix: &cgmath::Matrix4<f32>, projection_matrix: &cgmath::Matrix4<f32>) {
         // Create a rotation-only view matrix
-        let mut rotation_only_view = *view_matrix;
-        shader_program.set_matrix4fv_uniform("view", &rotation_only_view);
-        shader_program.set_matrix4fv_uniform("projection", projection_matrix);
-        //rotation_only_view.w = cgmath::Vector4::new(0.0, 0.0, 0.0, 1.0);
+
     
         unsafe {
             // Save current OpenGL state
@@ -154,18 +145,43 @@ impl Skybox {
             gl::GetIntegerv(gl::DEPTH_FUNC, &mut previous_depth_func);
             
             // Setup skybox rendering state
-            gl::DepthMask(gl::FALSE); // Disable depth writes
-            gl::DepthFunc(gl::LEQUAL); // Allow drawing skybox in background
+            gl::DepthMask(gl::FALSE);
+            gl::DepthFunc(gl::LEQUAL);
             
             self.vao.bind();
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_CUBE_MAP, self.texture_id);
             
-            gl::DrawArrays(gl::TRIANGLES, 0, 36); // Draw the cube (6 faces, 2 triangles per face, 3 vertices per triangle)
+            // Fix the CString lifetime issue
+            let skybox_str = std::ffi::CString::new("skybox").unwrap();
+            let loc = gl::GetUniformLocation(shader_program.get_program_handle(), skybox_str.as_ptr());
+            
+            // Print uniform location for debugging
+            println!("Skybox uniform location: {}", loc);
+            
+            if loc >= 0 {
+                gl::Uniform1i(loc, 0);
+            } else {
+                println!("Warning: Skybox uniform not found!");
+            }
+            
+            // Check for any errors before drawing
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                println!("OpenGL error before skybox draw: {}", error);
+            }
+            
+            gl::DrawArrays(gl::TRIANGLES, 0, 36);
+            
+            // Check for any errors after drawing
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                println!("OpenGL error after skybox draw: {}", error);
+            }
             
             // Restore OpenGL state
-            gl::DepthMask(gl::TRUE); // Re-enable depth writes
-            gl::DepthFunc(previous_depth_func as u32); // Restore depth function
+            gl::DepthMask(gl::TRUE);
+            gl::DepthFunc(previous_depth_func as u32);
         }
     }
 

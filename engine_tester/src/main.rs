@@ -92,13 +92,11 @@ fn main() {
         let skybox = Skybox::new(&skybox_faces);
         println!("Skybox created with texture ID: {}", skybox.get_texture_id());
 
-        let mut skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
-        skybox_shader.create_uniform("view");
-        skybox_shader.create_uniform("projection");
-        // let mut skybox_material = Material::new(skybox_shader);
-        // skybox_material.add_uniform("view");
-        // skybox_material.add_uniform("projection");
-        // skybox_material.add_uniform("skybox");
+        let skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
+        let mut skybox_material = Material::new(skybox_shader);
+        skybox_material.add_uniform("view");
+        skybox_material.add_uniform("projection");
+        skybox_material.add_uniform("skybox");
 
 
     while !window.should_close() {
@@ -176,21 +174,25 @@ fn main() {
         material2.set_matrix4fv_uniform("transform", &transform);
         water.render();
 
-        let view_matrix = camera.get_vp_matrix();
-            // //view_matrix.w = cgmath::Vector4::new(0.0, 0.0, 0.0, 1.0);
-        let projection_matrix = camera.get_p_matrix();
-
-        skybox.render(&skybox_shader, &view_matrix, &projection_matrix);
+        {
+            let view_matrix = camera.get_vp_matrix();
+            let view = cgmath::Matrix4::from_cols(
+                view_matrix.x.truncate().extend(0.0),
+                -view_matrix.y.truncate().extend(0.0),
+                view_matrix.z.truncate().extend(0.0),
+                view_matrix.w.truncate().extend(0.0)//cgmath::Vector4::new(0.0, 0.0, 0.0, 1.0)
+            );
+            let projection_matrix = camera.get_p_matrix();
         
-            // println!("View matrix: {:?}", view_matrix);
-            // println!("Projection matrix: {:?}", projection_matrix);
+            println!("View matrix: {:?}", view_matrix);
+            println!("Projection matrix: {:?}", projection_matrix);
         
-            // skybox_material.apply();
-            // skybox_material.set_matrix4fv_uniform("view", &view_matrix);
-            // skybox_material.set_matrix4fv_uniform("projection", &projection_matrix);
+            skybox_material.apply();
+            skybox_material.set_matrix4fv_uniform("view", &view);
+            skybox_material.set_matrix4fv_uniform("projection", &projection_matrix);
         
-            //skybox.render(skybox_material.borrow_shader(), &view_matrix, &projection_matrix);
-
+            skybox.render(skybox_material.borrow_shader(), &view, &projection_matrix);
+        }
         
 
         window.update();
