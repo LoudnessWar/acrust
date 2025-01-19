@@ -246,30 +246,34 @@ impl ShaderProgram {
 pub struct Material {
     shader: ShaderProgram,
     properties: HashMap<String, f32>, // Add texture or vec3 support as needed
-    transforming: bool,
+    transforming: bool,//this is not used but I will impliment it in the future
 }
 
 impl Material {
     pub fn new(shader: ShaderProgram) -> Self {
-        let mut mat = Material {
+        Material {
             shader,
             properties: HashMap::new(),
             transforming: true,
-        };
-
-        mat.shader.create_uniform("transform");//im not sure if I like this solution its just, I dont want to have
+        }
+        //mat.shader.create_uniform("transform");//im not sure if I like this solution its just, I dont want to have
         //to apply/send the transformation to every single thing
 
-        mat
+        //mat//raaaah ok I was correct this is like bad bc, when I create the like skybox materail it creates the transform but I dont like handle it at all like I do with the others
+        //so when it is not transforming, it says it cannot locate transform durrrrrr
     }
 
     //This is the other appraoch I could have taken and just had Material in new
-    // fn initialize_uniforms(&mut self) {
-    //     let uniforms = vec!["transform"]; // Add other uniforms dynamically if needed
-    //     for uniform in uniforms {
-    //         self.shader.create_uniform(uniform);
-    //     }
-    // }
+    pub fn initialize_uniforms(&mut self) {
+        let uniforms = vec!["transform"]; // Add other uniforms dynamically if needed
+        for uniform in uniforms {
+            self.shader.create_uniform(uniform);
+        }
+    }
+
+    pub fn borrow_shader(&self) -> &ShaderProgram {//uuuh is this a good idea? to do it like this
+        &self.shader
+    }
 
     pub fn add_uniform(&mut self, uniform_name: &str) {
         self.shader.create_uniform(uniform_name);

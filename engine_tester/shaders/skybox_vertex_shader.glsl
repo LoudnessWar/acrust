@@ -1,16 +1,13 @@
-#version 330
-uniform mat4 uProjectionMatrix;
-uniform mat4 uWorldToCameraMatrix;
+#version 330 core
+layout(location = 0) in vec3 position;
 
-in vec4 aPosition;
+out vec3 TexCoords;
 
-smooth out vec3 eyeDirection;
+uniform mat4 view;
+uniform mat4 projection;
 
 void main() {
-    mat4 inverseProjection = inverse(uProjectionMatrix);
-    mat3 inverseModelview = transpose(mat3(uWorldToCameraMatrix));
-    vec3 unprojected = (inverseProjection * aPosition).xyz;
-    eyeDirection = inverseModelview * unprojected;
-
-    gl_Position = aPosition;
-} 
+    TexCoords = position;
+    vec4 pos = projection * view * vec4(position, 1.0);
+    gl_Position = pos.xyww; // Keep depth fixed for the skybox
+}

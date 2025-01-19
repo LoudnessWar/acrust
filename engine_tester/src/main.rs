@@ -2,6 +2,7 @@
 #![allow(warnings)]
 use acrust::graphics::window::Window;
 use acrust::graphics::camera::Camera;
+use acrust::graphics::skybox::Skybox;
 use acrust::input::input::{InputSystem, InputEvent, Key};
 use acrust::graphics::gl_wrapper::*;
 
@@ -42,8 +43,10 @@ fn main() {
     shaders_land.enable_depth();
 
     let mut material1 = Material::new(shaders_land);
+    material1.initialize_uniforms();
 
     let mut material2 = Material::new(shaders_water);
+    material2.initialize_uniforms();
 
     let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
 
@@ -73,6 +76,25 @@ fn main() {
 
     let octree = terrain.get_root();
     chunk_manager.add_octree(octree.clone(), (0.0, 0.0, 0.0));
+
+    //skybox
+
+        let skybox_faces = [
+            "textures/right.jpg",
+            "textures/left.jpg",
+            "textures/top.png",
+            "textures/bottom.png",
+            "textures/front.jpg",
+            "textures/back.jpg",
+        ];
+
+        let skybox = Skybox::new(&skybox_faces);
+
+        let skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
+        let mut skybox_material = Material::new(skybox_shader);
+        skybox_material.add_uniform("view");
+        skybox_material.add_uniform("projection");
+
 
     while !window.should_close() {
         // Clear the screen
@@ -140,6 +162,18 @@ fn main() {
         }
 
         let transform = camera.get_vp_matrix();
+
+        {
+            let view_matrix = camera.get_vp_matrix();
+            let projection_matrix = camera.get_p_matrix();
+    
+            skybox_material.apply();
+            skybox_material.set_matrix4fv_uniform("view", &view_matrix);
+            skybox_material.set_matrix4fv_uniform("projection", &projection_matrix);
+    
+            skybox.render(skybox_material.borrow_shader(), &view_matrix, &projection_matrix);
+        }
+    
 
         material1.apply();
         material1.set_matrix4fv_uniform("transform", &transform);

@@ -1,10 +1,9 @@
-#version 330
-uniform samplerCube uTexture;
+#version 330 core
+in vec3 TexCoords;
+out vec4 FragColor;
 
-smooth in vec3 eyeDirection;
-
-out vec4 fragmentColor;
+uniform samplerCube skybox;
 
 void main() {
-    fragmentColor = texture(uTexture, eyeDirection);
+    FragColor = texture(skybox, TexCoords);
 }
