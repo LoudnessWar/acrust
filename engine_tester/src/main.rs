@@ -180,11 +180,11 @@ fn main() {
                 view_matrix.x.truncate().extend(0.0),
                 -view_matrix.y.truncate().extend(0.0),
                 view_matrix.z.truncate().extend(0.0),
-                view_matrix.w.truncate().extend(0.0)//cgmath::Vector4::new(0.0, 0.0, 0.0, 1.0)
+                cgmath::Vector4::new(0.0, 0.0, 0.0, 1.0)
             );
             let projection_matrix = camera.get_p_matrix();
         
-            println!("View matrix: {:?}", view_matrix);
+            println!("View matrix: {:?}", view);
             println!("Projection matrix: {:?}", projection_matrix);
         
             skybox_material.apply();

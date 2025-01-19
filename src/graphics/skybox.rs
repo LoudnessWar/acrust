@@ -141,47 +141,47 @@ impl Skybox {
     
         unsafe {
             // Save current OpenGL state
-            let mut previous_depth_func = 0;
-            gl::GetIntegerv(gl::DEPTH_FUNC, &mut previous_depth_func);
+            // let mut previous_depth_func = 0;
+            // gl::GetIntegerv(gl::DEPTH_FUNC, &mut previous_depth_func);
             
             // Setup skybox rendering state
             gl::DepthMask(gl::FALSE);
             gl::DepthFunc(gl::LEQUAL);
             
             self.vao.bind();
-            gl::ActiveTexture(gl::TEXTURE0);
+            //gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_CUBE_MAP, self.texture_id);
             
             // Fix the CString lifetime issue
-            let skybox_str = std::ffi::CString::new("skybox").unwrap();
-            let loc = gl::GetUniformLocation(shader_program.get_program_handle(), skybox_str.as_ptr());
+            // let skybox_str = std::ffi::CString::new("skybox").unwrap();
+            // let loc = gl::GetUniformLocation(shader_program.get_program_handle(), skybox_str.as_ptr());
             
             // Print uniform location for debugging
-            println!("Skybox uniform location: {}", loc);
+            // println!("Skybox uniform location: {}", loc);
             
-            if loc >= 0 {
-                gl::Uniform1i(loc, 0);
-            } else {
-                println!("Warning: Skybox uniform not found!");
-            }
+            // if loc >= 0 {
+            //     gl::Uniform1i(loc, 0);
+            // } else {
+            //     println!("Warning: Skybox uniform not found!");
+            // }
             
             // Check for any errors before drawing
-            let error = gl::GetError();
-            if error != gl::NO_ERROR {
-                println!("OpenGL error before skybox draw: {}", error);
-            }
+            // let error = gl::GetError();
+            // if error != gl::NO_ERROR {
+            //     println!("OpenGL error before skybox draw: {}", error);
+            // }
             
             gl::DrawArrays(gl::TRIANGLES, 0, 36);
             
             // Check for any errors after drawing
-            let error = gl::GetError();
-            if error != gl::NO_ERROR {
-                println!("OpenGL error after skybox draw: {}", error);
-            }
+            // let error = gl::GetError();
+            // if error != gl::NO_ERROR {
+            //     println!("OpenGL error after skybox draw: {}", error);
+            // }
             
             // Restore OpenGL state
             gl::DepthMask(gl::TRUE);
-            gl::DepthFunc(previous_depth_func as u32);
+            //gl::DepthFunc(previous_depth_func as u32);
         }
     }
 
