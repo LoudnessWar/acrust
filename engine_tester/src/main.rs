@@ -178,7 +178,7 @@ fn main() {
             let view_matrix = camera.get_vp_matrix();
             let view = cgmath::Matrix4::from_cols(
                 view_matrix.x.truncate().extend(0.0),
-                -view_matrix.y.truncate().extend(0.0),
+                -view_matrix.y.truncate().extend(0.0),//i cannot fabricate or lie idk why it needs to be negative here to work
                 view_matrix.z.truncate().extend(0.0),
                 cgmath::Vector4::new(0.0, 0.0, 0.0, 1.0)
             );

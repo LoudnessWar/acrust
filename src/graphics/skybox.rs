@@ -100,7 +100,8 @@ impl Skybox {
             for (i, face) in faces.iter().enumerate() {
                 let img = image::open(face).expect(&format!("Failed to load texture face: {}", face));
                 // Resize image to target size
-                let resized = img.resize_exact(TARGET_SIZE, TARGET_SIZE, image::imageops::FilterType::Lanczos3);
+                let flipped = img.flipv();
+                let resized = flipped.resize_exact(TARGET_SIZE, TARGET_SIZE, image::imageops::FilterType::Lanczos3);
                 let data = resized.to_rgba8();
                 
                 println!("Loading face {} ({}) with size {}x{}", i, face, TARGET_SIZE, TARGET_SIZE);
