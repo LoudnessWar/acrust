@@ -54,7 +54,7 @@ fn main() {
         fovy: Rad(1.0), // Field of view (vertical)
         aspect: 1.0,    // Aspect ratio
         near: 0.1,      // Near clipping plane
-        far: 100.0,     // Far clipping plane
+        far: 1000.0,     // Far clipping plane
     };
 
     let mut camera = Camera::new(perspective);
@@ -88,12 +88,17 @@ fn main() {
             "textures/back.jpg",
         ];
 
+        println!("Creating skybox...");
         let skybox = Skybox::new(&skybox_faces);
+        println!("Skybox created with texture ID: {}", skybox.get_texture_id());
 
-        let skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
-        let mut skybox_material = Material::new(skybox_shader);
-        skybox_material.add_uniform("view");
-        skybox_material.add_uniform("projection");
+        let mut skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
+        skybox_shader.create_uniform("view");
+        skybox_shader.create_uniform("projection");
+        // let mut skybox_material = Material::new(skybox_shader);
+        // skybox_material.add_uniform("view");
+        // skybox_material.add_uniform("projection");
+        // skybox_material.add_uniform("skybox");
 
 
     while !window.should_close() {
@@ -162,19 +167,7 @@ fn main() {
         }
 
         let transform = camera.get_vp_matrix();
-
-        {
-            let view_matrix = camera.get_vp_matrix();
-            let projection_matrix = camera.get_p_matrix();
     
-            skybox_material.apply();
-            skybox_material.set_matrix4fv_uniform("view", &view_matrix);
-            skybox_material.set_matrix4fv_uniform("projection", &projection_matrix);
-    
-            skybox.render(skybox_material.borrow_shader(), &view_matrix, &projection_matrix);
-        }
-    
-
         material1.apply();
         material1.set_matrix4fv_uniform("transform", &transform);
         chunk_manager.render_all();
@@ -182,6 +175,22 @@ fn main() {
         material2.apply();
         material2.set_matrix4fv_uniform("transform", &transform);
         water.render();
+
+        let view_matrix = camera.get_vp_matrix();
+            // //view_matrix.w = cgmath::Vector4::new(0.0, 0.0, 0.0, 1.0);
+        let projection_matrix = camera.get_p_matrix();
+
+        skybox.render(&skybox_shader, &view_matrix, &projection_matrix);
+        
+            // println!("View matrix: {:?}", view_matrix);
+            // println!("Projection matrix: {:?}", projection_matrix);
+        
+            // skybox_material.apply();
+            // skybox_material.set_matrix4fv_uniform("view", &view_matrix);
+            // skybox_material.set_matrix4fv_uniform("projection", &projection_matrix);
+        
+            //skybox.render(skybox_material.borrow_shader(), &view_matrix, &projection_matrix);
+
         
 
         window.update();

@@ -240,6 +240,10 @@ impl ShaderProgram {
             //gl::FrontFace(gl::CCW);        // Use counter-clockwise vertex winding for front faces
         }
     }
+
+    pub fn get_program_handle(&self) -> u32 {
+        self.program_handle
+    }
 }
 
 /// Represents a material (combination of shaders and properties)
@@ -280,7 +284,12 @@ impl Material {
     }
 
     pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {
-        self.shader.set_matrix4fv_uniform(uniform_name, matrix);
+        if let Some(&location) = self.shader.uniform_ids.get(uniform_name) {
+            println!("Setting uniform {} at location {}", uniform_name, location);
+            self.shader.set_matrix4fv_uniform(uniform_name, matrix);
+        } else {
+            println!("Warning: Uniform {} not found", uniform_name);
+        }
     }
 
     pub fn set_property(&mut self, key: &str, value: f32) {
