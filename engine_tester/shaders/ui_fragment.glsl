@@ -1,6 +1,16 @@
 #version 330 core
-out vec4 finalColor;
 
-void main() {
-    finalColor = vec4(1.0, 0.0, 0.0, 1.0); // Solid red color
+// Input texture coordinates from the vertex shader
+in vec2 TexCoord;
+
+// Output color
+out vec4 FragColor;
+
+// Texture sampler
+uniform sampler2D texture1;
+
+void main()
+{
+    // Fetch the texture color using the texture coordinates
+    FragColor = texture(texture1, TexCoord);
 }
