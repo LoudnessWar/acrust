@@ -285,7 +285,7 @@ impl Material {
 
     pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {
         if let Some(&location) = self.shader.uniform_ids.get(uniform_name) {
-            println!("Setting uniform {} at location {}", uniform_name, location);
+            //println!("Setting uniform {} at location {}", uniform_name, location);
             self.shader.set_matrix4fv_uniform(uniform_name, matrix);
         } else {
             println!("Warning: Uniform {} not found", uniform_name);

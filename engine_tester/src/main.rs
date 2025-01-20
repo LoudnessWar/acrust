@@ -67,13 +67,14 @@ fn main() {
     let mut chunk_manager = ChunkManager::new();
     let mut terrain = TerrainGenerator::new(42, 16);
 
-    let chunks = terrain.generate_multiple_chunks(0, 64, 0, 2, 1, 16);
+    let chunks = terrain.generate_multiple_chunks(0, 32, 0, 3, 3, 16);
 
     for (octree, position) in chunks {
         chunk_manager.add_octree(octree, position);
     }
 
 
+    //adding a single little chunky monkey
     let octree = terrain.get_root();
     chunk_manager.add_octree(octree.clone(), (0.0, 0.0, 0.0));
 
@@ -112,7 +113,7 @@ fn main() {
         window.lock_cursor();
 
         let sensitivity = 0.002;
-        camera.rotate(-delta_x as f32 * sensitivity, -delta_y as f32 * sensitivity);
+        camera.rotate(-delta_x as f32 * sensitivity, -delta_y as f32 * sensitivity);//boomers when the uuuuuuh its wrong and inverted
 
 
         window.process_input_events(&mut input_system);
@@ -175,23 +176,11 @@ fn main() {
         water.render();
 
         {
-            let view_matrix = camera.get_vp_matrix();
-            let view = cgmath::Matrix4::from_cols(
-                view_matrix.x.truncate().extend(0.0),
-                -view_matrix.y.truncate().extend(0.0),//i cannot fabricate or lie idk why it needs to be negative here to work
-                view_matrix.z.truncate().extend(0.0),
-                cgmath::Vector4::new(0.0, 0.0, 0.0, 1.0)
-            );
+            let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
             let projection_matrix = camera.get_p_matrix();
         
-            println!("View matrix: {:?}", view);
-            println!("Projection matrix: {:?}", projection_matrix);
-        
             skybox_material.apply();
-            skybox_material.set_matrix4fv_uniform("view", &view);
-            skybox_material.set_matrix4fv_uniform("projection", &projection_matrix);
-        
-            skybox.render(skybox_material.borrow_shader(), &view, &projection_matrix);
+            skybox.render(skybox_material.borrow_shader(), &view_matrix, &projection_matrix);
         }
         
 

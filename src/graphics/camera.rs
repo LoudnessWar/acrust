@@ -54,6 +54,10 @@ impl Camera {
         self.projection
     }
 
+    pub fn get_view(&self) -> Matrix4<f32> {
+        self.view
+    }
+
     //Literally this is bc maybe you want this just for the camera and this will let you do it ezier
     pub fn get_forward_vector(&self) -> Vector3<f32> {
         self.transform.get_forward_vector()

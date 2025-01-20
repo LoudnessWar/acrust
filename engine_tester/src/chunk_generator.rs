@@ -23,7 +23,7 @@ impl TerrainGenerator {
         &self.root
     }
 
-    // Equivalent to hierarchical_terrain_generation
+    // Equivalent to hierarchical_terrain_generation//note i have no clue what this comment was baout
     fn hierarchical_terrain_generation(
         x: usize,
         y: usize,

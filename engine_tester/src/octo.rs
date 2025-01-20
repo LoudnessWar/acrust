@@ -26,6 +26,9 @@ impl OctreeNode {
         self.children.as_ref()
     }
 
+
+    //this is called from hiearchical terrain generation on the terrain generation, it is actually in fact used and is the one that we use
+    //to generate the single chunk at spawn... also it is used in generate multiple chunks i realized lololololololol
     pub fn lazy_generate(
         &mut self,
         x: usize,
