@@ -249,8 +249,9 @@ impl ShaderProgram {
 /// Represents a material (combination of shaders and properties)
 pub struct Material {
     shader: ShaderProgram,
-    properties: HashMap<String, f32>, // Add texture or vec3 support as needed
-    transforming: bool,//this is not used but I will impliment it in the future
+    properties: HashMap<String, f32>, // Uniform properties like floats
+    textures: HashMap<String, u32>,  // Texture name to OpenGL texture ID mapping
+    transforming: bool,              // Transform support (future use)
 }
 
 impl Material {
@@ -258,24 +259,19 @@ impl Material {
         Material {
             shader,
             properties: HashMap::new(),
+            textures: HashMap::new(),
             transforming: true,
         }
-        //mat.shader.create_uniform("transform");//im not sure if I like this solution its just, I dont want to have
-        //to apply/send the transformation to every single thing
-
-        //mat//raaaah ok I was correct this is like bad bc, when I create the like skybox materail it creates the transform but I dont like handle it at all like I do with the others
-        //so when it is not transforming, it says it cannot locate transform durrrrrr
     }
 
-    //This is the other appraoch I could have taken and just had Material in new
     pub fn initialize_uniforms(&mut self) {
-        let uniforms = vec!["transform"]; // Add other uniforms dynamically if needed
+        let uniforms = vec!["transform"]; // Add additional uniforms as needed
         for uniform in uniforms {
             self.shader.create_uniform(uniform);
         }
     }
 
-    pub fn borrow_shader(&self) -> &ShaderProgram {//uuuh is this a good idea? to do it like this
+    pub fn borrow_shader(&self) -> &ShaderProgram {
         &self.shader
     }
 
@@ -285,7 +281,6 @@ impl Material {
 
     pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {
         if let Some(&location) = self.shader.uniform_ids.get(uniform_name) {
-            //println!("Setting uniform {} at location {}", uniform_name, location);
             self.shader.set_matrix4fv_uniform(uniform_name, matrix);
         } else {
             println!("Warning: Uniform {} not found", uniform_name);
@@ -296,13 +291,38 @@ impl Material {
         self.properties.insert(key.to_string(), value);
     }
 
+    pub fn set_texture(&mut self, texture_name: &str, texture_id: u32) {
+        self.textures.insert(texture_name.to_string(), texture_id);
+
+        // Create a uniform in the shader for this texture (if not already created)
+        self.shader.create_uniform(texture_name);
+    }
+
     pub fn apply(&self) {
-        self.shader.bind();//eeh needed here just yeah
+        self.shader.bind();
+
+        // Apply properties
         for (key, value) in &self.properties {
-            if let Some(&uniform_location) = self.shader.uniform_ids.get(key) {//this is always kinda confusing to me ngl
+            if let Some(&uniform_location) = self.shader.uniform_ids.get(key) {
                 unsafe {
                     gl::Uniform1f(uniform_location, *value);
                 }
+            }
+        }
+
+        // Apply textures
+        for (name, &texture_id) in &self.textures {
+            if let Some(&uniform_location) = self.shader.uniform_ids.get(name) {
+                unsafe {
+                    // Activate texture unit 0 (extend this if supporting multiple textures)
+                    gl::ActiveTexture(gl::TEXTURE0);
+                    gl::BindTexture(gl::TEXTURE_2D, texture_id);
+
+                    // Pass texture unit index (0 in this case) to the shader
+                    gl::Uniform1i(uniform_location, 0);
+                }
+            } else {
+                println!("Warning: Texture uniform {} not found", name);
             }
         }
     }

@@ -2,9 +2,12 @@
 #![allow(warnings)]
 use acrust::graphics::window::Window;
 use acrust::graphics::camera::Camera;
+use acrust::graphics::texture_manage::TextureManager;
 use acrust::graphics::skybox::Skybox;
 use acrust::input::input::{InputSystem, InputEvent, Key};
 use acrust::graphics::gl_wrapper::*;
+use acrust::user_interface::ui_element::UIElement;
+use acrust::user_interface::ui_manager::UIManager;
 
 
 use crate::octo::OctreeNode;
@@ -38,6 +41,8 @@ fn main() {
 
     let mut shaders_land = ShaderProgram::new("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
     let mut shaders_water = ShaderProgram::new("shaders/water_vertex_shader.glsl", "shaders/fragment_shader.glsl");
+    let mut ui_shader = ShaderProgram::new("shaders/ui_vertex.glsl", "shaders/ui_fragment.glsl");
+    ui_shader.create_uniform("projection");
 
     shaders_land.enable_backface_culling();
     shaders_land.enable_depth();
@@ -67,7 +72,7 @@ fn main() {
     let mut chunk_manager = ChunkManager::new();
     let mut terrain = TerrainGenerator::new(42, 16);
 
-    let chunks = terrain.generate_multiple_chunks(0, 32, 0, 3, 3, 16);
+    let chunks = terrain.generate_multiple_chunks(0, 32, 0, 2, 1, 16);
 
     for (octree, position) in chunks {
         chunk_manager.add_octree(octree, position);
@@ -98,6 +103,16 @@ fn main() {
         skybox_material.add_uniform("view");
         skybox_material.add_uniform("projection");
         skybox_material.add_uniform("skybox");
+
+        let mut texture_manager = TextureManager::new();
+
+        let texture_id = texture_manager.load_texture("textures/right.jpg")
+                    .expect("Failed to load texture");
+
+        let mut ui_manager = UIManager::new(720.0, 720.0);
+        let mut ui_element = UIElement::new(Vector2::new(50.0, 50.0), Vector2::new(200.0, 100.0), Vector4::new(1.0, 0.0, 0.0, 1.0));
+        ui_element.set_texture(texture_id);
+        ui_manager.add_element(ui_element);
 
 
     while !window.should_close() {
@@ -182,6 +197,8 @@ fn main() {
             skybox_material.apply();
             skybox.render(skybox_material.borrow_shader(), &view_matrix, &projection_matrix);
         }
+
+        ui_manager.render(&ui_shader);
         
 
         window.update();

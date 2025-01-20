@@ -137,7 +137,7 @@ impl Skybox {
     pub fn get_skybox_view_matrix(&self, camera_view_matrix: &cgmath::Matrix4<f32>) -> cgmath::Matrix4<f32> {
         cgmath::Matrix4::from_cols(
             camera_view_matrix.x.truncate().extend(0.0),
-            camera_view_matrix.y.truncate().extend(0.0), // Flip y-axis
+            camera_view_matrix.y.truncate().extend(0.0),
             camera_view_matrix.z.truncate().extend(0.0),
             cgmath::Vector4::new(0.0, 0.0, 0.0, 1.0)
         )
