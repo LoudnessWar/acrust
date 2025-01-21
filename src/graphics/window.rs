@@ -1,5 +1,5 @@
 use glfw::{Action, Context, GlfwReceiver, Key, WindowEvent};
-use crate::input::input::{InputSystem, InputEvent, map_glfw_key}; //erm yeah scuffed but I think it will look good when you have to work with it and make sense
+use crate::input::input::{map_glfw_key, map_glfw_mousebutton, InputEvent, InputSystem, CLICKS}; //erm yeah scuffed but I think it will look good when you have to work with it and make sense
 
 use std::time::{Duration, Instant};
 
@@ -141,11 +141,12 @@ impl Window {
                     }
                 }
                 glfw::WindowEvent::MouseButton(button, action, _) => {
-                    let button_index = button as u8;
-                    match action {
-                        glfw::Action::Press => input_system.queue_event(InputEvent::MouseButtonPressed(button_index)),
-                        glfw::Action::Release => input_system.queue_event(InputEvent::MouseButtonReleased(button_index)),
-                        _ => {}
+                    if let Some(button_index) = map_glfw_mousebutton(button) {
+                        match action {
+                            glfw::Action::Press => input_system.queue_event(InputEvent::MouseButtonPressed(button_index)),
+                            glfw::Action::Release => input_system.queue_event(InputEvent::MouseButtonReleased(button_index)),
+                            _ => {}
+                        }
                     }
                 }
                 _ => {}

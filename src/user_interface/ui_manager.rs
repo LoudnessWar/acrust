@@ -28,8 +28,21 @@ impl UIManager {
         ebo.bind();
 
         // Define vertex attribute layout (3 floats per vertex for position)
-        let stride = 3 * mem::size_of::<GLfloat>() as GLsizei;
+        let stride = 5 * mem::size_of::<GLfloat>() as GLsizei; // 3 for position, 2 for texture coordinates
+
+        // Position attribute (layout location 0)
         VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, stride, ptr::null()).enable();
+
+        // Texture coordinate attribute (layout location 1)
+        VertexAttribute::new(
+            1,
+            2,
+            gl::FLOAT,
+            gl::FALSE,
+            stride,
+            (3 * mem::size_of::<GLfloat>()) as *const _,
+        ).enable();
+
 
         // Create orthographic projection matrix
         let projection = cgmath::ortho(0.0, screen_width, screen_height, 0.0, -1.0, 1.0);
@@ -67,11 +80,13 @@ impl UIManager {
         //     20.0, 100.0, 0.0, // Bottom-left
         // ];
 
+
         let vertices: Vec<f32> = vec![
-            element.get_position().x, element.get_position().y + element.get_size().y, 0.0,
-            element.get_position().x + element.get_size().x, element.get_position().y + element.get_size().y, 0.0,
-            element.get_position().x + element.get_size().x, element.get_position().y, 0.0,
-            element.get_position().x, element.get_position().y, 0.0,
+            // Position          // Texture Coords
+            element.get_position().x, element.get_position().y + element.get_size().y, 0.0,  0.0, 1.0, // Top-left
+            element.get_position().x + element.get_size().x, element.get_position().y + element.get_size().y, 0.0,  1.0, 1.0, // Top-right
+            element.get_position().x + element.get_size().x, element.get_position().y, 0.0,  1.0, 0.0, // Bottom-right
+            element.get_position().x, element.get_position().y, 0.0,  0.0, 0.0, // Bottom-left
         ];
 
         // Define indices for two triangles
@@ -90,6 +105,7 @@ impl UIManager {
 
         if let Some(texture_id) = element.get_texture_id() {
             unsafe {
+                gl::ActiveTexture(gl::TEXTURE0); // Use texture unit 0
                 gl::BindTexture(gl::TEXTURE_2D, texture_id);
             }
         }

@@ -4,7 +4,7 @@ use acrust::graphics::window::Window;
 use acrust::graphics::camera::Camera;
 use acrust::graphics::texture_manage::TextureManager;
 use acrust::graphics::skybox::Skybox;
-use acrust::input::input::{InputSystem, InputEvent, Key};
+use acrust::input::input::{InputSystem, InputEvent, Key, CLICKS};
 use acrust::graphics::gl_wrapper::*;
 use acrust::user_interface::ui_element::UIElement;
 use acrust::user_interface::ui_manager::UIManager;
@@ -40,7 +40,7 @@ fn main() {
     let mut input_system = InputSystem::new();//need to make this so that it is like added on window init or something
 
     let mut shaders_land = ShaderProgram::new("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
-    let mut shaders_water = ShaderProgram::new("shaders/water_vertex_shader.glsl", "shaders/fragment_shader.glsl");
+    let mut shaders_water = ShaderProgram::new("shaders/water_vertex_shader.glsl", "shaders/water_fragment_shader.glsl");
     let mut ui_shader = ShaderProgram::new("shaders/ui_vertex.glsl", "shaders/ui_fragment.glsl");
     ui_shader.create_uniform("projection");
 
@@ -103,6 +103,8 @@ fn main() {
         skybox_material.add_uniform("view");
         skybox_material.add_uniform("projection");
         skybox_material.add_uniform("skybox");
+    
+    //ui
 
         let mut texture_manager = TextureManager::new();
 
@@ -113,6 +115,10 @@ fn main() {
         let mut ui_element = UIElement::new(Vector2::new(50.0, 50.0), Vector2::new(200.0, 100.0), Vector4::new(1.0, 0.0, 0.0, 1.0));
         ui_element.set_texture(texture_id);
         ui_manager.add_element(ui_element);
+
+        let current_mouse_position = window.get_mouse_position();//not really needed i think
+        window.lock_cursor();
+        let mut sensitivity = 0.002;
 
 
     while !window.should_close() {
@@ -125,12 +131,11 @@ fn main() {
         let current_mouse_position = window.get_mouse_position();
         let (delta_x, delta_y) = input_system.update_mouse_position(current_mouse_position);
 
-        window.lock_cursor();
-
-        let sensitivity = 0.002;
         camera.rotate(-delta_x as f32 * sensitivity, -delta_y as f32 * sensitivity);//boomers when the uuuuuuh its wrong and inverted
 
 
+        //uuuh problem I geniuenly forget how this imput system works cry emoji
+        //I fink if I rememba correctry its like uuuhhhh process input events calls input:;events and adds them to que directly
         window.process_input_events(&mut input_system);
         if input_system.is_key_pressed(&Key::W) {
             player.move_forward(camera.get_forward_vector());
@@ -163,18 +168,35 @@ fn main() {
             player.move_down();
         }
 
+        //ok i learned a little i need the other one right get this because sometimes
+        //releasing a button also needs to do something
+        // if input_system.is_key_pressed(&Key::Tab) {
+        //     window.unlock_cursor();
+        // }
+
         camera.update_view();
     
         while let Some(event) = input_system.get_event_queue().pop_front() {
             match event {
-                InputEvent::KeyPressed(Key::Space) => {
-                    println!("Jump");
-                }
+                // InputEvent::KeyPressed(Key::Space) => {
+                //     println!("up");
+                // }
                 InputEvent::KeyPressed(Key::Lctrl) => {
                     player.speed = 0.3;
                 }
                 InputEvent::KeyReleased(Key::Lctrl) => {
                     player.speed = 0.1;
+                }
+                InputEvent::KeyPressed(Key::Tab) => {//Ok need a function to lock other inputs from coming in so like you dont interact with outside world when ja
+                    window.unlock_cursor();
+                    sensitivity = 0.000;
+                }
+                InputEvent::KeyReleased(Key::Tab) => {
+                    window.lock_cursor();
+                    sensitivity = 0.002;
+                }
+                InputEvent::MouseButtonPressed(CLICKS::Left) => {
+                    println!("pewpew");
                 }
                 _ => {}
             }
