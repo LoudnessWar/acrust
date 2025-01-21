@@ -8,6 +8,7 @@ use acrust::input::input::{InputSystem, InputEvent, Key, CLICKS};
 use acrust::graphics::gl_wrapper::*;
 use acrust::user_interface::ui_element::UIElement;
 use acrust::user_interface::ui_manager::UIManager;
+use acrust::user_interface::ui_element::UIElementTrait;
 
 
 use crate::octo::OctreeNode;
@@ -42,7 +43,9 @@ fn main() {
     let mut shaders_land = ShaderProgram::new("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
     let mut shaders_water = ShaderProgram::new("shaders/water_vertex_shader.glsl", "shaders/water_fragment_shader.glsl");
     let mut ui_shader = ShaderProgram::new("shaders/ui_vertex.glsl", "shaders/ui_fragment.glsl");
-    ui_shader.create_uniform("projection");
+    ui_shader.create_uniform("projection");//these shouuld jsut be made... in the like ui_manager it should be passed a shader
+    ui_shader.create_uniform("color");
+    ui_shader.create_uniform("useTexture");
 
     shaders_land.enable_backface_culling();
     shaders_land.enable_depth();
@@ -112,9 +115,12 @@ fn main() {
                     .expect("Failed to load texture");
 
         let mut ui_manager = UIManager::new(720.0, 720.0);
-        let mut ui_element = UIElement::new(Vector2::new(50.0, 50.0), Vector2::new(200.0, 100.0), Vector4::new(1.0, 0.0, 0.0, 1.0));
+        let mut ui_element = UIElement::new(1, Vector2::new(50.0, 50.0), Vector2::new(200.0, 100.0));
         ui_element.set_texture(texture_id);
-        ui_manager.add_element(ui_element);
+        let mut ui_element2 = UIElement::new(2, Vector2::new(90.0,90.0), Vector2::new(100.0, 100.0));    
+        ui_element2.set_color(Vector4::new(1.0, 0.0, 0.0, 1.0));
+        ui_manager.add_element(Box::new(ui_element));
+        ui_manager.add_element(Box::new(ui_element2));
 
         let current_mouse_position = window.get_mouse_position();//not really needed i think
         window.lock_cursor();

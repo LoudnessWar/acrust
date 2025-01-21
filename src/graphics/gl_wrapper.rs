@@ -226,6 +226,26 @@ impl ShaderProgram {
         }
     }
 
+    pub fn set_uniform1i(&self, uniform_name: &str, value: &i32) {
+        unsafe {
+            gl::Uniform1iv(
+                self.uniform_ids[uniform_name],
+                1,
+                value,
+            )
+        }
+    }
+
+    pub fn set_uniform4f(&self, uniform_name: &str, value: &Vector4<f32>) {
+        unsafe {
+            gl::Uniform4fv(
+                self.uniform_ids[uniform_name],
+                1,
+                value.as_ptr(),
+            )
+        }
+    }
+
     pub fn enable_depth(&self) {
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
