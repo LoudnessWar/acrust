@@ -106,6 +106,18 @@ impl UIManager {
         elem.set_color(color);
     }
 
+    pub fn get_element_as<T: 'static>(&mut self, id: u32) -> Option<&mut T> {
+        self.elements
+            .iter_mut()
+            .find(|element| element.get_id() == id) // Find element by ID
+            .and_then(|element| element.as_any_mut().downcast_mut::<T>()) // Downcast to specific type
+    }
+
+    pub fn get_element_by_box(&mut self, id: u32) -> Option<Box<dyn UIElementTrait>> {
+        let index = self.elements.iter().position(|element| element.get_id() == id)?;
+        Some(self.elements.remove(index))
+    }
+
     pub fn render(&self, shader: &ShaderProgram) {
         shader.bind();
         shader.set_matrix4fv_uniform("projection", &self.projection);

@@ -1,7 +1,11 @@
+use std::any::Any;
+
 use cgmath::{Vector2, Vector4};
 use crate::input::input::*;
 
-pub trait UIElementTrait {
+pub trait UIElementTrait {//ok so in the future I will probably change this to a visitor or enum based system, this is just dynamic and if someone wants to make theiir own like ui elements
+    //it like should be possible for them to do that
+    //... They just need to add a lot of functions 
     //fn render(&self, shader: &ShaderProgram);
     fn is_hovered(&self, mouse_pos: (f64, f64)) -> bool;
     fn get_id(&self) -> u32;
@@ -12,7 +16,9 @@ pub trait UIElementTrait {
     fn set_texture(&mut self, texture_id: u32);
     fn set_color(&mut self, color: Vector4<f32>); 
     fn set_position(&mut self, position: Vector2<f32>);
-    fn set_size(&mut self, size: Vector2<f32>); 
+    fn set_size(&mut self, size: Vector2<f32>);
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 pub struct UIElement {
@@ -78,15 +84,23 @@ impl UIElementTrait for UIElement {
     fn set_size(&mut self, size: Vector2<f32>) {
         self.size = size;
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 // Button struct inheriting from UIElement
-pub struct Button {
+pub struct UIButton {
     base: UIElement,
     is_pressed: bool,
 }
 
-impl Button {
+impl UIButton {
     pub fn new(id: u32, position: Vector2<f32>, size: Vector2<f32>) -> Self {
         Self {
             base: UIElement::new(id, position, size),
@@ -107,7 +121,7 @@ impl Button {
     }
 }
 
-impl UIElementTrait for Button {
+impl UIElementTrait for UIButton {
     fn is_hovered(&self, mouse_pos: (f64, f64)) -> bool {
         self.base.is_hovered(mouse_pos)
     }
@@ -145,5 +159,13 @@ impl UIElementTrait for Button {
 
     fn set_size(&mut self, size: Vector2<f32>) {
         self.base.set_size(size);
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

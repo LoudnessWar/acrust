@@ -10,6 +10,7 @@ use acrust::user_interface::ui_element::UIElement;
 use acrust::user_interface::ui_manager::UIManager;
 use acrust::user_interface::ui_element::UIElementTrait;
 use acrust::user_interface::ui_manager::UIEvent;
+use acrust::user_interface::ui_element::UIButton;
 
 
 use crate::octo::OctreeNode;
@@ -120,8 +121,11 @@ fn main() {
         ui_element.set_texture(texture_id);
         let mut ui_element2 = UIElement::new(2, Vector2::new(90.0,90.0), Vector2::new(100.0, 100.0));    
         ui_element2.set_color(Vector4::new(1.0, 0.0, 0.0, 1.0));
+        let mut ui_button = UIButton::new(3, Vector2::new(400.0,90.0), Vector2::new(200.0, 100.0)); 
+        ui_element2.set_color(Vector4::new(1.0, 1.0, 0.0, 1.0));
         ui_manager.add_element(Box::new(ui_element));
         ui_manager.add_element(Box::new(ui_element2));
+        ui_manager.add_element(Box::new(ui_button));
 
         let current_mouse_position = window.get_mouse_position();//not really needed i think
         window.lock_cursor();
