@@ -11,6 +11,8 @@ pub trait UIElementTrait {
     fn get_color(&self) -> Vector4<f32>;
     fn set_texture(&mut self, texture_id: u32);
     fn set_color(&mut self, color: Vector4<f32>); 
+    fn set_position(&mut self, position: Vector2<f32>);
+    fn set_size(&mut self, size: Vector2<f32>); 
 }
 
 pub struct UIElement {
@@ -68,6 +70,13 @@ impl UIElementTrait for UIElement {
 
     fn set_color(&mut self, color: Vector4<f32>) {
         self.color = color;
+    }
+    fn set_position(&mut self, position: Vector2<f32>) {
+        self.position = position;
+    }
+
+    fn set_size(&mut self, size: Vector2<f32>) {
+        self.size = size;
     }
 }
 
@@ -129,5 +138,12 @@ impl UIElementTrait for Button {
 
     fn set_color(&mut self, color: Vector4<f32>) {
         self.base.set_color(color);
+    }
+    fn set_position(&mut self, position: Vector2<f32>) {
+        self.base.set_position(position);
+    }
+
+    fn set_size(&mut self, size: Vector2<f32>) {
+        self.base.set_size(size);
     }
 }

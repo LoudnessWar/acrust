@@ -4,15 +4,24 @@ use std::{mem, ptr};
 use super::ui_element::*;
 
 use gl::types::GLsizei;
+use cgmath::{Vector2, Vector4};
 
-use super::ui_element::UIElement;
 use crate::graphics::gl_wrapper::*;
-use crate::input::input::*;
+use std::collections::VecDeque;
 
+// Define possible UI events
+#[derive(Clone, Debug)]
+pub enum UIEvent {
+    Hover(u32),      // Element ID that's being hovered
+    Click(u32),      // Element ID that's been clicked
+    MouseEnter(u32), // Element ID mouse entered
+    MouseExit(u32),  // Element ID mouse exited
+}
 
-// UIManager class
 pub struct UIManager {
     elements: Vec<Box<dyn UIElementTrait>>,
+    event_queue: VecDeque<UIEvent>,
+    last_hover_state: Vec<(u32, bool)>, // Tracks previous hover states for MouseEnter/Exit
     vao: Vao,
     vbo: BufferObject,
     ebo: BufferObject,
@@ -46,6 +55,8 @@ impl UIManager {
 
         Self {
             elements: Vec::new(),
+            event_queue: VecDeque::new(),
+            last_hover_state: Vec::new(),
             vao,
             vbo,
             ebo,
@@ -54,7 +65,45 @@ impl UIManager {
     }
 
     pub fn add_element(&mut self, element: Box<dyn UIElementTrait>) {
+        let id = element.get_id();
+        self.last_hover_state.push((id, false));
         self.elements.push(element);
+    }
+
+    pub fn get_position(&mut self, id: u32) -> Vector2<f32>{//these are uuuuuuh uuuh maybe I should have used a hash map or something other then this
+        let elem = self.elements.iter_mut().find(|element| element.get_id() == id)
+        .map(|element| element.as_mut()).unwrap();
+        elem.get_position()
+    }
+
+    pub fn get_size(&mut self, id: u32) -> Vector2<f32> {
+        let elem = self.elements.iter_mut().find(|element| element.get_id() == id)
+        .map(|element| element.as_mut()).unwrap();
+        elem.get_size()
+    }
+
+    pub fn get_color(&mut self, id: u32) -> Vector4<f32> {
+        let elem = self.elements.iter_mut().find(|element| element.get_id() == id)
+        .map(|element| element.as_mut()).unwrap();
+        elem.get_color()
+    }
+    
+    pub fn get_texture_id(&mut self, id: u32) -> Option<u32> {
+        let elem = self.elements.iter_mut().find(|element| element.get_id() == id)
+        .map(|element| element.as_mut()).unwrap();
+        elem.get_texture_id()
+    }
+
+    pub fn set_texture(&mut self, id: u32, texture_id: u32) {
+        let elem = self.elements.iter_mut().find(|element| element.get_id() == id)
+        .map(|element| element.as_mut()).unwrap();
+        elem.set_texture(texture_id);
+    }
+
+    pub fn set_color(&mut self, id: u32, color: Vector4<f32>) {
+        let elem = self.elements.iter_mut().find(|element| element.get_id() == id)
+        .map(|element| element.as_mut()).unwrap();
+        elem.set_color(color);
     }
 
     pub fn render(&self, shader: &ShaderProgram) {
@@ -109,5 +158,52 @@ impl UIManager {
                 ptr::null(),          // Offset in the index buffer
             );
         }
+    }
+
+    pub fn update(&mut self, mouse_pos: (f64, f64)) {
+        // Clear previous events
+        self.event_queue.clear();
+
+        // Check each element for interactions
+        for (index, element) in self.elements.iter().enumerate() {
+            let id = element.get_id();
+            let is_currently_hovered = element.is_hovered(mouse_pos);
+            let was_hovered = self.last_hover_state[index].1;
+
+            // Generate hover event
+            if is_currently_hovered {
+                self.event_queue.push_back(UIEvent::Hover(id));
+            }
+
+            // Generate MouseEnter/Exit events
+            if is_currently_hovered && !was_hovered {
+                self.event_queue.push_back(UIEvent::MouseEnter(id));
+            } else if !is_currently_hovered && was_hovered {
+                self.event_queue.push_back(UIEvent::MouseExit(id));
+            }
+
+            // Update hover state
+            self.last_hover_state[index].1 = is_currently_hovered;
+        }
+    }
+
+    pub fn poll_event(&mut self) -> Option<UIEvent> {
+        self.event_queue.pop_front()
+    }
+
+    // Add a method to check if there are any events of a specific type for an element
+    pub fn has_event_for_element(&self, id: u32, event_type: fn(&UIEvent) -> bool) -> bool {
+        self.event_queue.iter().any(|event| {
+            match event {
+                UIEvent::Hover(elem_id) |
+                UIEvent::Click(elem_id) |
+                UIEvent::MouseEnter(elem_id) |
+                UIEvent::MouseExit(elem_id) => *elem_id == id && event_type(event)
+            }
+        })
+    }
+
+    pub fn is_element_hovered(&self, id: u32) -> bool {
+        self.has_event_for_element(id, |event| matches!(event, UIEvent::Hover(_)))
     }
 }

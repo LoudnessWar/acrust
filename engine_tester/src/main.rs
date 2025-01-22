@@ -9,6 +9,7 @@ use acrust::graphics::gl_wrapper::*;
 use acrust::user_interface::ui_element::UIElement;
 use acrust::user_interface::ui_manager::UIManager;
 use acrust::user_interface::ui_element::UIElementTrait;
+use acrust::user_interface::ui_manager::UIEvent;
 
 
 use crate::octo::OctreeNode;
@@ -138,7 +139,11 @@ fn main() {
         let (delta_x, delta_y) = input_system.update_mouse_position(current_mouse_position);
 
         camera.rotate(-delta_x as f32 * sensitivity, -delta_y as f32 * sensitivity);//boomers when the uuuuuuh its wrong and inverted
-
+        
+        //ui_manager.update(current_mouse_position);
+        // if ui_manager.is_element_hovered(2) {//this is kinda a useless feature but also might come in handy in the right situation hmm ie like throwing objects in mc
+        //     println!("HI");
+        // }
 
         //uuuh problem I geniuenly forget how this imput system works cry emoji
         //I fink if I rememba correctry its like uuuhhhh process input events calls input:;events and adds them to que directly
@@ -172,6 +177,10 @@ fn main() {
         }
         if input_system.is_key_pressed(&Key::LShift) {
             player.move_down();
+        }
+        if input_system.is_key_pressed(&Key::Tab) {
+            ui_manager.update(current_mouse_position);//hmm good idea no need to update it unless tab clicked
+            ui_manager.render(&ui_shader);
         }
 
         //ok i learned a little i need the other one right get this because sometimes
@@ -208,6 +217,22 @@ fn main() {
             }
         }
 
+        while let Some(event) = ui_manager.poll_event() {
+            match event {
+                UIEvent::Hover(id) => {},
+                UIEvent::MouseEnter(id) => {
+                    println!("Mouse entered element {}", id);
+                    println!("Mouse boooled element {:?}", ui_manager.get_position(id));
+                    ui_manager.set_color(id, Vector4::new(0.0,1.0,1.0,1.0));
+                },
+                UIEvent::MouseExit(id) => {
+                    println!("Mouse exited element {}", id);
+                    ui_manager.set_color(id, Vector4::new(1.0,0.0,0.0,1.0));
+                },
+                _ => {}
+            }
+        }
+
         let transform = camera.get_vp_matrix();
     
         material1.apply();
@@ -225,8 +250,6 @@ fn main() {
             skybox_material.apply();
             skybox.render(skybox_material.borrow_shader(), &view_matrix, &projection_matrix);
         }
-
-        ui_manager.render(&ui_shader);
         
 
         window.update();
