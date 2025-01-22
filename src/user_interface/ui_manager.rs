@@ -4,14 +4,14 @@ use std::{mem, ptr};
 use super::ui_element::*;
 
 use gl::types::GLsizei;
-use cgmath::{Vector2, Vector4};
+// use cgmath::{Vector2, Vector4};
 
 use crate::graphics::gl_wrapper::*;
 use std::collections::VecDeque;
 
 // Define possible UI events
 #[derive(Clone, Debug)]
-pub enum UIEvent {
+pub enum UIEvent {//ok like idk if this like event system is needed now that I have visitors but im pretty sure having it adds like a little bit of functionality so imma keep it
     Hover(u32),      // Element ID that's being hovered
     Click(u32),      // Element ID that's been clicked
     MouseEnter(u32), // Element ID mouse entered
@@ -21,7 +21,7 @@ pub enum UIEvent {
 pub struct UIManager {
     elements: Vec<Box<dyn UIElementTrait>>,
     event_queue: VecDeque<UIEvent>,
-    last_hover_state: Vec<(u32, bool)>, // Tracks previous hover states for MouseEnter/Exit
+    last_hover_state: Vec<(u32, bool)>, // Tracks previous hover states for MouseEnter/Exit yeah this is kinda confusing.. like extra this feels like a leet code aah solution like add a thing to track something that is a function
     vao: Vao,
     vbo: BufferObject,
     ebo: BufferObject,
@@ -66,56 +66,21 @@ impl UIManager {
 
     pub fn add_element(&mut self, element: Box<dyn UIElementTrait>) {
         let id = element.get_id();
-        self.last_hover_state.push((id, false));
         self.elements.push(element);
+        self.last_hover_state.push((id, false));
+        //self.last_hover_state.push((self.elements.last().unwrap().get_id(), false));
     }
 
-    pub fn get_position(&mut self, id: u32) -> Vector2<f32>{//these are uuuuuuh uuuh maybe I should have used a hash map or something other then this
-        let elem = self.elements.iter_mut().find(|element| element.get_id() == id)
-        .map(|element| element.as_mut()).unwrap();
-        elem.get_position()
+    pub fn visit_element(&mut self, id: u32, visitor: &mut dyn UIElementVisitor) {
+        if let Some(element) = self.elements.iter_mut().find(|e| e.get_id() == id) {
+            element.accept(visitor);
+        }
     }
 
-    pub fn get_size(&mut self, id: u32) -> Vector2<f32> {
-        let elem = self.elements.iter_mut().find(|element| element.get_id() == id)
-        .map(|element| element.as_mut()).unwrap();
-        elem.get_size()
-    }
-
-    pub fn get_color(&mut self, id: u32) -> Vector4<f32> {
-        let elem = self.elements.iter_mut().find(|element| element.get_id() == id)
-        .map(|element| element.as_mut()).unwrap();
-        elem.get_color()
-    }
-    
-    pub fn get_texture_id(&mut self, id: u32) -> Option<u32> {
-        let elem = self.elements.iter_mut().find(|element| element.get_id() == id)
-        .map(|element| element.as_mut()).unwrap();
-        elem.get_texture_id()
-    }
-
-    pub fn set_texture(&mut self, id: u32, texture_id: u32) {
-        let elem = self.elements.iter_mut().find(|element| element.get_id() == id)
-        .map(|element| element.as_mut()).unwrap();
-        elem.set_texture(texture_id);
-    }
-
-    pub fn set_color(&mut self, id: u32, color: Vector4<f32>) {
-        let elem = self.elements.iter_mut().find(|element| element.get_id() == id)
-        .map(|element| element.as_mut()).unwrap();
-        elem.set_color(color);
-    }
-
-    pub fn get_element_as<T: 'static>(&mut self, id: u32) -> Option<&mut T> {
-        self.elements
-            .iter_mut()
-            .find(|element| element.get_id() == id) // Find element by ID
-            .and_then(|element| element.as_any_mut().downcast_mut::<T>()) // Downcast to specific type
-    }
-
-    pub fn get_element_by_box(&mut self, id: u32) -> Option<Box<dyn UIElementTrait>> {
-        let index = self.elements.iter().position(|element| element.get_id() == id)?;
-        Some(self.elements.remove(index))
+    pub fn visit_all(&mut self, visitor: &mut dyn UIElementVisitor) {
+        for element in self.elements.iter_mut() {
+            element.accept(visitor);
+        }
     }
 
     pub fn render(&self, shader: &ShaderProgram) {
@@ -186,7 +151,6 @@ impl UIManager {
             if is_currently_hovered {
                 self.event_queue.push_back(UIEvent::Hover(id));
             }
-
             // Generate MouseEnter/Exit events
             if is_currently_hovered && !was_hovered {
                 self.event_queue.push_back(UIEvent::MouseEnter(id));

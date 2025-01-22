@@ -10,7 +10,9 @@ use acrust::user_interface::ui_element::UIElement;
 use acrust::user_interface::ui_manager::UIManager;
 use acrust::user_interface::ui_element::UIElementTrait;
 use acrust::user_interface::ui_manager::UIEvent;
-use acrust::user_interface::ui_element::UIButton;
+use acrust::user_interface::ui_element::Button;
+use acrust::user_interface::ui_element::Slider;
+use acrust::user_interface::ui_element::UIElementVisitor;
 
 
 use crate::octo::OctreeNode;
@@ -121,7 +123,7 @@ fn main() {
         ui_element.set_texture(texture_id);
         let mut ui_element2 = UIElement::new(2, Vector2::new(90.0,90.0), Vector2::new(100.0, 100.0));    
         ui_element2.set_color(Vector4::new(1.0, 0.0, 0.0, 1.0));
-        let mut ui_button = UIButton::new(3, Vector2::new(400.0,90.0), Vector2::new(200.0, 100.0)); 
+        let mut ui_button = Button::new(3, Vector2::new(400.0,90.0), Vector2::new(200.0, 100.0)); //button is a bad fucking name 
         ui_element2.set_color(Vector4::new(1.0, 1.0, 0.0, 1.0));
         ui_manager.add_element(Box::new(ui_element));
         ui_manager.add_element(Box::new(ui_element2));
@@ -130,6 +132,8 @@ fn main() {
         let current_mouse_position = window.get_mouse_position();//not really needed i think
         window.lock_cursor();
         let mut sensitivity = 0.002;
+
+        let mut visitor = ClickVisitor::new();
 
 
     while !window.should_close() {
@@ -147,6 +151,23 @@ fn main() {
         //ui_manager.update(current_mouse_position);
         // if ui_manager.is_element_hovered(2) {//this is kinda a useless feature but also might come in handy in the right situation hmm ie like throwing objects in mc
         //     println!("HI");
+        // }
+
+        // ui_manager.visit_element(3, &mut visitor);
+        
+
+        // // Visit all elements
+        // ui_manager.visit_all(&mut visitor);
+
+        // while let Some(event) = input_system.get_event_queue().pop_front() {
+        //     match event {
+        //         InputEvent::MouseButtonPressed(CLICKS::Left) => {
+        //             // Example: Check if a button was clicked
+        //             println!("cl;licckci");
+        //             ui_manager.visit_all(&mut visitor);
+        //         }
+        //         _ => {}
+        //     }
         // }
 
         //uuuh problem I geniuenly forget how this imput system works cry emoji
@@ -216,6 +237,12 @@ fn main() {
                 }
                 InputEvent::MouseButtonPressed(CLICKS::Left) => {
                     println!("pewpew");
+                    if (ui_manager.is_element_hovered(3)){//somthing here to pattern match instead of this
+                        ui_manager.visit_element(3, &mut visitor);
+                    }
+                }
+                InputEvent::MouseButtonPressed(CLICKS::Right) => {
+                    println!("clear");
                 }
                 _ => {}
             }
@@ -224,18 +251,19 @@ fn main() {
         while let Some(event) = ui_manager.poll_event() {
             match event {
                 UIEvent::Hover(id) => {},
+                UIEvent::Click(id) => {},
                 UIEvent::MouseEnter(id) => {
                     println!("Mouse entered element {}", id);
-                    println!("Mouse boooled element {:?}", ui_manager.get_position(id));
-                    ui_manager.set_color(id, Vector4::new(0.0,1.0,1.0,1.0));
                 },
                 UIEvent::MouseExit(id) => {
                     println!("Mouse exited element {}", id);
-                    ui_manager.set_color(id, Vector4::new(1.0,0.0,0.0,1.0));
                 },
                 _ => {}
             }
         }
+
+        // ui_manager.visit_element(3, &mut visitor);
+        // ui_manager.visit_element(3, &mut visitor);
 
         let transform = camera.get_vp_matrix();
     
@@ -259,5 +287,39 @@ fn main() {
         window.update();
     }
 
+}
+
+
+//THIS IS JUST GOING DOWN HERE BC IM LAZY, A BASIC ALIEN LIKE THIS SHOULD JUST AUTOMATICALLY BE IMPLIMENTED INTO THE UI
+pub struct ClickVisitor {
+    pub button_clicked: bool,
+    //pub input_system: &InputSystem,//eeeeehhhhhhh I think there can be better solutions
+}
+//ill just talk about it here
+//we have this que and this visit system ok whatever its not the end of the world
+//its clunky I want is clicked to be in the thing not a class you have to write yourself
+//yk i want it built into button
+
+impl ClickVisitor {
+    pub fn new() -> Self {
+        Self {
+            button_clicked: false,
+            //input_system: false,
+        }
+    }
+}
+
+impl UIElementVisitor for ClickVisitor {
+    fn visit_button(&mut self, button: &mut Button, is_clicked: bool) {
+        if is_clicked{
+            self.button_clicked = true;
+            println!("Button clicked: ID {}", button.get_id());
+            button.set_position(button.get_position() + Vector2::new(10.0, 0.0));
+        }
+    }
+
+    fn visit_slider(&mut self, slider: &mut Slider) {
+        println!("Slider value: {}", slider.get_value());
+    }
 }
 

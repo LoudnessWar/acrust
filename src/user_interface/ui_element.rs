@@ -1,12 +1,8 @@
-use std::any::Any;
-
 use cgmath::{Vector2, Vector4};
-use crate::input::input::*;
 
-pub trait UIElementTrait {//ok so in the future I will probably change this to a visitor or enum based system, this is just dynamic and if someone wants to make theiir own like ui elements
-    //it like should be possible for them to do that
-    //... They just need to add a lot of functions 
-    //fn render(&self, shader: &ShaderProgram);
+use crate::input::input::{InputSystem, CLICKS};
+
+pub trait UIElementTrait {
     fn is_hovered(&self, mouse_pos: (f64, f64)) -> bool;
     fn get_id(&self) -> u32;
     fn get_position(&self) -> Vector2<f32>;
@@ -17,10 +13,16 @@ pub trait UIElementTrait {//ok so in the future I will probably change this to a
     fn set_color(&mut self, color: Vector4<f32>); 
     fn set_position(&mut self, position: Vector2<f32>);
     fn set_size(&mut self, size: Vector2<f32>);
-    fn as_any(&self) -> &dyn Any;
-    fn as_any_mut(&mut self) -> &mut dyn Any;
+    fn accept(&mut self, visitor: &mut dyn UIElementVisitor);
 }
 
+// Define the Visitor trait
+pub trait UIElementVisitor {
+    fn visit_button(&mut self, button: &mut Button, is_clicked: bool);
+    fn visit_slider(&mut self, slider: &mut Slider);
+}
+
+// A basic UIElement struct for shared properties
 pub struct UIElement {
     id: u32,
     position: Vector2<f32>,
@@ -35,8 +37,13 @@ impl UIElement {
             id,
             position,
             size,
-            color: Vector4::new(1.0,1.0,1.0,1.0),
-            texture_id: None,
+            color: Vector4::new(1.0, 1.0, 1.0, 1.0),
+            texture_id: None,//I really hate how texture is handled rn
+            //it check for presence in the vertex shaderr
+            //completely overrides color which sucks befcause like
+            //maybe I just want it to change over color
+            //a lot of things just dont have texture so its useless there
+            //again it checks for texture using if in the vertex shader and just over rides color
         }
     }
 }
@@ -85,26 +92,22 @@ impl UIElementTrait for UIElement {
         self.size = size;
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
+    fn accept(&mut self, _visitor: &mut dyn UIElementVisitor) {
+        // Base UIElements don't need special visitor logic
     }
 }
 
-// Button struct inheriting from UIElement
-pub struct UIButton {
+// Define a Button struct with specific behavior
+pub struct Button {
     base: UIElement,
     is_pressed: bool,
 }
 
-impl UIButton {
+impl Button {
     pub fn new(id: u32, position: Vector2<f32>, size: Vector2<f32>) -> Self {
         Self {
             base: UIElement::new(id, position, size),
-            is_pressed: false,
+            is_pressed: false,//what this does nothing lol how should i go :idkemoji: ok so do I change this with a) the event que or b) my own is clicked class...idkdk
         }
     }
 
@@ -119,9 +122,13 @@ impl UIButton {
         }
         false
     }
+
+    // pub fn is_clicked(&self) -> bool {
+    //     self.is_pressed
+    // }
 }
 
-impl UIElementTrait for UIButton {
+impl UIElementTrait for Button {
     fn is_hovered(&self, mouse_pos: (f64, f64)) -> bool {
         self.base.is_hovered(mouse_pos)
     }
@@ -161,11 +168,79 @@ impl UIElementTrait for UIButton {
         self.base.set_size(size);
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn accept(&mut self, visitor: &mut dyn UIElementVisitor) {
+        visitor.visit_button(self, true);
+    }
+}
+
+// Define a Slider struct as an example of another element
+pub struct Slider {
+    base: UIElement,
+    value: f32,
+    min: f32,
+    max: f32,
+}
+
+impl Slider {
+    pub fn new(id: u32, position: Vector2<f32>, size: Vector2<f32>, min: f32, max: f32) -> Self {
+        Self {
+            base: UIElement::new(id, position, size),
+            value: min,
+            min,
+            max,
+        }
     }
 
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
+    pub fn set_value(&mut self, value: f32) {
+        self.value = value.clamp(self.min, self.max);
+    }
+
+    pub fn get_value(&self) -> f32 {
+        self.value
+    }
+}
+
+impl UIElementTrait for Slider {
+    fn is_hovered(&self, mouse_pos: (f64, f64)) -> bool {
+        self.base.is_hovered(mouse_pos)
+    }
+
+    fn get_id(&self) -> u32 {
+        self.base.get_id()
+    }
+
+    fn get_position(&self) -> Vector2<f32> {
+        self.base.get_position()
+    }
+
+    fn get_size(&self) -> Vector2<f32> {
+        self.base.get_size()
+    }
+
+    fn get_color(&self) -> Vector4<f32> {
+        self.base.get_color()
+    }
+
+    fn get_texture_id(&self) -> Option<u32> {
+        self.base.get_texture_id()
+    }
+
+    fn set_texture(&mut self, texture_id: u32) {
+        self.base.set_texture(texture_id);
+    }
+
+    fn set_color(&mut self, color: Vector4<f32>) {
+        self.base.set_color(color);
+    }
+    fn set_position(&mut self, position: Vector2<f32>) {
+        self.base.set_position(position);
+    }
+
+    fn set_size(&mut self, size: Vector2<f32>) {
+        self.base.set_size(size);
+    }
+
+    fn accept(&mut self, visitor: &mut dyn UIElementVisitor) {
+        visitor.visit_slider(self);
     }
 }
