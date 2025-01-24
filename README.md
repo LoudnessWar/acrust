@@ -5,6 +5,7 @@ READ ME TODO
 - [x] skybox
 - [x] Materials
 - [x] UI
+- [ ] everything is moving around the camera without their own model matrix's rn... 
 - [ ] light lol
 - [ ] Better UI
 - [ ] Materials Textures

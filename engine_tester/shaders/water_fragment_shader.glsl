@@ -9,7 +9,7 @@ out vec4 FragColor;
 uniform vec4 waterColor;
 uniform vec3 lightPosition;
 uniform vec4 lightColor;
-uniform float lightIntensity;
+//uniform float lightIntensity;
 
 void main() {
     // Light calculations

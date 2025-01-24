@@ -5,6 +5,9 @@ use std::ptr;
 
 use cgmath::vec4;//crate
 use crate::Matrix4;
+use acrust::graphics::camera::Camera;
+use cgmath::One;
+//use cgmath::{Matrix4, Vector3, Deg, Point3};
 
 pub struct WaterRender {
     vao: Vao,
@@ -61,14 +64,18 @@ impl WaterRender {
 
         // Create a material and initialize uniforms
         let mut material = Material::new(shader);
-        material.add_uniform("waterColor");
-        material.add_uniform("waveSpeed");
-        material.add_uniform("waveScale");
-        material.add_uniform("timeFactor");
-        material.add_uniform("waveHeight");
-        material.add_uniform("lightPosition");
-        material.add_uniform("lightColor");
-        material.add_uniform("transform");
+        material.init_uniform("waterColor");
+        material.init_uniform("waveSpeed");
+        material.init_uniform("waveScale");
+        material.init_uniform("timeFactor");
+        material.init_uniform("waveHeight");
+        material.init_uniform("lightPosition");
+        material.init_uniform("lightColor");
+        material.init_uniform("view");
+        material.init_uniform("projection");
+        material.init_uniform("model");
+        //material.init_uniform("lightIntensity");
+        println!("HERE!@");
 
         WaterRender {
             vao,
@@ -79,20 +86,25 @@ impl WaterRender {
         }
     }
 
-    pub fn render(&self, transform: &Matrix4<f32>, time: f32) {
+    pub fn render(&mut self, time: f32, camera: &Camera) {
         self.vao.bind();
 
         // Set uniform values
-        self.material.set_property("waterColor", vec4(0.0, 0.5, 1.0, 0.5));
-        self.material.set_property("waveSpeed", 1.0);
-        self.material.set_property("waveScale", 0.1);
-        self.material.set_property("timeFactor", time);
-        self.material.set_property("waveHeight", 0.1);
-        self.material.set_property("lightPosition", vec4(0.0, 10.0, 0.0, 1.0));
-        self.material.set_property("lightColor", vec4(1.0, 1.0, 1.0, 1.0));
-
+        self.material.set_property("waterColor", UniformValue::Vector4(vec4(0.0, 0.5, 1.0, 0.5)));
+        self.material.set_property("waveSpeed", UniformValue::Float(1.0));
+        self.material.set_property("waveScale", UniformValue::Float(0.1));
+        self.material.set_property("timeFactor", UniformValue::Float(time));
+        self.material.set_property("waveHeight", UniformValue::Float(0.1));
+        self.material.set_property("lightPosition", UniformValue::Vector4(vec4(0.0, 10.0, 0.0, 1.0)));
+        self.material.set_property("lightColor", UniformValue::Vector4(vec4(1.0, 1.0, 1.0, 1.0)));
+        //self.material.set_float_property("lightIntensity", 10.0);
         // Set transform matrix
-        self.material.set_matrix4fv_uniform("transform", transform);
+        //self.material.set_matrix4fv_uniform("transform", transform);
+
+        // Set camera matrices
+        self.material.set_matrix4fv_uniform("view", &camera.get_view());
+        self.material.set_matrix4fv_uniform("model", &Matrix4::one());
+        self.material.set_matrix4fv_uniform("projection", &camera.get_p_matrix());
 
         // Apply the material
         self.material.apply();

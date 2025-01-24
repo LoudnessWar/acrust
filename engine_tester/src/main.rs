@@ -37,10 +37,14 @@ mod octo;
 mod wave_generator;
 
 
+
+//:big todo give everything a model matrix rn things are just at origin with verticies deciding their location, and not like a proper model scheme, everyobject should from now on
+//get a transformation matrix(not everyhing only the things that are using the transormation matrix so after this push, literally only the voxels), for its like where it is relative to the camera, but they should also all get a model matrix
+//
 fn main() {
     let mut window = Window::new(720, 720, "CUBE!", 60);
     window.init_gl();
-
+    println!("after window init");
 
     let mut input_system = InputSystem::new();//need to make this so that it is like added on window init or something
 
@@ -58,7 +62,9 @@ fn main() {
     material1.initialize_uniforms();
 
     //let mut material2 = Material::new(shaders_water);
-    let water = WaterRender::new(10.0, 10.0, 1.0, shaders_water);
+    println!("before water");
+    let mut water = WaterRender::new(10.0, 10.0, 1.0, shaders_water);
+    println!("after water");
     //material2.initialize_uniforms();
 
     let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
@@ -73,9 +79,10 @@ fn main() {
     let mut camera = Camera::new(perspective);
 
     //attaching the camera to the player
+    println!("before camera");
     camera.attach_to(&player.transform);
 
-    let mut water = WaterRender::new(20.0, 20.0, 5.0);
+    //let mut water = WaterRender::new(20.0, 20.0, 5.0);
 
     let mut chunk_manager = ChunkManager::new();
     let mut terrain = TerrainGenerator::new(42, 16);
@@ -108,9 +115,9 @@ fn main() {
 
         let skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
         let mut skybox_material = Material::new(skybox_shader);
-        skybox_material.add_uniform("view");
-        skybox_material.add_uniform("projection");
-        skybox_material.add_uniform("skybox");
+        skybox_material.init_uniform("view");
+        skybox_material.init_uniform("projection");
+        skybox_material.init_uniform("skybox");
     
     //ui
 
@@ -135,6 +142,8 @@ fn main() {
         let mut sensitivity = 0.002;
 
         let mut visitor = ClickVisitor::new();
+        let mut time = 0.0;
+
 
 
     while !window.should_close() {
@@ -275,8 +284,7 @@ fn main() {
         // material2.apply();
         // material2.set_matrix4fv_uniform("transform", &transform);
         // water.render();
-
-        water.render(&transform, 0.0);
+        water.render(time, &camera);
 
 
         {

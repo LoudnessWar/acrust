@@ -8,8 +8,8 @@ out vec3 WorldPos;
 out vec3 Normal;
 
 uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
+uniform mat4 view;       // From the camera
+uniform mat4 projection; // From the camera
 uniform float waveSpeed;
 uniform float waveScale;
 uniform float timeFactor;
