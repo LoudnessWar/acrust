@@ -57,8 +57,9 @@ fn main() {
     let mut material1 = Material::new(shaders_land);
     material1.initialize_uniforms();
 
-    let mut material2 = Material::new(shaders_water);
-    material2.initialize_uniforms();
+    //let mut material2 = Material::new(shaders_water);
+    let water = WaterRender::new(10.0, 10.0, 1.0, shaders_water);
+    //material2.initialize_uniforms();
 
     let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
 
@@ -271,9 +272,12 @@ fn main() {
         material1.set_matrix4fv_uniform("transform", &transform);
         chunk_manager.render_all();
 
-        material2.apply();
-        material2.set_matrix4fv_uniform("transform", &transform);
-        water.render();
+        // material2.apply();
+        // material2.set_matrix4fv_uniform("transform", &transform);
+        // water.render();
+
+        water.render(&transform, 0.0);
+
 
         {
             let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());

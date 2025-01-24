@@ -4,10 +4,12 @@ READ ME TODO
 - [x] Fix .gitnore
 - [x] skybox
 - [x] Materials
+- [x] UI
+- [ ] light lol
+- [ ] Better UI
 - [ ] Materials Textures
 - [ ] Sound
 - [ ] Better Water
-- [ ] UI
 - [ ] Saving
 - [ ] Some Sort of Shader wrapper
 - [ ] multthread chunk loading
