@@ -62,9 +62,9 @@ fn main() {
     material1.initialize_uniforms();
 
     //let mut material2 = Material::new(shaders_water);
-    println!("before water");
-    let mut water = WaterRender::new(10.0, 10.0, 1.0, shaders_water);
-    println!("after water");
+    //println!("before water");
+    let mut water = WaterRender::new(20.0, 20.0, 5.0, shaders_water);
+    //println!("after water");
     //material2.initialize_uniforms();
 
     let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
@@ -297,6 +297,7 @@ fn main() {
         
 
         window.update();
+        time += 0.1;
     }
 
 }

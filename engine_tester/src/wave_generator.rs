@@ -21,15 +21,20 @@ impl WaterRender {
     pub fn new(
         length: f32,
         width: f32,
-        quad_size: f32,
+        quadSize: f32,
         shader: ShaderProgram, // Pass the shader program to initialize the material
     ) -> Self {
         let mut vertices: Vec<f32> = Vec::new();
         let mut indices: Vec<i32> = Vec::new();
+        let mut offset = 0;
+        let mut uvs = Vec::new();//literally not even used
 
-        for i in 0..length as i32 {
-            for j in 0..width as i32 {
-                vertices.extend(vec![j as f32 * quad_size, 0.0, i as f32 * quad_size]);
+        for i in 0..length as i32
+        {
+            for j in 0..width as i32
+            {
+                vertices.extend(vec![j as f32 * quadSize, 0.0, i as f32 * quadSize]);
+                uvs.extend(vec![j as f32 / width, i as f32 / width]);
             }
         }
 
@@ -59,9 +64,8 @@ impl WaterRender {
         ebo.bind();
         ebo.store_i32_data(&indices);
 
-        let stride = 3 * mem::size_of::<GLfloat>() as GLsizei; // Position only
+        let stride = 6 * mem::size_of::<GLfloat>() as GLsizei;//this uuuh is fine...nah but i am curious
         VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, stride, ptr::null()).enable();
-
         // Create a material and initialize uniforms
         let mut material = Material::new(shader);
         material.init_uniform("waterColor");
@@ -75,7 +79,7 @@ impl WaterRender {
         material.init_uniform("projection");
         material.init_uniform("model");
         //material.init_uniform("lightIntensity");
-        println!("HERE!@");
+        //println!("HERE!@");
 
         WaterRender {
             vao,
@@ -89,14 +93,15 @@ impl WaterRender {
     pub fn render(&mut self, time: f32, camera: &Camera) {
         self.vao.bind();
 
+        self.material.apply();
         // Set uniform values
         self.material.set_property("waterColor", UniformValue::Vector4(vec4(0.0, 0.5, 1.0, 0.5)));
         self.material.set_property("waveSpeed", UniformValue::Float(1.0));
         self.material.set_property("waveScale", UniformValue::Float(0.1));
-        self.material.set_property("timeFactor", UniformValue::Float(time));
-        self.material.set_property("waveHeight", UniformValue::Float(0.1));
+        self.material.set_property("timeFactor", UniformValue::Float(time * 0.1));
+        self.material.set_property("waveHeight", UniformValue::Float(0.5));
         self.material.set_property("lightPosition", UniformValue::Vector4(vec4(0.0, 10.0, 0.0, 1.0)));
-        self.material.set_property("lightColor", UniformValue::Vector4(vec4(1.0, 1.0, 1.0, 1.0)));
+        self.material.set_property("lightColor", UniformValue::Vector4(vec4(0.0, 1.0, 1.0, 1.0)));
         //self.material.set_float_property("lightIntensity", 10.0);
         // Set transform matrix
         //self.material.set_matrix4fv_uniform("transform", transform);
