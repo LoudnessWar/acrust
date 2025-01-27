@@ -6,7 +6,9 @@ use std::ptr;
 use cgmath::vec4;//crate
 use crate::Matrix4;
 use acrust::graphics::camera::Camera;
+use acrust::input::transform::WorldCoords;
 use cgmath::One;
+use cgmath::Vector3;
 //use cgmath::{Matrix4, Vector3, Deg, Point3};
 
 pub struct WaterRender {
@@ -15,6 +17,7 @@ pub struct WaterRender {
     ebo: BufferObject,
     index_count: i32,
     material: Material, // Link the material
+    position: WorldCoords,
 }
 
 impl WaterRender {
@@ -64,7 +67,7 @@ impl WaterRender {
         ebo.bind();
         ebo.store_i32_data(&indices);
 
-        let stride = 6 * mem::size_of::<GLfloat>() as GLsizei;//this uuuh is fine...nah but i am curious
+        let stride = 3 * mem::size_of::<GLfloat>() as GLsizei;//this uuuh is fine...nah but i am curious
         VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, stride, ptr::null()).enable();
         // Create a material and initialize uniforms
         let mut material = Material::new(shader);
@@ -87,6 +90,7 @@ impl WaterRender {
             ebo,
             index_count: indices.len() as i32,
             material,
+            position: WorldCoords::new_empty(),
         }
     }
 
@@ -108,7 +112,7 @@ impl WaterRender {
 
         // Set camera matrices
         self.material.set_matrix4fv_uniform("view", &camera.get_view());
-        self.material.set_matrix4fv_uniform("model", &Matrix4::one());
+        self.material.set_matrix4fv_uniform("model", &self.position.get_model_matrix());
         self.material.set_matrix4fv_uniform("projection", &camera.get_p_matrix());
 
         // Apply the material
@@ -123,5 +127,13 @@ impl WaterRender {
                 ptr::null(),
             );
         }
+    }
+
+    pub fn set_position(&mut self, new_position: Vector3<f32>){
+        self.position.set_position(new_position);
+    }
+
+    pub fn get_position(&self) -> Vector3<f32>{
+        self.position.get_position()
     }
 }

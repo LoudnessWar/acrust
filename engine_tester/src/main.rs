@@ -20,6 +20,7 @@ use crate::voxel_render::VoxelRenderer;
 use crate::chunk_generator::*;
 use crate::chunk_manager::ChunkManager;
 use crate::wave_generator::WaterRender;
+use cgmath::Vector3;
 
 use crate::player::Player;
 
@@ -64,6 +65,7 @@ fn main() {
     //let mut material2 = Material::new(shaders_water);
     //println!("before water");
     let mut water = WaterRender::new(20.0, 20.0, 5.0, shaders_water);
+    water.set_position(water.get_position() - Vector3::new(10.0, 0.0, 10.0));
     //println!("after water");
     //material2.initialize_uniforms();
 

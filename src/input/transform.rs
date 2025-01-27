@@ -23,7 +23,7 @@ impl WorldCoords {
         }
     }
 
-    pub fn get_model_matrix(&self) -> Matrix4<f32> {
+    pub fn get_model_matrix(&self) -> Matrix4<f32> {//holy balls lol I forgot i had this
         Matrix4::from_translation(self.position)
             * Matrix4::from(self.rotation)
             * Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z)
@@ -60,6 +60,12 @@ impl WorldCoords {
     pub fn move_right(&mut self, left_vec: Vector3<f32>, distance: f32) {
         self.position += left_vec * distance;
     }
+    //add more getters and setter for rotation and scale later
+    pub fn set_position(&mut self, new_position: Vector3<f32>) {
+        self.position = new_position;
+    }
 
-
+    pub fn get_position(&self) -> Vector3<f32>{
+        self.position
+    }
 }

@@ -84,7 +84,7 @@ impl UIManager {
     }
 
     pub fn render(&self, shader: &ShaderProgram) {
-        shader.bind();
+        shader.bind();//do i just do in init? no bc in mat is norm done?
         shader.set_matrix4fv_uniform("projection", &self.projection);
         self.vao.bind();
 
