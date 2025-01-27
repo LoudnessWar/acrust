@@ -47,12 +47,12 @@ fn main() {
     window.init_gl();
     println!("after window init");
 
-    let mut input_system = InputSystem::new();//need to make this so that it is like added on window init or something
+    let mut input_system = InputSystem::new();
 
     let mut shaders_land = ShaderProgram::new("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
     let mut shaders_water = ShaderProgram::new("shaders/water_vertex_shader.glsl", "shaders/water_fragment_shader.glsl");
     let mut ui_shader = ShaderProgram::new("shaders/ui_vertex.glsl", "shaders/ui_fragment.glsl");
-    ui_shader.create_uniform("projection");//these shouuld jsut be made... in the like ui_manager it should be passed a shader
+    ui_shader.create_uniform("projection");
     ui_shader.create_uniform("color");
     ui_shader.create_uniform("useTexture");
 
@@ -62,12 +62,8 @@ fn main() {
     let mut material1 = Material::new(shaders_land);
     material1.initialize_uniforms();
 
-    //let mut material2 = Material::new(shaders_water);
-    //println!("before water");
     let mut water = WaterRender::new(20.0, 20.0, 5.0, shaders_water);
     water.set_position(water.get_position() - Vector3::new(10.0, 0.0, 10.0));
-    //println!("after water");
-    //material2.initialize_uniforms();
 
     let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
 
@@ -79,12 +75,8 @@ fn main() {
     };
 
     let mut camera = Camera::new(perspective);
-
-    //attaching the camera to the player
-    println!("before camera");
     camera.attach_to(&player.transform);
 
-    //let mut water = WaterRender::new(20.0, 20.0, 5.0);
 
     let mut chunk_manager = ChunkManager::new();
     let mut terrain = TerrainGenerator::new(42, 16);
@@ -95,61 +87,61 @@ fn main() {
         chunk_manager.add_octree(octree, position);
     }
 
-
-    //adding a single little chunky monkey
     let octree = terrain.get_root();
     chunk_manager.add_octree(octree.clone(), (0.0, 0.0, 0.0));
 
-    //skybox
 
-        let skybox_faces = [
-            "textures/right.jpg",
-            "textures/left.jpg",
-            "textures/top.png",
-            "textures/bottom.png",
-            "textures/front.jpg",
-            "textures/back.jpg",
-        ];
+    //cube
 
-        println!("Creating skybox...");
-        let skybox = Skybox::new(&skybox_faces);
-        println!("Skybox created with texture ID: {}", skybox.get_texture_id());
+    let mut cube = Cube::new(1, Vector3::new(0.0, 0.0, 0.0), 1.0, 1.0, 1.0, material1);
 
-        let skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
-        let mut skybox_material = Material::new(skybox_shader);
-        skybox_material.init_uniform("view");
-        skybox_material.init_uniform("projection");
-        skybox_material.init_uniform("skybox");
+    cube.translate(Vector3::new(1.0, 0.0, 0.0));
+
+
+    let skybox_faces = [
+        "textures/right.jpg",
+        "textures/left.jpg",
+        "textures/top.png",
+        "textures/bottom.png",
+        "textures/front.jpg",
+        "textures/back.jpg",
+    ];
+
+    let skybox = Skybox::new(&skybox_faces);
+
+    let skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
+    let mut skybox_material = Material::new(skybox_shader);
+    skybox_material.init_uniform("view");
+    skybox_material.init_uniform("projection");
+    skybox_material.init_uniform("skybox");
     
-    //ui
+    let mut texture_manager = TextureManager::new();
 
-        let mut texture_manager = TextureManager::new();
+    let texture_id = texture_manager.load_texture("textures/right.jpg")
+                .expect("Failed to load texture");
 
-        let texture_id = texture_manager.load_texture("textures/right.jpg")
-                    .expect("Failed to load texture");
+    let mut ui_manager = UIManager::new(720.0, 720.0);
+    let mut ui_element = UIElement::new(1, Vector2::new(50.0, 50.0), Vector2::new(200.0, 100.0));
+    ui_element.set_texture(texture_id);
+    let mut ui_element2 = UIElement::new(2, Vector2::new(90.0,90.0), Vector2::new(100.0, 100.0));    
+    ui_element2.set_color(Vector4::new(1.0, 0.0, 0.0, 1.0));
+    let mut ui_button = Button::new(3, Vector2::new(400.0,90.0), Vector2::new(200.0, 100.0)); //button is a bad fucking name 
+    ui_element2.set_color(Vector4::new(1.0, 1.0, 0.0, 1.0));
+    ui_manager.add_element(Box::new(ui_element));
+    ui_manager.add_element(Box::new(ui_element2));
+    ui_manager.add_element(Box::new(ui_button));
 
-        let mut ui_manager = UIManager::new(720.0, 720.0);
-        let mut ui_element = UIElement::new(1, Vector2::new(50.0, 50.0), Vector2::new(200.0, 100.0));
-        ui_element.set_texture(texture_id);
-        let mut ui_element2 = UIElement::new(2, Vector2::new(90.0,90.0), Vector2::new(100.0, 100.0));    
-        ui_element2.set_color(Vector4::new(1.0, 0.0, 0.0, 1.0));
-        let mut ui_button = Button::new(3, Vector2::new(400.0,90.0), Vector2::new(200.0, 100.0)); //button is a bad fucking name 
-        ui_element2.set_color(Vector4::new(1.0, 1.0, 0.0, 1.0));
-        ui_manager.add_element(Box::new(ui_element));
-        ui_manager.add_element(Box::new(ui_element2));
-        ui_manager.add_element(Box::new(ui_button));
+    let current_mouse_position = window.get_mouse_position();//not really needed i think
+    window.lock_cursor();
+    let mut sensitivity = 0.002;
 
-        let current_mouse_position = window.get_mouse_position();//not really needed i think
-        window.lock_cursor();
-        let mut sensitivity = 0.002;
+    let mut visitor = ClickVisitor::new();
+    let mut time = 0.0;
 
-        let mut visitor = ClickVisitor::new();
-        let mut time = 0.0;
 
 
 
     while !window.should_close() {
-        // Clear the screen
         unsafe {
             gl::ClearColor(0.3, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
@@ -158,29 +150,7 @@ fn main() {
         let current_mouse_position = window.get_mouse_position();
         let (delta_x, delta_y) = input_system.update_mouse_position(current_mouse_position);
 
-        camera.rotate(-delta_x as f32 * sensitivity, -delta_y as f32 * sensitivity);//boomers when the uuuuuuh its wrong and inverted
-        
-        //ui_manager.update(current_mouse_position);
-        // if ui_manager.is_element_hovered(2) {//this is kinda a useless feature but also might come in handy in the right situation hmm ie like throwing objects in mc
-        //     println!("HI");
-        // }
-
-        // ui_manager.visit_element(3, &mut visitor);
-        
-
-        // // Visit all elements
-        // ui_manager.visit_all(&mut visitor);
-
-        // while let Some(event) = input_system.get_event_queue().pop_front() {
-        //     match event {
-        //         InputEvent::MouseButtonPressed(CLICKS::Left) => {
-        //             // Example: Check if a button was clicked
-        //             println!("cl;licckci");
-        //             ui_manager.visit_all(&mut visitor);
-        //         }
-        //         _ => {}
-        //     }
-        // }
+        camera.rotate(-delta_x as f32 * sensitivity, -delta_y as f32 * sensitivity);
 
         //uuuh problem I geniuenly forget how this imput system works cry emoji
         //I fink if I rememba correctry its like uuuhhhh process input events calls input:;events and adds them to que directly
@@ -216,23 +186,14 @@ fn main() {
             player.move_down();
         }
         if input_system.is_key_pressed(&Key::Tab) {
-            ui_manager.update(current_mouse_position);//hmm good idea no need to update it unless tab clicked
+            ui_manager.update(current_mouse_position);
             ui_manager.render(&ui_shader);
         }
-
-        //ok i learned a little i need the other one right get this because sometimes
-        //releasing a button also needs to do something
-        // if input_system.is_key_pressed(&Key::Tab) {
-        //     window.unlock_cursor();
-        // }
 
         camera.update_view();
     
         while let Some(event) = input_system.get_event_queue().pop_front() {
             match event {
-                // InputEvent::KeyPressed(Key::Space) => {
-                //     println!("up");
-                // }
                 InputEvent::KeyPressed(Key::Lctrl) => {
                     player.speed = 0.3;
                 }
@@ -274,19 +235,16 @@ fn main() {
             }
         }
 
-        // ui_manager.visit_element(3, &mut visitor);
-        // ui_manager.visit_element(3, &mut visitor);
-
         let transform = camera.get_vp_matrix();
     
         material1.apply();
         material1.set_matrix4fv_uniform("transform", &transform);
         chunk_manager.render_all();
 
-        // material2.apply();
-        // material2.set_matrix4fv_uniform("transform", &transform);
-        // water.render();
         water.render(time, &camera);
+
+        cube.render(&shaders_land, &view_projection_matrix);
+
 
 
         {
