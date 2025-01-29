@@ -1,7 +1,11 @@
 use cgmath::{Matrix4, Vector3, Vector4};
 use crate::graphics::gl_wrapper::*;
-use crate::graphics::material::Material;
-use crate::transform::WorldCoords; // Import the WorldCoords struct
+use crate::graphics::gl_wrapper::Material;
+use crate::graphics::gl_wrapper::Vao;
+use crate::graphics::gl_wrapper::BufferObject;
+use crate::graphics::gl_wrapper::VertexAttribute;
+
+use crate::input::transform::WorldCoords; // Import the WorldCoords struct
 
 pub struct Cube {
     id: u32,
@@ -94,14 +98,14 @@ impl Cube {
         shader.set_matrix4fv_uniform("model", &self.transform.get_model_matrix()); // Use WorldCoords for the model matrix
         shader.set_matrix4fv_uniform("viewProjection", view_projection_matrix);
 
-        let vao = VertexArrayObject::new();
+        let vao = Vao::new();
         vao.bind();
 
-        let vbo = VertexBufferObject::new();
+        let vbo = BufferObject::new();
         vbo.bind();
         vbo.buffer_data(&self.vertices);
 
-        let ebo = ElementBufferObject::new();
+        let ebo = BufferObject::new();
         ebo.bind();
         ebo.buffer_data(&self.indices);
 

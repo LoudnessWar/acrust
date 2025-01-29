@@ -17,4 +17,5 @@ pub mod custom_errors;
 pub mod graphics;
 pub mod logger;
 pub mod input;
-pub mod user_interface;
+pub mod user_interface; 
+pub mod generic_shapes;

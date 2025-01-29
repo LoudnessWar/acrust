@@ -268,7 +268,9 @@ impl ShaderProgram {
 
 
 
-
+//hmm I toke it out then thought,
+//why what is the point? // none??
+//ok I just keep in then
 
 //ok like this should have been in its own file but whatever... uuuuuuh so like here is this thing
 //need to add textures to this, also im using this uniformvalue enum, I want something so that you dont have to specify it the code here will just allow any thing in and just match it to the correct
