@@ -15,6 +15,10 @@ use gl::types::*;
 /// one thing I do not like about this new implimentation is that any shader with a material must but in the
 /// shader manager like I cant have a free shader material like how skybox was.. this would be benefitial for single
 /// use shaders
+/// 
+/// maybe for some things keeps a ref to the shader here to make it faster
+/// 
+/// raah need a spot for stuff to not be cloned
 pub struct Material {
     shader_name: String, // Reference to shader stored in ShaderManager
     uniforms: HashMap<String, UniformValue>,

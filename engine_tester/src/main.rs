@@ -54,6 +54,7 @@ fn main() {
 
     let mut shader_manager = ShaderManager::new();
     shader_manager.load_shader("land", "shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
+    shader_manager.load_shader("generic", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl");
     shader_manager.load_shader("water", "shaders/water_vertex_shader.glsl", "shaders/water_fragment_shader.glsl");
     
 
@@ -67,6 +68,7 @@ fn main() {
     shader_manager.enable_backface_culling("land");//have this on by default prolly and make it so you have to turn them off if you wsnat them off I think
     shader_manager.enable_depth("land");
     let mut material1 = Material::new("land");
+    let mut generic_mat = Material::new("generic");
     //material1.initialize_uniforms();
 
     let mut water = WaterRender::new(20.0, 20.0, 5.0, "water");
@@ -100,9 +102,9 @@ fn main() {
 
     //cube
 
-    // let mut cube = Cube::new(1, Vector3::new(0.0, 0.0, 0.0), 1.0, 1.0, 1.0, &material1);
+    let mut cube = Cube::new(3.0, Vector3::new(0.0, 0.0, 0.0), 1.0);
 
-    // cube.translate(Vector3::new(1.0, 0.0, 0.0));
+    //cube.translate(Vector3::new(1.0, 0.0, 0.0));
 
 
     let skybox_faces = [
@@ -197,8 +199,6 @@ fn main() {
             ui_manager.update(current_mouse_position);
             ui_manager.render(&ui_shader);
         }
-
-        camera.update_view();
     
         while let Some(event) = input_system.get_event_queue().pop_front() {
             match event {
@@ -229,6 +229,8 @@ fn main() {
             }
         }
 
+        camera.update_view();
+
         while let Some(event) = ui_manager.poll_event() {
             match event {
                 UIEvent::Hover(id) => {},
@@ -247,12 +249,18 @@ fn main() {
     
         material1.apply_no_model(&shader_manager, &texture_manager);
         material1.set_matrix4fv_uniform(&mut shader_manager, "transform", transform.clone());
+        //println!("HERE");
+        generic_mat.set_matrix4fv_uniform(&mut shader_manager, "view", camera.get_view().clone());//hmm so maybe this can go in the funny cube function
+        //println!("vie");
+        generic_mat.set_matrix4fv_uniform(&mut shader_manager, "projection", camera.get_p_matrix().clone());
+        generic_mat.init_uniform(&mut shader_manager, "model");
         chunk_manager.render_all();
 
         water.render(&mut shader_manager, time, &camera);
+        //println!("afterall");
+        cube.render(&generic_mat, &shader_manager, &texture_manager);
 
-        //cube.render(material1.borrow_shader(), &camera.get_vp_matrix());
-
+        //println!("fin?");
         {
             let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
             let projection_matrix = camera.get_p_matrix();
