@@ -64,9 +64,8 @@ fn main() {
     ui_shader.create_uniform("color");
     ui_shader.create_uniform("useTexture");
 
-    // shaders_land.enable_backface_culling();//have this on by default prolly and make it so you have to turn them off if you wsnat them off I think
-    // shaders_land.enable_depth();
-
+    shader_manager.enable_backface_culling("land");//have this on by default prolly and make it so you have to turn them off if you wsnat them off I think
+    shader_manager.enable_depth("land");
     let mut material1 = Material::new("land");
     //material1.initialize_uniforms();
 

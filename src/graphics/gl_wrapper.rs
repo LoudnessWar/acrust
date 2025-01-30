@@ -286,6 +286,8 @@ impl ShaderProgram {
     }
 }
 
+
+//this needs a lot
 pub struct ShaderManager {
     shaders: HashMap<String, ShaderProgram>,
 }
@@ -306,6 +308,14 @@ impl ShaderManager {
 
     pub fn get_shader_mut(&mut self, name: &str) -> Option<&mut ShaderProgram> {
         self.shaders.get_mut(name)
+    }
+
+    pub fn enable_backface_culling(&mut self, name: &str){
+        self.shaders.get_mut(name).expect("CANNOT FIND SHADER").enable_backface_culling();
+    }
+
+    pub fn enable_depth(&mut self, name: &str){
+        self.shaders.get_mut(name).expect("CANNOT FIND SHADER").enable_depth();
     }
 }
 
