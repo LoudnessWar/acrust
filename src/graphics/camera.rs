@@ -1,5 +1,5 @@
 use cgmath::{InnerSpace, Matrix4, PerspectiveFov, Point3, Rad, Vector3, Quaternion, EuclideanSpace, Transform, Rotation3};
-use crate::input::transform::WorldCoords;
+use crate::model::transform::WorldCoords;
 
 pub struct Camera {
     pub transform: WorldCoords, // Camera's local transform

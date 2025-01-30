@@ -2,7 +2,7 @@
 #![allow(warnings)]
 use acrust::graphics::window::Window;
 use acrust::graphics::camera::Camera;
-use acrust::graphics::texture_manage::TextureManager;
+use acrust::graphics::texture_manager::TextureManager;
 use acrust::graphics::skybox::Skybox;
 use acrust::input::input::{InputSystem, InputEvent, Key, CLICKS};
 use acrust::graphics::gl_wrapper::*;
@@ -13,14 +13,16 @@ use acrust::user_interface::ui_manager::UIEvent;
 use acrust::user_interface::ui_element::Button;
 use acrust::user_interface::ui_element::Slider;
 use acrust::user_interface::ui_element::UIElementVisitor;
+use acrust::graphics::materials::Material;
 
 
 use crate::octo::OctreeNode;
 use crate::voxel_render::VoxelRenderer;
 use crate::chunk_generator::*;
 use crate::chunk_manager::ChunkManager;
-use crate::wave_generator::WaterRender;
+// use crate::wave_generator::WaterRender;
 use cgmath::Vector3;
+use acrust::model::cube::Cube;
 
 use crate::player::Player;
 
@@ -49,21 +51,27 @@ fn main() {
 
     let mut input_system = InputSystem::new();
 
-    let mut shaders_land = ShaderProgram::new("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
-    let mut shaders_water = ShaderProgram::new("shaders/water_vertex_shader.glsl", "shaders/water_fragment_shader.glsl");
+
+    let mut shader_manager = ShaderManager::new();
+    shader_manager.load_shader("land", "shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
+    shader_manager.load_shader("water", "shaders/water_vertex_shader.glsl", "shaders/water_fragment_shader.glsl");
+    
+
+    // let mut shaders_land = ShaderProgram::new("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
+    // let mut shaders_water = ShaderProgram::new("shaders/water_vertex_shader.glsl", "shaders/water_fragment_shader.glsl");
     let mut ui_shader = ShaderProgram::new("shaders/ui_vertex.glsl", "shaders/ui_fragment.glsl");
     ui_shader.create_uniform("projection");
     ui_shader.create_uniform("color");
     ui_shader.create_uniform("useTexture");
 
-    shaders_land.enable_backface_culling();
-    shaders_land.enable_depth();
+    // shaders_land.enable_backface_culling();//have this on by default prolly and make it so you have to turn them off if you wsnat them off I think
+    // shaders_land.enable_depth();
 
-    let mut material1 = Material::new(shaders_land);
-    material1.initialize_uniforms();
+    let mut material1 = Material::new("land");
+    //material1.initialize_uniforms();
 
-    let mut water = WaterRender::new(20.0, 20.0, 5.0, shaders_water);
-    water.set_position(water.get_position() - Vector3::new(10.0, 0.0, 10.0));
+    //let mut water = WaterRender::new(20.0, 20.0, 5.0, shader_manager.);
+    //water.set_position(water.get_position() - Vector3::new(10.0, 0.0, 10.0));
 
     let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
 
@@ -93,27 +101,27 @@ fn main() {
 
     //cube
 
-    let mut cube = Cube::new(1, Vector3::new(0.0, 0.0, 0.0), 1.0, 1.0, 1.0, material1);
+    // let mut cube = Cube::new(1, Vector3::new(0.0, 0.0, 0.0), 1.0, 1.0, 1.0, &material1);
 
-    cube.translate(Vector3::new(1.0, 0.0, 0.0));
+    // cube.translate(Vector3::new(1.0, 0.0, 0.0));
 
 
-    let skybox_faces = [
-        "textures/right.jpg",
-        "textures/left.jpg",
-        "textures/top.png",
-        "textures/bottom.png",
-        "textures/front.jpg",
-        "textures/back.jpg",
-    ];
+    // let skybox_faces = [
+    //     "textures/right.jpg",
+    //     "textures/left.jpg",
+    //     "textures/top.png",
+    //     "textures/bottom.png",
+    //     "textures/front.jpg",
+    //     "textures/back.jpg",
+    // ];
 
-    let skybox = Skybox::new(&skybox_faces);
+    // let skybox = Skybox::new(&skybox_faces);
 
-    let skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
-    let mut skybox_material = Material::new(skybox_shader);
-    skybox_material.init_uniform("view");
-    skybox_material.init_uniform("projection");
-    skybox_material.init_uniform("skybox");
+    // let skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
+    // let mut skybox_material = Material::new(skybox_shader);
+    // skybox_material.init_uniform("view");
+    // skybox_material.init_uniform("projection");
+    // skybox_material.init_uniform("skybox");
     
     let mut texture_manager = TextureManager::new();
 
@@ -237,23 +245,21 @@ fn main() {
 
         let transform = camera.get_vp_matrix();
     
-        material1.apply();
-        material1.set_matrix4fv_uniform("transform", &transform);
+        material1.apply_no_model(&shader_manager, &texture_manager);
+        material1.set_matrix4_property(&mut shader_manager, "transform", transform.clone());
         chunk_manager.render_all();
 
-        water.render(time, &camera);
+        //water.render(time, &camera);
 
-        cube.render(&shaders_land, &view_projection_matrix);
+        //cube.render(material1.borrow_shader(), &camera.get_vp_matrix());
 
-
-
-        {
-            let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
-            let projection_matrix = camera.get_p_matrix();
+        // {
+        //     let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
+        //     let projection_matrix = camera.get_p_matrix();
         
-            skybox_material.apply();
-            skybox.render(skybox_material.borrow_shader(), &view_matrix, &projection_matrix);
-        }
+        //     skybox_material.apply();
+        //     skybox.render(skybox_material.borrow_shader(), &view_matrix, &projection_matrix);
+        // }
         
 
         window.update();

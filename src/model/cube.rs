@@ -1,11 +1,12 @@
 use cgmath::{Matrix4, Vector3, Vector4};
 use crate::graphics::gl_wrapper::*;
-use crate::graphics::gl_wrapper::Material;
+use crate::graphics::materials::Material;
 use crate::graphics::gl_wrapper::Vao;
 use crate::graphics::gl_wrapper::BufferObject;
-use crate::graphics::gl_wrapper::VertexAttribute;
+use cgmath::Quaternion;
+use cgmath::Rotation3;
 
-use crate::input::transform::WorldCoords; // Import the WorldCoords struct
+use super::transform::WorldCoords; // Import the WorldCoords struct
 
 pub struct Cube {
     id: u32,
@@ -14,12 +15,12 @@ pub struct Cube {
     width: f32,
     height: f32,
     vertices: Vec<f32>,
-    indices: Vec<u32>,
-    material: Material,
+    indices: Vec<i32>,
+    //material: &Material,//hmmm I think I might need to rewrite Material so that each shader holds all the materials that it holds
 }
 
 impl Cube {
-    pub fn new(id: u32, position: Vector3<f32>, length: f32, width: f32, height: f32, material: Material) -> Self {
+    pub fn new(id: u32, position: Vector3<f32>, length: f32, width: f32, height: f32) -> Self {
         let (vertices, indices) = Self::generate_cube_vertices(position, length, width, height);
 
         Cube {
@@ -29,8 +30,8 @@ impl Cube {
             width,
             height,
             vertices,
-            indices: indices.iter().map(|&i| i as u32).collect(),
-            material,
+            indices: indices.iter().map(|&i| i as i32).collect(),//uuuh collect uuuuuh
+            //material,
         }
     }
 
@@ -94,20 +95,20 @@ impl Cube {
     }
 
     pub fn render(&self, shader: &ShaderProgram, view_projection_matrix: &Matrix4<f32>) {
-        shader.apply();
+        shader.bind();
         shader.set_matrix4fv_uniform("model", &self.transform.get_model_matrix()); // Use WorldCoords for the model matrix
         shader.set_matrix4fv_uniform("viewProjection", view_projection_matrix);
 
         let vao = Vao::new();
         vao.bind();
 
-        let vbo = BufferObject::new();
+        let vbo = BufferObject::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW);
         vbo.bind();
-        vbo.buffer_data(&self.vertices);
+        vbo.store_f32_data(&self.vertices);
 
-        let ebo = BufferObject::new();
+        let ebo = BufferObject::new(gl::ELEMENT_ARRAY_BUFFER, gl::STATIC_DRAW);
         ebo.bind();
-        ebo.buffer_data(&self.indices);
+        ebo.store_i32_data(&self.indices);
 
         unsafe {
             gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 6 * std::mem::size_of::<f32>() as i32, std::ptr::null());

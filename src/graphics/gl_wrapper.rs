@@ -215,6 +215,8 @@ impl ShaderProgram {
         }
     }
 
+
+    //intrestng things these are they are not mut
     pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {
         unsafe {
             gl::UniformMatrix4fv(
@@ -246,6 +248,24 @@ impl ShaderProgram {
         }
     }
 
+    pub fn set_uniform1f(&self, name: &str, value: f32) {
+        if let Some(&location) = self.uniform_ids.get(name) {
+            unsafe { gl::Uniform1f(location, value) };
+        }
+    }
+
+    // pub fn set_uniform4f(&self, name: &str, value: &Vector4<f32>) {
+    //     if let Some(&location) = self.uniform_ids.get(name) {
+    //         unsafe { gl::Uniform4fv(location, 1, value.as_ptr()) };
+    //     }
+    // }
+
+    // pub fn set_uniform1i(&self, name: &str, value: i32) {
+    //     if let Some(&location) = self.uniform_ids.get(name) {
+    //         unsafe { gl::Uniform1i(location, value) };
+    //     }
+    // }
+
     pub fn enable_depth(&self) {
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
@@ -266,6 +286,38 @@ impl ShaderProgram {
     }
 }
 
+pub struct ShaderManager {
+    shaders: HashMap<String, ShaderProgram>,
+}
+
+impl ShaderManager {
+    pub fn new() -> Self {
+        Self { shaders: HashMap::new() }
+    }
+
+    pub fn load_shader(&mut self, name: &str, vert_path: &str, frag_path: &str) {
+        let shader = ShaderProgram::new(vert_path, frag_path);
+        self.shaders.insert(name.to_string(), shader);
+    }
+
+    pub fn get_shader(&self, name: &str) -> Option<&ShaderProgram> {
+        self.shaders.get(name)
+    }
+
+    pub fn get_shader_mut(&mut self, name: &str) -> Option<&mut ShaderProgram> {
+        self.shaders.get_mut(name)
+    }
+}
+
+#[derive(Debug)]
+pub enum UniformValue {
+    Float(f32),
+    Vector4(Vector4<f32>),
+    Matrix4(Matrix4<f32>),
+    Texture(u32),
+}
+
+
 
 
 //hmm I toke it out then thought,
@@ -275,114 +327,253 @@ impl ShaderProgram {
 //ok like this should have been in its own file but whatever... uuuuuuh so like here is this thing
 //need to add textures to this, also im using this uniformvalue enum, I want something so that you dont have to specify it the code here will just allow any thing in and just match it to the correct
 //type and use it in set property, for now I am just going to use like each function
-pub struct Material {
-    shader: ShaderProgram,
-    properties: HashMap<String, UniformValue>, // Use the enum here
-    textures: HashMap<String, u32>,
-    transforming: bool,
-}
+// pub struct Material {
+//     shader: ShaderProgram,
+//     properties: HashMap<String, UniformValue>, // Use the enum here
+//     textures: HashMap<String, u32>,
+//     transforming: bool,
+// }
 
-impl Material {
-    pub fn new(shader: ShaderProgram) -> Self {
-        Material {
-            shader,
-            properties: HashMap::new(),
-            textures: HashMap::new(),
-            transforming: true,
-        }
-    }
+// impl Material {
+//     pub fn new(shader: ShaderProgram) -> Self {
+//         Material {
+//             shader,
+//             properties: HashMap::new(),
+//             textures: HashMap::new(),
+//             transforming: true,
+//         }
+//     }
 
-    //lol change the name of this all this does is set up a simple basic transformation matrix
-    //Which is just perspective * view, this is like good for like a lot of things because, i just do one calculation on cpu side
-    //and goon gaga its like done and works for everything, but for more complex things
-    //ie sky box ui and like water currently but like most things where i am editing the verticies in teh
-    //vertex matrix of the model it becoems a hinderence because well, I dont want it I want it to transform in a non
-    //standard way
-    pub fn initialize_uniforms(&mut self) {
-        let uniforms = vec!["transform"]; // Add additional uniforms as needed
-        for uniform in uniforms {
-            self.shader.create_uniform(uniform);
-            println!("transform created");
-        }
-    }
+//     //lol change the name of this all this does is set up a simple basic transformation matrix
+//     //Which is just perspective * view, this is like good for like a lot of things because, i just do one calculation on cpu side
+//     //and goon gaga its like done and works for everything, but for more complex things
+//     //ie sky box ui and like water currently but like most things where i am editing the verticies in teh
+//     //vertex matrix of the model it becoems a hinderence because well, I dont want it I want it to transform in a non
+//     //standard way
+//     pub fn initialize_uniforms(&mut self) {
+//         let uniforms = vec!["transform"]; // Add additional uniforms as needed
+//         for uniform in uniforms {
+//             self.shader.create_uniform(uniform);
+//             println!("transform created");
+//         }
+//     }
 
-    pub fn borrow_shader(&self) -> &ShaderProgram {
-        &self.shader
-    }
+//     pub fn borrow_shader(&self) -> &ShaderProgram {
+//         &self.shader
+//     }
 
-    pub fn init_uniform(&mut self, uniform_name: &str) {
-        self.shader.create_uniform(uniform_name);
-    }
+//     pub fn init_uniform(&mut self, uniform_name: &str) {
+//         self.shader.create_uniform(uniform_name);
+//     }
 
 
-    //this directly just changes the shader and does not bother with the properties hashmap
-    pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {//imma just keep this but if you look I have made a le edit so that now set_property takes an enum uniformvalue
-        if let Some(&location) = self.shader.uniform_ids.get(uniform_name) {
-            self.shader.set_matrix4fv_uniform(uniform_name, matrix);
-        } else {
-            println!("Warning: Uniform {} not found", uniform_name);
-        }
-    }
+//     //this directly just changes the shader and does not bother with the properties hashmap
+//     pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {//imma just keep this but if you look I have made a le edit so that now set_property takes an enum uniformvalue
+//         if let Some(&location) = self.shader.uniform_ids.get(uniform_name) {
+//             self.shader.set_matrix4fv_uniform(uniform_name, matrix);
+//         } else {
+//             println!("Warning: Uniform {} not found", uniform_name);
+//         }
+//     }
 
-    pub fn set_property(&mut self, key: &str, value: UniformValue) {//this like sets the uniforms
-        self.properties.insert(key.to_string(), value);
-    }
+//     pub fn set_property(&mut self, key: &str, value: UniformValue) {//this like sets the uniforms
+//         self.properties.insert(key.to_string(), value);
+//     }
 
-    pub fn set_texture(&mut self, texture_name: &str, texture_id: u32) {
-        self.textures.insert(texture_name.to_string(), texture_id);
-        self.shader.create_uniform(texture_name);
-    }
+//     pub fn set_texture(&mut self, texture_name: &str, texture_id: u32) {
+//         self.textures.insert(texture_name.to_string(), texture_id);
+//         self.shader.create_uniform(texture_name);
+//     }
 
-    pub fn apply(&self) {
-        self.shader.bind();
+//     pub fn apply(&self) {
+//         self.shader.bind();
 
-        for (key, value) in &self.properties {
-            if let Some(&uniform_location) = self.shader.uniform_ids.get(key) {
-                match value {
-                    UniformValue::Float(f) => unsafe {
-                        gl::Uniform1f(uniform_location, *f);
-                    },
-                    UniformValue::Vector4(v) => unsafe {
-                        gl::Uniform4fv(uniform_location, 1, v.as_ptr());
-                    },
-                    UniformValue::Matrix4(m) => unsafe {
-                        gl::UniformMatrix4fv(uniform_location, 1, gl::FALSE, m.as_ptr());
-                    },
-                }
-            }
-        }
+//         for (key, value) in &self.properties {
+//             if let Some(&uniform_location) = self.shader.uniform_ids.get(key) {
+//                 match value {
+//                     UniformValue::Float(f) => unsafe {
+//                         gl::Uniform1f(uniform_location, *f);
+//                     },
+//                     UniformValue::Vector4(v) => unsafe {
+//                         gl::Uniform4fv(uniform_location, 1, v.as_ptr());
+//                     },
+//                     UniformValue::Matrix4(m) => unsafe {
+//                         gl::UniformMatrix4fv(uniform_location, 1, gl::FALSE, m.as_ptr());
+//                     },
+//                 }
+//             }
+//         }
 
-        for (name, &texture_id) in &self.textures {
-            if let Some(&uniform_location) = self.shader.uniform_ids.get(name) {
-                unsafe {
-                    gl::ActiveTexture(gl::TEXTURE0);
-                    gl::BindTexture(gl::TEXTURE_2D, texture_id);
-                    gl::Uniform1i(uniform_location, 0);
-                }
-            } else {
-                println!("Warning: Texture uniform {} not found", name);
-            }
-        }
-    }
+//         for (name, &texture_id) in &self.textures {
+//             if let Some(&uniform_location) = self.shader.uniform_ids.get(name) {
+//                 unsafe {
+//                     gl::ActiveTexture(gl::TEXTURE0);
+//                     gl::BindTexture(gl::TEXTURE_2D, texture_id);
+//                     gl::Uniform1i(uniform_location, 0);
+//                 }
+//             } else {
+//                 println!("Warning: Texture uniform {} not found", name);
+//             }
+//         }
+//     }
 
-    pub fn set_float_property(&mut self, key: &str, value: f32) {
-        self.set_property(key, UniformValue::Float(value));
-    }
+//     pub fn set_float_property(&mut self, key: &str, value: f32) {
+//         self.set_property(key, UniformValue::Float(value));
+//     }
 
-    pub fn set_vector4_property(&mut self, key: &str, value: Vector4<f32>) {
-        self.set_property(key, UniformValue::Vector4(value));
-    }
+//     pub fn set_vector4_property(&mut self, key: &str, value: Vector4<f32>) {
+//         self.set_property(key, UniformValue::Vector4(value));
+//     }
 
-    pub fn set_matrix4_property(&mut self, key: &str, value: Matrix4<f32>) {
-        self.set_property(key, UniformValue::Matrix4(value));
-    }
+//     pub fn set_matrix4_property(&mut self, key: &str, value: Matrix4<f32>) {
+//         self.set_property(key, UniformValue::Matrix4(value));
+//     }
 
-}
+// }
+// #[derive(Debug)]
+// pub enum UniformValue {
+//     Float(f32),
+//     Vector4(Vector4<f32>),
+//     Matrix4(Matrix4<f32>),
+//     Texture(u32),
+// }
 
-#[derive(Debug)]
-pub enum UniformValue {
-    Float(f32),
-    Vector4(Vector4<f32>),
-    Matrix4(Matrix4<f32>),
-}
+// pub struct Material<'a> {
+//     shader: &'a ShaderProgram,
+//     uniforms: HashMap<String, UniformValue>,
+//     texture_unit_counter: u32,
+// }
+
+// impl<'a> Material<'a> {
+//     pub fn new(shader: &'a ShaderProgram) -> Self {
+//         Material {
+//             shader,
+//             uniforms: HashMap::new(),
+//             texture_unit_counter: 0,
+//         }
+//     }
+
+//     pub fn set_uniform(&mut self, name: &str, value: UniformValue) {
+//         self.uniforms.insert(name.to_string(), value);
+//     }
+
+//     // pub fn initialize_uniforms(&mut self) {
+//     //     let uniforms = vec!["transform"]; // Add additional uniforms as needed
+//     //     for uniform in uniforms {
+//     //         self.shader.create_uniform(uniform);
+//     //         println!("transform created");
+//     //     }
+//     // }
+
+//     pub fn borrow_shader(&self) -> &ShaderProgram {
+//         &self.shader
+//     }
+
+//     // pub fn init_uniform(&mut self, uniform_name: &str) {
+//     //     self.shader.create_uniform(uniform_name);
+//     // }
+
+
+//     //this directly just changes the shader and does not bother with the properties hashmap
+//     pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {//imma just keep this but if you look I have made a le edit so that now set_property takes an enum uniformvalue
+//         if let Some(&location) = self.shader.uniform_ids.get(uniform_name) {
+//             self.shader.set_matrix4fv_uniform(uniform_name, matrix);
+//         } else {
+//             println!("Warning: Uniform {} not found", uniform_name);
+//         }
+//     }
+
+//     // pub fn set_property(&mut self, key: &str, value: UniformValue) {//this like sets the uniforms
+//     //     self.properties.insert(key.to_string(), value);
+//     // }
+
+//     // pub fn set_texture(&mut self, texture_name: &str, texture_id: u32) {
+//     //     self.textures.insert(texture_name.to_string(), texture_id);
+//     //     self.shader.create_uniform(texture_name);
+//     // }
+
+//     pub fn apply(&self, model_matrix: &Matrix4<f32>) {
+//         self.shader.bind();
+//         let mut current_texture_unit = 0;
+
+//         // Set automatic uniforms
+//         self.shader.set_matrix4fv_uniform("model", model_matrix);
+
+//         // Set custom uniforms
+//         for (name, value) in &self.uniforms {
+//             match value {
+//                 UniformValue::Float(f) => {
+//                     self.shader.set_uniform1f(name, *f);
+//                 }
+//                 UniformValue::Vector4(v) => {
+//                     self.shader.set_uniform4f(name, v);
+//                 }
+//                 UniformValue::Matrix4(m) => {
+//                     self.shader.set_matrix4fv_uniform(name, m);
+//                 }
+//                 UniformValue::Texture(texture_id) => {//wow textures now
+//                     unsafe {
+//                         gl::ActiveTexture(gl::TEXTURE0 + current_texture_unit);
+//                         gl::BindTexture(gl::TEXTURE_2D, *texture_id);
+//                         let texture = current_texture_unit as i32;//lazxy lol
+//                         self.shader.set_uniform1i(name, &texture);
+//                     }
+//                     current_texture_unit += 1;
+//                 }
+//             }
+//         }
+//     }
+
+//     pub fn apply_no_model(&self) {
+//         self.shader.bind();
+//         let mut current_texture_unit = 0;
+
+//         for (key, value) in &self.uniforms {
+//             if let Some(&uniform_location) = self.shader.uniform_ids.get(key) {
+//                 match value {
+//                     UniformValue::Float(f) => unsafe {
+//                         gl::Uniform1f(uniform_location, *f);
+//                     },
+//                     UniformValue::Vector4(v) => unsafe {
+//                         gl::Uniform4fv(uniform_location, 1, v.as_ptr());
+//                     },
+//                     UniformValue::Matrix4(m) => unsafe {
+//                         gl::UniformMatrix4fv(uniform_location, 1, gl::FALSE, m.as_ptr());
+//                     },
+//                     UniformValue::Texture(texture_id) => {//wow textures now
+//                         unsafe {
+//                             gl::ActiveTexture(gl::TEXTURE0 + current_texture_unit);
+//                             gl::BindTexture(gl::TEXTURE_2D, *texture_id);
+//                             let texture = current_texture_unit as i32;//lazxy lol
+//                             self.shader.set_uniform1i(key, &texture);
+//                         }
+//                         current_texture_unit += 1;
+//                     }
+//                 }
+//             }
+//         }
+//     }
+
+//     // Helper methods for common uniform types
+//     pub fn set_float(&mut self, name: &str, value: f32) {
+//         self.set_uniform(name, UniformValue::Float(value));
+//     }
+
+//     pub fn set_color(&mut self, name: &str, color: Vector4<f32>) {
+//         self.set_uniform(name, UniformValue::Vector4(color));
+//     }
+
+//     pub fn set_texture(&mut self, name: &str, texture_id: u32) {
+//         self.set_uniform(name, UniformValue::Texture(texture_id));
+//     }
+
+//     pub fn set_vector4_property(&mut self, key: &str, value: Vector4<f32>) {
+//         self.set_uniform(key, UniformValue::Vector4(value));
+//     }
+
+//     pub fn set_matrix4_property(&mut self, key: &str, value: Matrix4<f32>) {
+//         self.set_uniform(key, UniformValue::Matrix4(value));
+//     }
+// }
+
 

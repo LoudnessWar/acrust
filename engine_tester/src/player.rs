@@ -1,4 +1,4 @@
-use acrust::input::transform::WorldCoords;
+use acrust::model::transform::WorldCoords;
 use cgmath::Vector3;
 
 
