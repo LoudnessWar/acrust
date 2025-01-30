@@ -20,7 +20,7 @@ use crate::octo::OctreeNode;
 use crate::voxel_render::VoxelRenderer;
 use crate::chunk_generator::*;
 use crate::chunk_manager::ChunkManager;
-// use crate::wave_generator::WaterRender;
+use crate::wave_generator::WaterRender;
 use cgmath::Vector3;
 use acrust::model::cube::Cube;
 
@@ -69,8 +69,8 @@ fn main() {
     let mut material1 = Material::new("land");
     //material1.initialize_uniforms();
 
-    //let mut water = WaterRender::new(20.0, 20.0, 5.0, shader_manager.);
-    //water.set_position(water.get_position() - Vector3::new(10.0, 0.0, 10.0));
+    let mut water = WaterRender::new(20.0, 20.0, 5.0, "water");
+    water.set_position(water.get_position() - Vector3::new(10.0, 0.0, 10.0));
 
     let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
 
@@ -105,22 +105,23 @@ fn main() {
     // cube.translate(Vector3::new(1.0, 0.0, 0.0));
 
 
-    // let skybox_faces = [
-    //     "textures/right.jpg",
-    //     "textures/left.jpg",
-    //     "textures/top.png",
-    //     "textures/bottom.png",
-    //     "textures/front.jpg",
-    //     "textures/back.jpg",
-    // ];
+    let skybox_faces = [
+        "textures/right.jpg",
+        "textures/left.jpg",
+        "textures/top.png",
+        "textures/bottom.png",
+        "textures/front.jpg",
+        "textures/back.jpg",
+    ];
 
-    // let skybox = Skybox::new(&skybox_faces);
+    let skybox = Skybox::new(&skybox_faces);
 
-    // let skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
-    // let mut skybox_material = Material::new(skybox_shader);
-    // skybox_material.init_uniform("view");
-    // skybox_material.init_uniform("projection");
-    // skybox_material.init_uniform("skybox");
+    //let skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
+    shader_manager.load_shader("sky", "shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
+    let mut skybox_material = Material::new("sky");
+    skybox_material.init_uniform(&mut shader_manager, "view");
+    skybox_material.init_uniform(&mut shader_manager, "projection");
+    skybox_material.init_uniform(&mut shader_manager, "skybox");
     
     let mut texture_manager = TextureManager::new();
 
@@ -245,20 +246,20 @@ fn main() {
         let transform = camera.get_vp_matrix();
     
         material1.apply_no_model(&shader_manager, &texture_manager);
-        material1.set_matrix4_property(&mut shader_manager, "transform", transform.clone());
+        material1.set_matrix4fv_uniform(&mut shader_manager, "transform", transform.clone());
         chunk_manager.render_all();
 
-        //water.render(time, &camera);
+        water.render(&mut shader_manager, time, &camera);
 
         //cube.render(material1.borrow_shader(), &camera.get_vp_matrix());
 
-        // {
-        //     let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
-        //     let projection_matrix = camera.get_p_matrix();
+        {
+            let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
+            let projection_matrix = camera.get_p_matrix();
         
-        //     skybox_material.apply();
-        //     skybox.render(skybox_material.borrow_shader(), &view_matrix, &projection_matrix);
-        // }
+            skybox_material.apply_no_model(&shader_manager, &texture_manager);//even though textures are not even used
+            skybox.render(shader_manager.get_shader("sky").expect("cannot find skybox"), &view_matrix, &projection_matrix);
+        }
         
 
         window.update();

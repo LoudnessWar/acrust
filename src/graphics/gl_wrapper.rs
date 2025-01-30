@@ -325,6 +325,7 @@ pub enum UniformValue {
     Vector4(Vector4<f32>),
     Matrix4(Matrix4<f32>),
     Texture(u32),
+    Empty(),
 }
 
 

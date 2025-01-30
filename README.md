@@ -6,6 +6,8 @@ READ ME TODO
 - [x] Materials
 - [x] UI
 - [ ] everything is moving around the camera without their own model matrix's rn... 
+- [ ] culling auto enable
+- [ ] materials borrow uniform thing so no need to clone
 - [ ] light lol
 - [ ] Better UI
 - [ ] Materials Textures
