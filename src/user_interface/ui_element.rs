@@ -14,8 +14,16 @@ pub trait UIElementTrait {
     fn set_position(&mut self, position: Vector2<f32>);
     fn set_size(&mut self, size: Vector2<f32>);
     fn accept(&mut self, visitor: &mut dyn UIElementVisitor);
+    fn is_draggable(&self) -> bool {
+        false
+    }
 }
 
+// impl UIElementTrait {
+//     pub fn is_draggable(&self) -> bool {
+//         false
+//     }
+// }
 // Define the Visitor trait
 pub trait UIElementVisitor {
     fn visit_button(&mut self, button: &mut Button, is_clicked: bool);
@@ -97,7 +105,71 @@ impl UIElementTrait for UIElement {
     }
 }
 
-// Define a Button struct with specific behavior
+pub struct UIDraggable {
+    base: UIElement,
+    is_pressed: bool,
+}
+
+impl UIDraggable {
+    pub fn new(id: u32, position: Vector2<f32>, size: Vector2<f32>) -> Self {
+        Self {
+            base: UIElement::new(id, position, size),
+            is_pressed: false,//what this does nothing lol how should i go :idkemoji: ok so do I change this with a) the event que or b) my own is clicked class...idkdk
+        }
+    }
+}
+
+impl UIElementTrait for UIDraggable {
+    fn is_hovered(&self, mouse_pos: (f64, f64)) -> bool {
+        self.base.is_hovered(mouse_pos)
+    }
+
+    fn get_id(&self) -> u32 {
+        self.base.get_id()
+    }
+
+    fn get_position(&self) -> Vector2<f32> {
+        self.base.get_position()
+    }
+
+    fn get_size(&self) -> Vector2<f32> {
+        self.base.get_size()
+    }
+
+    fn get_color(&self) -> Vector4<f32> {
+        self.base.get_color()
+    }
+
+    fn get_texture_id(&self) -> Option<u32> {
+        self.base.get_texture_id()
+    }
+
+    fn set_texture(&mut self, texture_id: u32) {
+        self.base.set_texture(texture_id);
+    }
+
+    fn set_color(&mut self, color: Vector4<f32>) {
+        self.base.set_color(color);
+    }
+    fn set_position(&mut self, position: Vector2<f32>) {
+        print!("bleh");
+        self.base.set_position(position);
+    }
+
+    fn set_size(&mut self, size: Vector2<f32>) {
+        self.base.set_size(size);
+    }
+
+    fn accept(&mut self, visitor: &mut dyn UIElementVisitor) {
+        print!("accpeted");
+        //visitor.visit_button(self, true);
+    }
+
+    fn is_draggable(&self) -> bool {
+        true
+    }
+}
+
 pub struct Button {
     base: UIElement,
     is_pressed: bool,
@@ -112,7 +184,7 @@ impl Button {
     }
 
     pub fn is_clicked(&mut self, input_system: &InputSystem) -> bool {
-        if input_system.is_mouse_button_pressed(CLICKS::Left) && self.base.is_hovered(input_system.get_mouse_position()) {
+        if input_system.is_mouse_button_pressed(&CLICKS::Left) && self.base.is_hovered(input_system.get_mouse_position()) {
             if !self.is_pressed {
                 self.is_pressed = true;
                 return true;
@@ -242,5 +314,25 @@ impl UIElementTrait for Slider {
 
     fn accept(&mut self, visitor: &mut dyn UIElementVisitor) {
         visitor.visit_slider(self);
+    }
+}
+
+pub struct Slot {
+    position: Vector2<f32>,
+    size: Vector2<f32>,
+}
+
+impl Slot {
+    pub fn new(position: Vector2<f32>, size: Vector2<f32>) -> Self {
+        Self { position, size }
+    }
+    
+    pub fn is_within(&self, pos: Vector2<f32>) -> bool {
+        pos.x >= self.position.x && pos.x <= self.position.x + self.size.x &&
+        pos.y >= self.position.y && pos.y <= self.position.y + self.size.y
+    }
+    
+    pub fn get_position(&self) -> Vector2<f32> {
+        self.position
     }
 }

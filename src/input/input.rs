@@ -85,16 +85,30 @@ impl InputSystem {
         self.event_queue.push_back(event);
     }
 
+    // pub fn queue_event(&mut self, event: InputEvent) {
+    //     if let InputEvent::KeyPressed(ref key) = event {
+    //         if self.pressed_keys.insert(key.clone()) {
+    //             self.event_queue.push_back(event);
+    //         }
+    //     } else if let InputEvent::KeyReleased(ref key) = event {
+    //         if self.pressed_keys.remove(key) {
+    //             self.event_queue.push_back(event);
+    //         }
+    //     } else {
+    //         self.event_queue.push_back(event);
+    //     }
+    // }
+
     pub fn get_event_queue(&mut self) -> &mut VecDeque<InputEvent> {
         &mut self.event_queue
     }
 
-    pub fn is_key_pressed(&self, key: &Key) -> bool {
+    pub fn is_key_pressed(&self, key: &Key) -> bool {//fun fact I could have contain borrow and key not borrow so less lines for user, prolly will not though
         self.pressed_keys.contains(key)
     }
 
-    pub fn is_mouse_button_pressed(&self, button: CLICKS) -> bool {
-        self.pressed_mouse_buttons.contains(&button)
+    pub fn is_mouse_button_pressed(&self, button: &CLICKS) -> bool {
+        self.pressed_mouse_buttons.contains(button)
     }
 
     pub fn update_mouse_position(&mut self, new_position: (f64, f64)) -> (f64, f64) {
