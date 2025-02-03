@@ -111,6 +111,18 @@ impl InputSystem {
         self.pressed_mouse_buttons.contains(button)
     }
 
+    pub fn is_mouse_button_just_pressed(&self, button: &CLICKS) -> bool {
+        self.event_queue.iter().any(|event| matches!(event, InputEvent::MouseButtonPressed(b) if b == button))
+    }
+
+    pub fn is_mouse_button_released(&self, button: &CLICKS) -> bool {
+        self.event_queue.iter().any(|event| matches!(event, InputEvent::MouseButtonReleased(b) if b == button))
+    }
+
+    pub fn is_mouse_button_held(&self, button: &CLICKS) -> bool {
+        self.pressed_mouse_buttons.contains(button)
+    }
+
     pub fn update_mouse_position(&mut self, new_position: (f64, f64)) -> (f64, f64) {
         let (prev_x, prev_y) = self.mouse_position;
         self.mouse_position = new_position;

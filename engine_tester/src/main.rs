@@ -170,10 +170,14 @@ fn main() {
         if input_system.is_key_pressed(&Key::Tab) {
             ui_manager.update(current_mouse_position);
             ui_manager.render(&ui_shader);
-            if input_system.is_mouse_button_pressed(&CLICKS::Left) {
+            if input_system.is_mouse_button_just_pressed(&CLICKS::Left) {
                 ui_manager.start_drag(current_mouse_position);
-            } else {
+            }
+            if input_system.is_mouse_button_held(&CLICKS::Left) {
                 ui_manager.update_dragging(current_mouse_position);
+            }
+            if input_system.is_mouse_button_released(&CLICKS::Left) {
+                ui_manager.end_drag();
             }
             
         }

@@ -134,6 +134,13 @@ impl UIManager {
             }
         }
     }
+
+    pub fn end_drag(&mut self) {
+        if let Some(id) = self.drag_state.get_dragging_id() {
+            self.event_queue.push_back(UIEvent::DragEnd(id));
+        }
+        self.drag_state.end_drag();
+    }
     
     
     pub fn has_event_for_element(&self, id: u32, event_type: fn(&UIEvent) -> bool) -> bool {
