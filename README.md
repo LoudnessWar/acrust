@@ -5,7 +5,8 @@ READ ME TODO
 - [x] skybox
 - [x] Materials
 - [x] UI
-- [ ] everything is moving around the camera without their own model matrix's rn... 
+- [x] everything is moving around the camera without their own model matrix's rn... 
+- [ ] ok so i need to better streamline my objects should probably impliment a trait
 - [ ] culling auto enable
 - [ ] materials borrow uniform thing so no need to clone
 - [ ] light lol

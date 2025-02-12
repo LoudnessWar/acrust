@@ -49,3 +49,6 @@ impl Mesh {
         }
     }
 }
+
+//i want to add a 3d object trait here with a basic render and like basic funciton ect ect
+

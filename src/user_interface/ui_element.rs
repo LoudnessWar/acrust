@@ -14,7 +14,7 @@ pub trait UIElementTrait {
     fn set_position(&mut self, position: Vector2<f32>);
     fn set_size(&mut self, size: Vector2<f32>);
     fn accept(&mut self, visitor: &mut dyn UIElementVisitor);
-    fn is_draggable(&self) -> bool {
+    fn is_draggable(&self) -> bool {//guys I need to do this more like... wtf am i stupid
         false
     }
 }

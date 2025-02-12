@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use cgmath::*;
 use super::gl_wrapper::{ShaderManager, ShaderProgram, UniformValue};
 use super::texture_manager::TextureManager;
@@ -164,4 +165,33 @@ impl Material {
     // pub fn set_matrix4_property(&mut self, key: &str, value: Matrix4<f32>) {
     //     self.set_uniform(key, UniformValue::Matrix4(value));
     // }
+}
+
+
+pub struct material_manager {
+    materials: Mutex<HashMap<String, Arc<Material>>>,
+}
+
+impl material_manager {
+    pub fn new() -> Self {
+        Self {
+            materials: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Load a new material or return existing one if already loaded
+    pub fn load_material(&self, name: &str) -> Arc<Material> {
+        let mut materials = self.materials.lock().unwrap();
+
+        if let Some(mat) = materials.get(name) {
+            return Arc::clone(mat);
+        }
+
+        let new_material = Arc::new(Material::new(
+            name)
+        );
+
+        materials.insert(name.to_string(), Arc::clone(&new_material));
+        new_material
+    }
 }

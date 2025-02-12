@@ -25,7 +25,9 @@ use crate::chunk_generator::*;
 use crate::chunk_manager::ChunkManager;
 use crate::wave_generator::WaterRender;
 use cgmath::Vector3;
+
 use acrust::model::cube::Cube;
+use acrust::model::objload::load_obj;
 
 use crate::player::Player;
 
@@ -74,6 +76,8 @@ fn main() {
     camera.attach_to(&player.transform);
 
     let mut cube = Cube::new(5.0, Vector3::new(0.0, 0.0, 0.0), 1.0);
+
+    let mut obj = load_obj("models/teddy.obj");
 
     let skybox_faces = [
         "textures/right.jpg",
@@ -237,6 +241,8 @@ fn main() {
         generic_mat.set_matrix4fv_uniform(&mut shader_manager, "projection", camera.get_p_matrix().clone());
         generic_mat.init_uniform(&mut shader_manager, "model");
         cube.render(&generic_mat, &shader_manager, &texture_manager);
+        obj.draw();
+
 
         {
             let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
