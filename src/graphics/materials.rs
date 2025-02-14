@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use cgmath::*;
 use super::gl_wrapper::{ShaderManager, ShaderProgram, UniformValue};
 use super::texture_manager::TextureManager;
@@ -167,31 +167,54 @@ impl Material {
     // }
 }
 
-
-pub struct material_manager {
-    materials: Mutex<HashMap<String, Arc<Material>>>,
+pub struct MaterialManager {
+    materials: RwLock<HashMap<String, Arc<RwLock<Material>>>>,
 }
 
-impl material_manager {
+impl MaterialManager {
     pub fn new() -> Self {
         Self {
-            materials: Mutex::new(HashMap::new()),
+            materials: RwLock::new(HashMap::new()),
         }
     }
 
-    /// Load a new material or return existing one if already loaded
-    pub fn load_material(&self, name: &str) -> Arc<Material> {
-        let mut materials = self.materials.lock().unwrap();
+    pub fn load_material(&self, name: &str, shader_name: &str) -> Arc<RwLock<Material>> {
+        let mut materials = self.materials.write().unwrap();
 
         if let Some(mat) = materials.get(name) {
             return Arc::clone(mat);
         }
 
-        let new_material = Arc::new(Material::new(
-            name)
-        );
-
+        let new_material = Arc::new(RwLock::new(Material::new(shader_name)));
         materials.insert(name.to_string(), Arc::clone(&new_material));
         new_material
+    }
+
+
+    //lol scrapping this one bc I realizd that the materials and shaders
+    //needing to have the same name was like dumb and bad and prevented me from using
+    //multiple shaders or whatever
+    // pub fn load_material(&self, name: &str) -> Arc<RwLock<Material>> {
+    //     let mut materials = self.materials.write().unwrap();
+
+    //     if let Some(mat) = materials.get(name) {
+    //         return Arc::clone(mat);
+    //     }
+
+    //     let new_material = Arc::new(RwLock::new(Material::new(name)));
+    //     materials.insert(name.to_string(), Arc::clone(&new_material));
+    //     new_material
+    // }
+
+    pub fn edit_material<F>(&self, name: &str, edit_fn: F)
+    where
+        F: FnOnce(&mut Material),
+    {
+        if let Some(material) = self.materials.read().unwrap().get(name) {
+            let mut mat = material.write().unwrap();
+            edit_fn(&mut mat);
+        } else {
+            eprintln!("Material '{}' not found!", name);
+        }
     }
 }

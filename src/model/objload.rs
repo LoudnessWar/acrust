@@ -80,7 +80,14 @@ pub struct Model{
 }
 
 impl Model {
-    pub fn new(mesh: Mesh, material: Arc<Material>) -> Model{
+    pub fn new(mesh: Mesh, material: &Arc<Material>) -> Model{
+        Model {
+            mesh: mesh,
+            world_coords: WorldCoords::new_empty(),
+            material: Arc::clone(material)
+        }
+    }
+    pub fn new_passClonedArc(mesh: Mesh, material: Arc<Material>) -> Model{
         Model {
             mesh: mesh,
             world_coords: WorldCoords::new_empty(),

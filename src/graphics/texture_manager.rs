@@ -4,7 +4,7 @@ use std::path::Path;
 use image::GenericImageView;
 
 pub struct TextureManager {
-    textures: HashMap<String, u32>, // Maps file paths to texture IDs
+    textures: HashMap<String, u32>, // I wonder if arc would be useful here
 }
 
 impl TextureManager {

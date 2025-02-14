@@ -15,6 +15,7 @@ use acrust::user_interface::ui_element::Slider;
 use acrust::user_interface::ui_element::UIElementVisitor;
 use acrust::user_interface::ui_element::*;
 use acrust::graphics::materials::Material;
+use acrust::graphics::materials::MaterialManager;
 
 use acrust::user_interface::ui_manager::DragState;
 
@@ -55,13 +56,33 @@ fn main() {
     shader_manager.load_shader("generic", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl");
     let mut generic_mat = Material::new("generic");
 
+    shader_manager.load_shader("two", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl");
+    //let mut generic_mat2 = Material::new("two");
+
     shader_manager.enable_backface_culling("generic");
     shader_manager.enable_depth("generic");
+
+    shader_manager.enable_backface_culling("two");
+    shader_manager.enable_depth("two");
     
     let mut ui_shader = ShaderProgram::new("shaders/ui_vertex.glsl", "shaders/ui_fragment.glsl");
     ui_shader.create_uniform("projection");
     ui_shader.create_uniform("color");
     ui_shader.create_uniform("useTexture");
+
+    let mat_man = MaterialManager::new();
+
+    let material = material_manager.load_material("brick_material", "generic");
+
+    material_manager.edit_material("brick_material", |mat| {
+        mat.set_uniform("color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0))); // Pinkish color
+        mat.set_texture("diffuse_map", "textures/brick.jpg");
+    });
+
+    material_manager.edit_material("brick_material", |mat| {
+        mat.set_uniform("color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0))); // Pinkish color
+        mat.set_texture("diffuse_map", "textures/brick.jpg");
+    });
 
     let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
 
