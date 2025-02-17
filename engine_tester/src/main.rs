@@ -53,17 +53,17 @@ fn main() {
 
 
     let mut shader_manager = ShaderManager::new();
-    shader_manager.load_shader("generic", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl");
-    let mut generic_mat = Material::new("generic");
+       //let mut generic_mat = Material::new("generic");
+    let mut generate_mat = Material::new(shader_manager.load_shader("generic", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl"));
 
-    shader_manager.load_shader("two", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl");
+    //shader_manager.load_shader("two", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl");
     //let mut generic_mat2 = Material::new("two");
 
-    shader_manager.enable_backface_culling("generic");
-    shader_manager.enable_depth("generic");
+    // shader_manager.enable_backface_culling("generic");
+    // shader_manager.enable_depth("generic");
 
-    shader_manager.enable_backface_culling("two");
-    shader_manager.enable_depth("two");
+    // shader_manager.enable_backface_culling("two");
+    // shader_manager.enable_depth("two");
     
     let mut ui_shader = ShaderProgram::new("shaders/ui_vertex.glsl", "shaders/ui_fragment.glsl");
     ui_shader.create_uniform("projection");
@@ -72,17 +72,12 @@ fn main() {
 
     let mat_man = MaterialManager::new();
 
-    let material = material_manager.load_material("brick_material", "generic");
+    // let material = mat_man.load_material("brick_material", "generic");
 
-    material_manager.edit_material("brick_material", |mat| {
-        mat.set_uniform("color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0))); // Pinkish color
-        mat.set_texture("diffuse_map", "textures/brick.jpg");
-    });
-
-    material_manager.edit_material("brick_material", |mat| {
-        mat.set_uniform("color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0))); // Pinkish color
-        mat.set_texture("diffuse_map", "textures/brick.jpg");
-    });
+    // mat_man.edit_material("brick_material", |mat| {
+    //     mat.set_uniform(&mut shader_manager, "color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0))); // Pinkish color
+    //     mat.set_texture(&mut shader_manager, "diffuse_map", "textures/brick.jpg");
+    // });
 
     let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
 
@@ -262,7 +257,7 @@ fn main() {
         generic_mat.set_matrix4fv_uniform(&mut shader_manager, "projection", camera.get_p_matrix().clone());
         generic_mat.init_uniform(&mut shader_manager, "model");
         cube.render(&generic_mat, &shader_manager, &texture_manager);
-        obj.draw();
+        //obj.draw();
 
 
         {

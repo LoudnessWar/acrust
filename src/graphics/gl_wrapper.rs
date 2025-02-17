@@ -7,6 +7,8 @@ use std::ptr;
 use std::io::Read;
 use cgmath::*;
 use gl::types::*;
+use std::sync::Mutex;
+use std::sync::Arc;
 
 /// # Vertex Array Object
 ///
@@ -289,26 +291,38 @@ impl ShaderProgram {
 
 //this needs a lot
 pub struct ShaderManager {
-    shaders: HashMap<String, ShaderProgram>,
+    shaders: Mutex<HashMap<String, Arc<ShaderProgram>>>,//i decided to just make it Arc
 }
 
 impl ShaderManager {
     pub fn new() -> Self {
-        Self { shaders: HashMap::new() }
+        Self { shaders: Mutex::new(HashMap::new()) }
     }
 
-    pub fn load_shader(&mut self, name: &str, vert_path: &str, frag_path: &str) {
-        let shader = ShaderProgram::new(vert_path, frag_path);
-        self.shaders.insert(name.to_string(), shader);
+    pub fn load_shader(&self, name: &str, vert_path: &str, frag_path: &str) -> Arc<ShaderProgram> {
+        let mut shaders = self.shaders.lock().unwrap();
+        shaders.entry(name.to_string())
+            .or_insert_with(|| ShaderProgram::new(vert_path, frag_path))
+            .clone()
     }
 
-    pub fn get_shader(&self, name: &str) -> Option<&ShaderProgram> {
-        self.shaders.get(name)
+    pub fn get_shader(&self, name: &str) -> Option<Arc<ShaderProgram>> {
+        let shaders = self.shaders.lock().unwrap();
+        shaders.get(name).cloned()
     }
 
-    pub fn get_shader_mut(&mut self, name: &str) -> Option<&mut ShaderProgram> {
-        self.shaders.get_mut(name)
-    }
+    // pub fn load_shader(&mut self, name: &str, vert_path: &str, frag_path: &str) {
+    //     let shader = ShaderProgram::new(vert_path, frag_path);
+    //     self.shaders.insert(name.to_string(), shader);
+    // }
+
+    // pub fn get_shader_Ref(&self, name: &str) -> Option<&ShaderProgram> {
+    //     self.shaders.get(name)
+    // }
+
+    // pub fn get_shader_mut(&mut self, name: &str) -> Option<&mut ShaderProgram> {
+    //     self.shaders.get_mut(name)
+    // }
 
     pub fn enable_backface_culling(&mut self, name: &str){
         self.shaders.get_mut(name).expect("CANNOT FIND SHADER").enable_backface_culling();
