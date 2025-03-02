@@ -17,6 +17,7 @@ use super::transform::WorldCoords;
 //     }
 // }
 
+//raaah idk why I did this by hand
 pub fn load_obj(file_path: &str) -> Mesh {
     let file = File::open(file_path).expect("Failed to open OBJ file");
     let reader = BufReader::new(file);
@@ -35,38 +36,37 @@ pub fn load_obj(file_path: &str) -> Mesh {
         }
 
         match parts[0] {
-            "v" => { // Vertex positions
-                let x: f32 = parts[1].parse().unwrap();
+            "v" => {///Tdod use resultr
+                let x: f32 = parts[1].parse().unwrap();//better then unwrap sometimes
                 let y: f32 = parts[2].parse().unwrap();
                 let z: f32 = parts[3].parse().unwrap();
                 positions.push(Vector3::new(x, y, z));
             }
-            "vn" => { // Vertex normals
+            "vn" => { //normals
                 let x: f32 = parts[1].parse().unwrap();
                 let y: f32 = parts[2].parse().unwrap();
                 let z: f32 = parts[3].parse().unwrap();
                 normals.push(Vector3::new(x, y, z));
             }
-            "f" => { // Faces (Triangular)
+            "f" => {
                 for i in 1..=3 {
                     let vertex_data: Vec<&str> = parts[i].split('/').collect();
                     let vertex_idx: usize = vertex_data[0].parse().unwrap();
 
-                    let pos = positions[vertex_idx - 1]; // Convert OBJ 1-based to 0-based
+                    let pos = positions[vertex_idx - 1];
 
-                    // Check if normal index exists
                     let norm = if vertex_data.len() > 2 && !vertex_data[2].is_empty() {
                         let normal_idx: usize = vertex_data[2].parse().unwrap();
                         normals[normal_idx - 1]
                     } else {
-                        Vector3::new(0.0, 0.0, 0.0) // Default normal if missing
+                        Vector3::new(0.0, 0.0, 0.0)
                     };
 
                     vertices.extend_from_slice(&[pos.x, pos.y, pos.z, norm.x, norm.y, norm.z]);
-                    indices.push(indices.len() as i32); // Sequential indices
+                    indices.push(indices.len() as i32);
                 }
             }
-            _ => {} // Ignore other lines
+            _ => {}
         }
     }
 
