@@ -1,4 +1,4 @@
-
+//bro I dead ass don't even remember where this came from or what the point of it is like
 pub struct ShaderProgram {
     program_handle: u32,
     uniform_ids: HashMap<String, GLint>,
