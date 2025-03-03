@@ -55,10 +55,13 @@ impl Material {
     }
 
 
+
+    //instead of all these would an enum plus pattern mathcing be better...
     pub fn apply(&self, texture_manager: &TextureManager, model_matrix: &Matrix4<f32>) {
         let mut currShader = self.shader.lock().unwrap();
         currShader.bind();
-        currShader.set_matrix4fv_uniform("model", model_matrix);
+        currShader.set_matrix4fv_uniform("model", model_matrix);//this could cause errors should check to make sure that
+        //the model matrix uniform is created
 
         for (name, value) in &self.uniforms {
             match value {
@@ -80,6 +83,50 @@ impl Material {
                 texture_unit += 1;
             } else {
                 eprintln!("Warning: Texture '{}' not found!", texture_path);
+            }
+        }
+    }
+
+    pub fn apply_no_model(&self, texture_manager: &TextureManager) {
+        let mut currShader = self.shader.lock().unwrap();
+        currShader.bind();
+        //currShader.set_matrix4fv_uniform("model", model_matrix);//like uuuuh dont do it like this chekc if made
+
+        for (name, value) in &self.uniforms {
+            match value {
+                UniformValue::Float(f) => currShader.set_uniform1f(name, *f),
+                UniformValue::Vector4(v) => currShader.set_uniform4f(name, v),
+                UniformValue::Matrix4(m) => currShader.set_matrix4fv_uniform(name, m),
+                _ => {}
+            }
+        }
+
+        let mut texture_unit = 0;
+        for (uniform_name, texture_path) in &self.texture_names {
+            if let Some(texture_id) = texture_manager.get_texture(texture_path) {
+                unsafe {
+                    gl::ActiveTexture(gl::TEXTURE0 + texture_unit);
+                    gl::BindTexture(gl::TEXTURE_2D, texture_id);
+                }
+                currShader.set_uniform1i(uniform_name, &(texture_unit as i32));
+                texture_unit += 1;
+            } else {
+                eprintln!("Warning: Texture '{}' not found!", texture_path);
+            }
+        }
+    }
+
+    pub fn apply_no_texture(&self, model_matrix: &Matrix4<f32>) {
+        let mut currShader = self.shader.lock().unwrap();
+        currShader.bind();
+        currShader.set_matrix4fv_uniform("model", model_matrix);
+
+        for (name, value) in &self.uniforms {
+            match value {
+                UniformValue::Float(f) => currShader.set_uniform1f(name, *f),
+                UniformValue::Vector4(v) => currShader.set_uniform4f(name, v),
+                UniformValue::Matrix4(m) => currShader.set_matrix4fv_uniform(name, m),
+                _ => {}
             }
         }
     }
@@ -214,6 +261,9 @@ impl Material {
     // pub fn set_matrix4_property(&mut self, key: &str, value: Matrix4<f32>) {
     //     self.set_uniform(key, UniformValue::Matrix4(value));
     // }
+
+
+    //add one to like init and like set at the same time
 
     //maybe add something to check if already exists bro
     pub fn init_uniform(&mut self, key: &str)

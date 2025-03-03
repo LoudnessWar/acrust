@@ -84,7 +84,7 @@ impl WaterRender {
         material.init_uniform("view");
         material.init_uniform("projection");
         material.init_uniform("model");
-        material.init_uniform("lightIntensity");
+        //material.init_uniform("lightIntensity");
         //println!("HERE!@");
 
         WaterRender {
@@ -120,7 +120,7 @@ impl WaterRender {
         self.material.init_uniform("model");
 
         // Apply the material
-        //self.material.apply_no_texture(smanager, &self.position.get_model_matrix());
+        self.material.apply_no_texture(&self.position.get_model_matrix());
         // Draw the water surface
         unsafe {
             gl::DrawElements(

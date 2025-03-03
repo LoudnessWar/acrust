@@ -5,6 +5,7 @@ use std::ffi::CString;
 use std::fs::File;
 use std::ptr;
 use std::io::Read;
+// use std::sync::PoisonError;
 use cgmath::*;
 use gl::types::*;
 use std::sync::Mutex;
@@ -310,10 +311,22 @@ impl ShaderManager {
             .clone()
     }
 
+    //bro whats the point even in using rust if imma do this like fr smh do better
     pub fn get_shader(&self, name: &str) -> Option<Arc<Mutex<ShaderProgram>>> {
         let shaders = self.shaders.lock().unwrap();
         shaders.get(name).cloned()
     }
+
+    // pub fn get_shader_result(&self, name: &str) -> MutexGuard<'_, gl_wrapper::ShaderProgram> {
+    //     let shaders = self.shaders.lock().unwrap();
+    //     shaders.get(name).unwrap().lock().unwrap()
+    // }
+
+    //hmm this is giving me difficulties
+    // pub fn get_shader_result(&self, name: &str) -> Arc<Mutex<ShaderProgram>> {
+    //     let shaders = self.shaders.lock().unwrap();
+    //     shaders.get(name).cloned().unwrap()
+    // }
 
     // pub fn load_shader(&mut self, name: &str, vert_path: &str, frag_path: &str) {
     //     let shader = ShaderProgram::new(vert_path, frag_path);

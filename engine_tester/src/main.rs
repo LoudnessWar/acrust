@@ -104,12 +104,12 @@ fn main() {
         "textures/back.jpg",
     ];
 
-    // let skybox = Skybox::new(&skybox_faces);
-    // shader_manager.load_shader("sky", "shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
-    // let mut skybox_material = Material::new("sky");
-    // skybox_material.init_uniform(&mut shader_manager, "view");
-    // skybox_material.init_uniform(&mut shader_manager, "projection");
-    // skybox_material.init_uniform(&mut shader_manager, "skybox");
+    let skybox = Skybox::new(&skybox_faces);
+    let skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
+    let mut skybox_material = Material::new_unlocked(skybox_shader);
+    skybox_material.init_uniform("view");
+    skybox_material.init_uniform("projection");
+    skybox_material.init_uniform("skybox");
     
     let mut texture_manager = TextureManager::new();
 
@@ -143,6 +143,13 @@ fn main() {
 
     let mut ds = DragState::new();
 
+
+
+    //wave test
+
+    shader_manager.load_shader("water", "shaders/water_vertex_shader.glsl", "shaders/water_fragment_shader.glsl");
+    shader_manager.enable_depth("water");
+    let mut wave = WaterRender::new(12.0, 12.0, 12.0, "water", &shader_manager);
 
 
     while !window.should_close() {
@@ -199,7 +206,6 @@ fn main() {
             if input_system.is_mouse_button_released(&CLICKS::Left) {
                 ui_manager.end_drag();
             }
-            
         }
     
         while let Some(event) = input_system.get_event_queue().pop_front() {
@@ -253,6 +259,21 @@ fn main() {
         }
 
         let transform = camera.get_vp_matrix();
+
+        wave.render(&mut shader_manager, time, &camera);
+        
+        {
+            let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
+            let projection_matrix = camera.get_p_matrix();
+        
+            skybox_material.apply_no_model(&texture_manager);//even though textures are not even used
+            skybox.render(&mut skybox_material, &view_matrix, &projection_matrix);
+        }
+        
+
+        wave.render(&mut shader_manager, time, &camera);
+
+
         //generic_mat.set_matrix4fv_uniform(&mut shader_manager, "view", camera.get_view().clone());//hmm so maybe this can go in the funny cube function
         //generic_mat.set_matrix4fv_uniform(&mut shader_manager, "projection", camera.get_p_matrix().clone());
         //generic_mat.init_uniform(&mut shader_manager, "model");
@@ -260,14 +281,6 @@ fn main() {
         //obj.draw();
 
 
-        // {
-        //     let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
-        //     let projection_matrix = camera.get_p_matrix();
-        
-        //     skybox_material.apply_no_model(&shader_manager, &texture_manager);//even though textures are not even used
-        //     skybox.render(shader_manager.get_shader("sky").expect("cannot find skybox"), &view_matrix, &projection_matrix);
-        // }
-        
 
         window.update();
         time += 0.1;

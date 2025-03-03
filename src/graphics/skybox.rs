@@ -2,6 +2,8 @@ use crate::graphics::gl_wrapper::*;
 //use image::GenericImageView;
 
 use gl::types::*;
+
+use super::materials::Material;
 // use std::mem;
 // use std::ptr;
 
@@ -145,7 +147,7 @@ impl Skybox {
 
 
     //ok so this is for if you want to render the skybox seperate, if I were doing it someway else I could use this code and just put it in my other render
-    pub fn render(&self, shader_program: &ShaderProgram, view_matrix: &cgmath::Matrix4<f32>, projection_matrix: &cgmath::Matrix4<f32>) {
+    pub fn render(&self, shader_program: &mut Material, view_matrix: &cgmath::Matrix4<f32>, projection_matrix: &cgmath::Matrix4<f32>) {
         let mut rotation_view = *view_matrix; 
         //rotation_view.w = cgmath::Vector4::new(0.0, 0.0, 0.0, 1.0);//errrm is this done twice
     
