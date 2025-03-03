@@ -116,6 +116,9 @@ impl Material {
         }
     }
 
+//ok so like what to do to test
+//unwind at end to see if it only binds successful second time
+//print like uniforms to make sure they r there
     pub fn apply_no_texture(&self, model_matrix: &Matrix4<f32>) {
         let curr_shader = self.shader.lock().unwrap();
         curr_shader.bind();
