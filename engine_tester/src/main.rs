@@ -53,10 +53,10 @@ fn main() {
 
 
     let mut shader_manager = ShaderManager::new();
-       //let mut generic_mat = Material::new("generic");
-    let mut generate_mat = Material::new(shader_manager.load_shader("generic", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl"));
+    //let mut generic_mat = Material::new("generic");
+    //let mut generate_mat = Material::new(shader_manager.load_shader("generic", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl"));
 
-    //shader_manager.load_shader("two", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl");
+    shader_manager.load_shader("generic", "shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
     //let mut generic_mat2 = Material::new("two");
 
     // shader_manager.enable_backface_culling("generic");
@@ -72,7 +72,7 @@ fn main() {
 
     let mat_man = MaterialManager::new();
 
-    // let material = mat_man.load_material("brick_material", "generic");
+    let material = mat_man.load_material("brick_material", &shader_manager, "generic");
 
     // mat_man.edit_material("brick_material", |mat| {
     //     mat.set_uniform(&mut shader_manager, "color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0))); // Pinkish color
@@ -104,12 +104,12 @@ fn main() {
         "textures/back.jpg",
     ];
 
-    let skybox = Skybox::new(&skybox_faces);
-    shader_manager.load_shader("sky", "shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
-    let mut skybox_material = Material::new("sky");
-    skybox_material.init_uniform(&mut shader_manager, "view");
-    skybox_material.init_uniform(&mut shader_manager, "projection");
-    skybox_material.init_uniform(&mut shader_manager, "skybox");
+    // let skybox = Skybox::new(&skybox_faces);
+    // shader_manager.load_shader("sky", "shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
+    // let mut skybox_material = Material::new("sky");
+    // skybox_material.init_uniform(&mut shader_manager, "view");
+    // skybox_material.init_uniform(&mut shader_manager, "projection");
+    // skybox_material.init_uniform(&mut shader_manager, "skybox");
     
     let mut texture_manager = TextureManager::new();
 
@@ -253,20 +253,20 @@ fn main() {
         }
 
         let transform = camera.get_vp_matrix();
-        generic_mat.set_matrix4fv_uniform(&mut shader_manager, "view", camera.get_view().clone());//hmm so maybe this can go in the funny cube function
-        generic_mat.set_matrix4fv_uniform(&mut shader_manager, "projection", camera.get_p_matrix().clone());
-        generic_mat.init_uniform(&mut shader_manager, "model");
-        cube.render(&generic_mat, &shader_manager, &texture_manager);
+        //generic_mat.set_matrix4fv_uniform(&mut shader_manager, "view", camera.get_view().clone());//hmm so maybe this can go in the funny cube function
+        //generic_mat.set_matrix4fv_uniform(&mut shader_manager, "projection", camera.get_p_matrix().clone());
+        //generic_mat.init_uniform(&mut shader_manager, "model");
+        //cube.render(&generic_mat, &shader_manager, &texture_manager);
         //obj.draw();
 
 
-        {
-            let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
-            let projection_matrix = camera.get_p_matrix();
+        // {
+        //     let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
+        //     let projection_matrix = camera.get_p_matrix();
         
-            skybox_material.apply_no_model(&shader_manager, &texture_manager);//even though textures are not even used
-            skybox.render(shader_manager.get_shader("sky").expect("cannot find skybox"), &view_matrix, &projection_matrix);
-        }
+        //     skybox_material.apply_no_model(&shader_manager, &texture_manager);//even though textures are not even used
+        //     skybox.render(shader_manager.get_shader("sky").expect("cannot find skybox"), &view_matrix, &projection_matrix);
+        // }
         
 
         window.update();

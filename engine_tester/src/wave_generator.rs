@@ -27,6 +27,7 @@ impl WaterRender {
         width: f32,
         quadSize: f32,
         shader: &str, // Pass the shader program to initialize the material
+        smader: &ShaderManager,
     ) -> Self {
         let mut vertices: Vec<f32> = Vec::new();
         let mut indices: Vec<i32> = Vec::new();
@@ -71,19 +72,19 @@ impl WaterRender {
         let stride = 3 * mem::size_of::<GLfloat>() as GLsizei;//this uuuh is fine...nah but i am curious
         VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, stride, ptr::null()).enable();
         // Create a material and initialize uniforms
-        let mut material = Material::new(shader);
-        //material.init_uniform("model");
-        // material.init_uniform("waterColor");//raaah I want to add back init so that there is just less checks
-        // material.init_uniform("waveSpeed");
-        // material.init_uniform("waveScale");
-        // material.init_uniform("timeFactor");
-        // material.init_uniform("waveHeight");
-        // material.init_uniform("lightPosition");
-        // material.init_uniform("lightColor");
-        // material.init_uniform("view");
-        // material.init_uniform("projection");
-        // material.init_uniform("model");
-        //material.init_uniform("lightIntensity");
+        let mut material = Material::new_from_name(shader, smader);
+        material.init_uniform("model");
+        material.init_uniform("waterColor");//raaah I want to add back init so that there is just less checks
+        material.init_uniform("waveSpeed");
+        material.init_uniform("waveScale");
+        material.init_uniform("timeFactor");
+        material.init_uniform("waveHeight");
+        material.init_uniform("lightPosition");
+        material.init_uniform("lightColor");
+        material.init_uniform("view");
+        material.init_uniform("projection");
+        material.init_uniform("model");
+        material.init_uniform("lightIntensity");
         //println!("HERE!@");
 
         WaterRender {
@@ -101,25 +102,25 @@ impl WaterRender {
 
         
         // Set uniform values
-        self.material.set_uniform(smanager, "waterColor", UniformValue::Vector4(vec4(0.0, 0.5, 1.0, 0.5)));
-        self.material.set_uniform(smanager, "waveSpeed", UniformValue::Float(1.0));
-        self.material.set_uniform(smanager, "waveScale", UniformValue::Float(0.1));
-        self.material.set_uniform(smanager, "timeFactor", UniformValue::Float(time * 0.1));
-        self.material.set_uniform(smanager, "waveHeight", UniformValue::Float(0.5));
-        self.material.set_uniform(smanager, "lightPosition", UniformValue::Vector4(vec4(0.0, 10.0, 0.0, 1.0)));
-        self.material.set_uniform(smanager, "lightColor", UniformValue::Vector4(vec4(0.0, 1.0, 1.0, 1.0)));
+        self.material.set_uniform("waterColor", &UniformValue::Vector4(vec4(0.0, 0.5, 1.0, 0.5)));
+        self.material.set_uniform("waveSpeed", &UniformValue::Float(1.0));
+        self.material.set_uniform("waveScale", &UniformValue::Float(0.1));
+        self.material.set_uniform("timeFactor", &UniformValue::Float(time * 0.1));
+        self.material.set_uniform("waveHeight", &UniformValue::Float(0.5));
+        self.material.set_uniform("lightPosition", &UniformValue::Vector4(vec4(0.0, 10.0, 0.0, 1.0)));
+        self.material.set_uniform("lightColor", &UniformValue::Vector4(vec4(0.0, 1.0, 1.0, 1.0)));
         //self.material.set_float_property("lightIntensity", 10.0);
         // Set transform matrix
         //self.material.set_matrix4fv_uniform("transform", transform);
 
         // Set camera matrices
-        self.material.set_matrix4fv_uniform(smanager, "view", camera.get_view().clone());
+        self.material.set_matrix4fv_uniform("view", &camera.get_view());
         //self.material.set_matrix4fv_uniform("model", &self.position.get_model_matrix());
-        self.material.set_matrix4fv_uniform(smanager, "projection",camera.get_p_matrix().clone());
-        self.material.init_uniform(smanager, "model");
+        self.material.set_matrix4fv_uniform("projection",&camera.get_p_matrix());
+        self.material.init_uniform("model");
 
         // Apply the material
-        self.material.apply_no_texture(smanager, &self.position.get_model_matrix());
+        //self.material.apply_no_texture(smanager, &self.position.get_model_matrix());
         // Draw the water surface
         unsafe {
             gl::DrawElements(

@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use cgmath::*;
 use super::gl_wrapper::{ShaderManager, ShaderProgram, UniformValue};
 use super::texture_manager::TextureManager;
@@ -20,14 +20,17 @@ use gl::types::*;
 /// maybe for some things keeps a ref to the shader here to make it faster
 /// 
 /// raah need a spot for stuff to not be cloned
+/// 
+/// ok I think the enum could work here mainly because there are so many states of like some have textures some dont
+/// yada yada for application of like the material
 pub struct Material {
-    shader: Arc<ShaderProgram>, // Reference to shader stored in ShaderManager
+    shader: Arc<Mutex<ShaderProgram>>, // Reference to shader stored in ShaderManager
     uniforms: HashMap<String, UniformValue>,
     texture_names: HashMap<String, String>, // Maps uniform name to texture file path
 }
 
 impl Material {
-    pub fn new(shader: Arc<ShaderProgram>) -> Self {
+    pub fn new(shader: Arc<Mutex<ShaderProgram>>) -> Self {
         Material {
             shader,
             uniforms: HashMap::new(),
@@ -35,15 +38,33 @@ impl Material {
         }
     }
 
+    pub fn new_unlocked(shader: ShaderProgram) -> Self {
+        Material {
+            shader: Arc::new(Mutex::new(shader)),
+            uniforms: HashMap::new(),
+            texture_names: HashMap::new(),
+        }
+    }
+
+    pub fn new_from_name(shader: &str, smader: &ShaderManager) -> Self {
+        Material {
+            shader: smader.get_shader(shader).unwrap(),
+            uniforms: HashMap::new(),
+            texture_names: HashMap::new(),
+        }
+    }
+
+
     pub fn apply(&self, texture_manager: &TextureManager, model_matrix: &Matrix4<f32>) {
-        self.shader.bind();
-        self.shader.set_matrix4fv_uniform("model", model_matrix);
+        let mut currShader = self.shader.lock().unwrap();
+        currShader.bind();
+        currShader.set_matrix4fv_uniform("model", model_matrix);
 
         for (name, value) in &self.uniforms {
             match value {
-                UniformValue::Float(f) => self.shader.set_uniform1f(name, *f),
-                UniformValue::Vector4(v) => self.shader.set_uniform4f(name, v),
-                UniformValue::Matrix4(m) => self.shader.set_matrix4fv_uniform(name, m),
+                UniformValue::Float(f) => currShader.set_uniform1f(name, *f),
+                UniformValue::Vector4(v) => currShader.set_uniform4f(name, v),
+                UniformValue::Matrix4(m) => currShader.set_matrix4fv_uniform(name, m),
                 _ => {}
             }
         }
@@ -55,7 +76,7 @@ impl Material {
                     gl::ActiveTexture(gl::TEXTURE0 + texture_unit);
                     gl::BindTexture(gl::TEXTURE_2D, texture_id);
                 }
-                self.shader.set_uniform1i(uniform_name, &(texture_unit as i32));
+                currShader.set_uniform1i(uniform_name, &(texture_unit as i32));
                 texture_unit += 1;
             } else {
                 eprintln!("Warning: Texture '{}' not found!", texture_path);
@@ -186,15 +207,41 @@ impl Material {
     //     self.set_uniform(key, UniformValue::Vector4(value));
     // }
 
-    pub fn set_matrix4fv_uniform(&mut self, manager: &mut ShaderManager, key: &str, value: Matrix4<f32>) {
-        self.set_uniform(manager, key, UniformValue::Matrix4(value));
-    }
+    // pub fn set_matrix4fv_uniform(&mut self, manager: &mut ShaderManager, key: &str, value: Matrix4<f32>) {
+    //     self.set_uniform(manager, key, UniformValue::Matrix4(value));
+    // }
 
     // pub fn set_matrix4_property(&mut self, key: &str, value: Matrix4<f32>) {
     //     self.set_uniform(key, UniformValue::Matrix4(value));
     // }
+
+    //maybe add something to check if already exists bro
+    pub fn init_uniform(&mut self, key: &str)
+    {
+        self.shader.lock().unwrap().create_uniform(key);
+        self.uniforms.insert(key.to_string(), UniformValue::Empty());
+    }
+
+    //im not gonna lie, the system of where things are stored is... dummay dumb
+    //like I am abusing the unsafe in the gl_wrapper for the set class to get around making it mutable here
+    //even through we are in fact editing shader values
+    pub fn set_uniform(&self, key: &str, value: &UniformValue)
+    {
+        let currShader = self.shader.lock().unwrap();
+        match value {
+            UniformValue::Float(f) => currShader.set_uniform1f(key, *f),
+            UniformValue::Vector4(v) => currShader.set_uniform4f(key, v),
+            UniformValue::Matrix4(m) => currShader.set_matrix4fv_uniform(key, m),
+            _ => {}
+        }
+    }
+
+    pub fn set_matrix4fv_uniform(&mut self, key: &str, value: &Matrix4<f32>) {
+        self.shader.lock().unwrap().set_matrix4fv_uniform(key, value);
+    }
 }
 
+//there is a reason I used lock here i uuh just dont remember why
 pub struct MaterialManager {
     materials: RwLock<HashMap<String, Arc<RwLock<Material>>>>,
 }
@@ -205,6 +252,15 @@ impl MaterialManager {
             materials: RwLock::new(HashMap::new()),
         }
     }
+
+    // fn priv_get_mat(&self, name: &str) -> Option<&Arc<RwLock<Material>>>{
+    //     if let mat = self.materials.read().unwrap().get(name){
+    //         mat
+    //     } else {
+    //         panic!("Material '{}' not found when apply!", name);//hmmm
+    //         //Some(Err(("Material '{}' not found when apply!", name)));
+    //     }
+    // }
 
     pub fn load_material(&self, name: &str, shader_manager: &ShaderManager, shader_name: &str) -> Arc<RwLock<Material>> {
         let mut materials = self.materials.write().unwrap();
@@ -218,7 +274,7 @@ impl MaterialManager {
             materials.insert(name.to_string(), Arc::clone(&new_material));
             new_material
         } else {
-            panic!("Shader '{}' not found in ShaderManager!", shader_name);
+            panic!("Shader '{}' not found in ShaderManager from manager!", shader_name);
         }
     }
 
@@ -230,8 +286,92 @@ impl MaterialManager {
             let mut mat = material.write().unwrap();
             edit_fn(&mut mat);
         } else {
-            eprintln!("Material '{}' not found!", name);
+            eprintln!("Material '{}' not found when edit!", name);
         }
     }
+
+    //pub fn set_matrix4fv_uniform()
+
+    pub fn apply(&self, name: &str, texture_manager: &TextureManager, model_matrix: &Matrix4<f32>) {
+        if let Some(material) = self.materials.read().unwrap().get(name) {
+            material.write().unwrap().apply(texture_manager, model_matrix);
+        } else {
+            eprintln!("Material '{}' not found when apply!", name);
+        }
+        // if let Some(shader) = shader_manager.get_shader(shader_name) {
+        //     let new_material = Arc::new(RwLock::new(Material::new(shader)));
+
+        // } else {
+        //     panic!("Shader '{}' not found in ShaderManager!", shader_name);
+        // }
+    }
+
+    pub fn init_uniform(&self, name: &str, key: &str)
+    {
+        if let Some(mat) = self.materials.read().unwrap().get(name){//bruh nnnaaaaaahhhhhh
+            mat.write().unwrap().init_uniform(key);
+        }
+    }
+
+
+    //ok my question is if with the key would there be a better way to find the Type of the generics, maybe 
+    pub fn update_uniform<T>(&self, name: &str, key: &str, value: T)
+    where
+            UniformValue: TryFrom<T>,
+    {
+        let utype: Result<UniformValue, _> = UniformValue::try_from(value);
+        if let Some(mat) = self.materials.read().unwrap().get(name){//bruh nnnaaaaaahhhhhh
+            match utype {
+                Ok(val) => {
+                    match val {
+                        UniformValue::Float(f) => mat.write().unwrap().set_uniform(name, &val),
+                        UniformValue::Vector4(v) => mat.write().unwrap().set_uniform(name, &val),
+                        UniformValue::Matrix4(m) => mat.write().unwrap().set_uniform(name, &val),
+                        _ => {}
+                    }
+                    println!("Uniform set: {:?}", val)
+                },
+                Err(e) => println!("Failed to convert uniform: {}, {}", name, key),
+            }
+        } else {
+            panic!("Material '{}' not found when apply!", name);
+        }
+    }
+
+    //     let mat = self.priv_get_mat(name).unwrap();
+    //     mat.write().unwrap().set_uniform(key, value);
+    // }
+        // where
+        //     UniformValue: TryFrom<T>,
+        // {
+        //     let utype: Result<UniformValue, _> = UniformValue::try_from(value);
+        //     let mat = self.priv_get_mat(name).unwrap();
+        //     match utype {
+        //         Ok(val) => {
+        //             match val {
+        //                 UniformValue::Float(f) => mat.set_uniform1f(name, *f),
+        //                 UniformValue::Vector4(v) => shader.set_uniform4f(name, v),
+        //                 UniformValue::Matrix4(m) => shader.set_matrix4fv_uniform(name, m),
+        //                 _ => {}
+        //             }
+        //             println!("Uniform set: {:?}", val)
+        //         },
+        //         Err(e) => println!("Failed to convert uniform: {}, {}", name, key),
+        //     }
+        //}
+
+        // if let Some(&uniform_location) = self.shader.uniform_ids.get(key) {
+        //                  match value {
+        //                     UniformValue::Float(f) => unsafe {
+        //                          gl::Uniform1f(uniform_location, *f);
+        //                      },
+        //                      UniformValue::Vector4(v) => unsafe {
+        //                        gl::Uniform4fv(uniform_location, 1, v.as_ptr());
+        //                     },
+        //                    UniformValue::Matrix4(m) => unsafe {
+        //                         gl::UniformMatrix4fv(uniform_location, 1, gl::FALSE, m.as_ptr());
+        //                     },
+        //                 }
+        //         }
 }
 

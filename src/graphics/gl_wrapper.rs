@@ -290,8 +290,12 @@ impl ShaderProgram {
 
 
 //this needs a lot
+
+//uuuugghhhh like idk why I made it mutex here idk man bruh like basically I feel like this whole thing was a waste of time
+//to add like
+//the smallest amount of functionality
 pub struct ShaderManager {
-    shaders: Mutex<HashMap<String, Arc<ShaderProgram>>>,//i decided to just make it Arc
+    shaders: Mutex<HashMap<String, Arc<Mutex<ShaderProgram>>>>,//i decided to just make it Arc
 }
 
 impl ShaderManager {
@@ -299,14 +303,14 @@ impl ShaderManager {
         Self { shaders: Mutex::new(HashMap::new()) }
     }
 
-    pub fn load_shader(&self, name: &str, vert_path: &str, frag_path: &str) -> Arc<ShaderProgram> {
+    pub fn load_shader(&self, name: &str, vert_path: &str, frag_path: &str) -> Arc<Mutex<ShaderProgram>> {
         let mut shaders = self.shaders.lock().unwrap();
         shaders.entry(name.to_string())
-            .or_insert_with(|| ShaderProgram::new(vert_path, frag_path))
+            .or_insert_with(|| Arc::new(Mutex::new(ShaderProgram::new(vert_path, frag_path))))
             .clone()
     }
 
-    pub fn get_shader(&self, name: &str) -> Option<Arc<ShaderProgram>> {
+    pub fn get_shader(&self, name: &str) -> Option<Arc<Mutex<ShaderProgram>>> {
         let shaders = self.shaders.lock().unwrap();
         shaders.get(name).cloned()
     }
@@ -325,11 +329,11 @@ impl ShaderManager {
     // }
 
     pub fn enable_backface_culling(&mut self, name: &str){
-        self.shaders.get_mut(name).expect("CANNOT FIND SHADER").enable_backface_culling();
+        self.get_shader(name).expect("CANNOT FIND SHADER").lock().unwrap().enable_backface_culling();
     }
 
     pub fn enable_depth(&mut self, name: &str){
-        self.shaders.get_mut(name).expect("CANNOT FIND SHADER").enable_depth();
+        self.get_shader(name).expect("CANNOT FIND SHADER").lock().unwrap().enable_depth();
     }
 }
 
@@ -341,6 +345,42 @@ pub enum UniformValue {
     Texture(u32),
     Empty(),
 }
+
+
+
+//this is like so stupid and useless i know but like yooooooo maybe it will be hype guys
+impl TryFrom<f32> for UniformValue {
+    type Error = &'static str;
+
+    fn try_from(value: f32) -> Result<Self, Self::Error> {
+        Ok(UniformValue::Float(value))
+    }
+}
+
+impl TryFrom<Vector4<f32>> for UniformValue {
+    type Error = &'static str;
+
+    fn try_from(value: Vector4<f32>) -> Result<Self, Self::Error> {
+        Ok(UniformValue::Vector4(value))
+    }
+}
+
+impl TryFrom<Matrix4<f32>> for UniformValue {
+    type Error = &'static str;
+
+    fn try_from(value: Matrix4<f32>) -> Result<Self, Self::Error> {
+        Ok(UniformValue::Matrix4(value))
+    }
+}
+
+impl TryFrom<u32> for UniformValue {
+    type Error = &'static str;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        Ok(UniformValue::Texture(value))
+    }
+}
+
 
 
 

@@ -307,8 +307,8 @@ impl Cube {
     //     self.world_coords.rotation *= Quaternion::from_angle_y(Rad(angle));
     // }
 
-    pub fn render(&self, material: &Material, shader_manager: &ShaderManager, texture_manager: &TextureManager) {
-        material.apply(shader_manager, texture_manager, &self.world_coords.get_model_matrix());
+    pub fn render(&self, material: &Material, texture_manager: &TextureManager) {
+        material.apply(texture_manager, &self.world_coords.get_model_matrix());
         //println!("HERE");
         self.mesh.draw();
     }
