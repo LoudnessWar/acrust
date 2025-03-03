@@ -37,6 +37,8 @@ impl Mesh {
         }
     }
 
+    //this is just like a generic basic render like thing but like you need to apply textures first so thats
+    //why like I will probably add a render trait to model
     pub fn draw(&self) {
         self.vao.bind();
         unsafe {
@@ -51,4 +53,6 @@ impl Mesh {
 }
 
 //i want to add a 3d object trait here with a basic render and like basic funciton ect ect
+
+//ok so i did what i said above but in objload which uuuh might change its location yall
 

@@ -72,11 +72,13 @@ fn main() {
 
     let mat_man = MaterialManager::new();
 
-    let material = mat_man.load_material("brick_material", &shader_manager, "generic");
+    let material = mat_man.load_material("mat1", &shader_manager, "generic");
+    mat_man.init_uniform("mat1", "transform");
 
-    // mat_man.edit_material("brick_material", |mat| {
-    //     mat.set_uniform(&mut shader_manager, "color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0))); // Pinkish color
-    //     mat.set_texture(&mut shader_manager, "diffuse_map", "textures/brick.jpg");
+    // mat_man.edit_material("mat1", |mat| {
+    //     println!("{}", mat.to_string());
+    //     // mat.set_uniform(&mut shader_manager, "color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0))); // Pinkish color
+    //     // mat.set_texture(&mut shader_manager, "diffuse_map", "textures/brick.jpg");
     // });
 
     let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
@@ -91,7 +93,7 @@ fn main() {
     let mut camera = Camera::new(perspective);
     camera.attach_to(&player.transform);
 
-    let mut cube = Cube::new(5.0, Vector3::new(0.0, 0.0, 0.0), 1.0);
+    let mut cube = Cube::new(5.0, Vector3::new(0.0, 0.0, 0.0), 1.0, mat_man.get_mat("mat1"));
 
     let mut obj = load_obj("models/teddy.obj");
 
@@ -149,8 +151,11 @@ fn main() {
 
     shader_manager.load_shader("water", "shaders/water_vertex_shader.glsl", "shaders/water_fragment_shader.glsl");
     shader_manager.enable_depth("water");
+    shader_manager.enable_backface_culling("water");
     let mut wave = WaterRender::new(12.0, 12.0, 12.0, "water", &shader_manager);
 
+    mat_man.init_uniform("mat1", "transform");
+    mat_man.update_uniform("mat1", "transform", &Matrix4::identity());
 
     while !window.should_close() {
         unsafe {
@@ -260,25 +265,28 @@ fn main() {
 
         let transform = camera.get_vp_matrix();
 
+        wave.render(&mut shader_manager, time, &camera);// I think this does not switch when it needs to 
+        //cube.render(&texture_manager);
+        // {
+        //     let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
+        //     let projection_matrix = camera.get_p_matrix();
+        
+        //     skybox_material.apply_no_model(&texture_manager);//even though textures are not even used
+        //     skybox.render(&mut skybox_material, &view_matrix, &projection_matrix);
+        // }
+
+
+        mat_man.edit_material("mat1", |mat| {
+            //println!("{}", mat.to_string());
+            mat.apply_no_model(&texture_manager);//this needing to run twice is def some weird memory thing
+            // mat.set_uniform(&mut shader_manager, "color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0))); // Pinkish color
+            // mat.set_texture(&mut shader_manager, "diffuse_map", "textures/brick.jpg");
+        });
+
+        mat_man.update_uniform("mat1", "transform", &transform);
+        cube.render(&texture_manager);
         wave.render(&mut shader_manager, time, &camera);
         
-        {
-            let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
-            let projection_matrix = camera.get_p_matrix();
-        
-            skybox_material.apply_no_model(&texture_manager);//even though textures are not even used
-            skybox.render(&mut skybox_material, &view_matrix, &projection_matrix);
-        }
-        
-
-        wave.render(&mut shader_manager, time, &camera);
-
-
-        //generic_mat.set_matrix4fv_uniform(&mut shader_manager, "view", camera.get_view().clone());//hmm so maybe this can go in the funny cube function
-        //generic_mat.set_matrix4fv_uniform(&mut shader_manager, "projection", camera.get_p_matrix().clone());
-        //generic_mat.init_uniform(&mut shader_manager, "model");
-        //cube.render(&generic_mat, &shader_manager, &texture_manager);
-        //obj.draw();
 
 
 

@@ -1,10 +1,10 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use cgmath::Vector3;
 use crate::graphics::materials::Material;
-use crate::graphics::texture_manager::TextureManager;
-use crate::graphics::gl_wrapper::ShaderManager;
+// use crate::graphics::texture_manager::TextureManager;
+// use crate::graphics::gl_wrapper::ShaderManager;
 
 use super::mesh::Mesh;
 use super::transform::WorldCoords;
@@ -36,8 +36,8 @@ pub fn load_obj(file_path: &str) -> Mesh {
         }
 
         match parts[0] {
-            "v" => {///Tdod use resultr
-                let x: f32 = parts[1].parse().unwrap();//better then unwrap sometimes
+            "v" => {//Todo use resultr
+                let x: f32 = parts[1].parse().unwrap();//? better then unwrap sometimes
                 let y: f32 = parts[2].parse().unwrap();
                 let z: f32 = parts[3].parse().unwrap();
                 positions.push(Vector3::new(x, y, z));
@@ -73,25 +73,71 @@ pub fn load_obj(file_path: &str) -> Mesh {
     Mesh::new(&vertices, &indices)
 }
 
+//ok now... I should probably... PROBABLY have new be a function in the trait
+//but idk if I need to change later I will
+
+pub trait ModelTrait {
+    fn get_mesh(&self) -> &Mesh;
+    fn get_world_coords(&self) -> &WorldCoords;
+    fn get_material(&self) -> Arc<RwLock<Material>>;
+    fn attach_to(&mut self, parent: &WorldCoords);
+    fn detach(&mut self);
+    //maybe render func the only thing is that some need texture manager some dont 
+    //fn render(&self);
+}
+
 pub struct Model{
-    mesh: Mesh,
+    mesh: Mesh,//eeeh just make these public later lowkey maybe
     world_coords: WorldCoords,
-    material: Arc<Material>,
+    material: Arc<RwLock<Material>>,
 }
 
 impl Model {
-    pub fn new(mesh: Mesh, material: &Arc<Material>) -> Model{
+    pub fn new_no_coords(mesh: Mesh, material: &Arc<RwLock<Material>>) -> Model{//this is useless
         Model {
             mesh: mesh,
             world_coords: WorldCoords::new_empty(),
             material: Arc::clone(material)
         }
     }
-    pub fn new_passClonedArc(mesh: Mesh, material: Arc<Material>) -> Model{
+
+    pub fn new(mesh: Mesh, coords: WorldCoords, material: Arc<RwLock<Material>>) -> Model{//this is useless
+        Model {
+            mesh: mesh,
+            world_coords: coords,
+            material: material
+        }
+    }
+
+    pub fn new_pass_cloned_arc(mesh: Mesh, material: Arc<RwLock<Material>>) -> Model{//this one is way more useful
         Model {
             mesh: mesh,
             world_coords: WorldCoords::new_empty(),
             material: material
         }
+    }
+}
+
+impl ModelTrait for Model {
+    fn get_mesh(&self) -> &Mesh{
+        &self.mesh
+    }
+
+    fn get_world_coords(&self) -> &WorldCoords{
+        &self.world_coords
+    }
+
+    fn get_material(&self) -> Arc<RwLock<Material>>{
+        self.material.clone()//so I can pass a ref here but I think since ARC is already ref just pass another arc
+    }
+
+    //some might not want parents so just over ride the base to have parent
+    //in cases which you want to have them
+    fn attach_to(&mut self, _parent: &WorldCoords) {
+        //self.parent = Some(parent as *const WorldCoords);
+    }
+
+    fn detach(&mut self) {
+        //self.parent = None;
     }
 }

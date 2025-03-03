@@ -117,6 +117,10 @@ impl UIDraggable {
             is_pressed: false,//what this does nothing lol how should i go :idkemoji: ok so do I change this with a) the event que or b) my own is clicked class...idkdk
         }
     }
+
+    pub fn is_pressed(&self) -> bool {
+        self.is_pressed.clone()
+    }
 }
 
 impl UIElementTrait for UIDraggable {
@@ -162,7 +166,7 @@ impl UIElementTrait for UIDraggable {
 
     fn accept(&mut self, visitor: &mut dyn UIElementVisitor) {
         print!("accpeted");
-        //visitor.visit_button(self, true);
+        //visitor.visit_button(self, true);//this should be changed to a draggable visitor
     }
 
     fn is_draggable(&self) -> bool {

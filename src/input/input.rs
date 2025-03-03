@@ -80,7 +80,7 @@ impl InputSystem {
             InputEvent::MouseButtonReleased(ref button) => {
                 self.pressed_mouse_buttons.remove(&button);
             }
-            _ => {}
+            // _ => {} ig just take it out bro
         }
         self.event_queue.push_back(event);
     }

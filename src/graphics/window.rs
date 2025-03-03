@@ -1,5 +1,5 @@
 use glfw::{Action, Context, GlfwReceiver, Key, WindowEvent};
-use crate::input::input::{map_glfw_key, map_glfw_mousebutton, InputEvent, InputSystem, CLICKS}; //erm yeah scuffed but I think it will look good when you have to work with it and make sense
+use crate::input::input::{map_glfw_key, map_glfw_mousebutton, InputEvent, InputSystem}; //erm yeah scuffed but I think it will look good when you have to work with it and make sense
 
 use std::time::{Duration, Instant};
 

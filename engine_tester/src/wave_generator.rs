@@ -84,6 +84,7 @@ impl WaterRender {
         material.init_uniform("view");
         material.init_uniform("projection");
         material.init_uniform("model");
+        material.init_uniform("model");
         //material.init_uniform("lightIntensity");
         //println!("HERE!@");
 
@@ -117,7 +118,6 @@ impl WaterRender {
         self.material.set_matrix4fv_uniform("view", &camera.get_view());
         //self.material.set_matrix4fv_uniform("model", &self.position.get_model_matrix());
         self.material.set_matrix4fv_uniform("projection",&camera.get_p_matrix());
-        self.material.init_uniform("model");
 
         // Apply the material
         self.material.apply_no_texture(&self.position.get_model_matrix());
