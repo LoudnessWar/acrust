@@ -265,6 +265,14 @@ fn main() {
 
         let transform = camera.get_vp_matrix();
 
+// test if ord3r matters here ie if I like
+// have wave render then cube then wave then cube
+// what happens vs wave wave cube cube
+// i theorize that what is happening is that
+// material is binding after it attempts to render it
+// with draw function
+// why... idk maybe I need to reset shader after but that
+// is probably an extra and unneeded step
         wave.render(&mut shader_manager, time, &camera);// I think this does not switch when it needs to 
         //cube.render(&texture_manager);
         // {
