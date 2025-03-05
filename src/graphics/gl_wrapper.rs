@@ -215,7 +215,7 @@ impl ShaderProgram {
         if uniform_location < 0 {
             panic!("Cannot locate uniform: {} \n    or issue with frament shader", uniform_name);
         } else {
-            println!("sucessfully created unifrom {}", uniform_name);
+            //println!("sucessfully created unifrom {}", uniform_name);
             self.uniform_ids.insert(uniform_name.to_string(), uniform_location);
         }
     }

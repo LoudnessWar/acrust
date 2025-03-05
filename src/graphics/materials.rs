@@ -57,18 +57,18 @@ impl Material {
 
 
     //instead of all these would an enum plus pattern mathcing be better...
-    pub fn apply(&self, texture_manager: &TextureManager, model_matrix: &Matrix4<f32>) {
+    pub fn apply(&mut self, texture_manager: &TextureManager, model_matrix: &Matrix4<f32>) {
         let curr_shader = self.shader.lock().unwrap();
         curr_shader.bind();
-        curr_shader.set_matrix4fv_uniform("model", model_matrix);//this could cause errors should check to make sure that
+        //curr_shader.set_matrix4fv_uniform("model", model_matrix);//this could cause errors should check to make sure that
         //the model matrix uniform is created
-
+        self.uniforms.insert("model".to_string(), UniformValue::Matrix4(*model_matrix));
         for (name, value) in &self.uniforms {
             match value {
                 UniformValue::Float(f) => curr_shader.set_uniform1f(name, *f),
                 UniformValue::Vector4(v) => curr_shader.set_uniform4f(name, v),
                 UniformValue::Matrix4(m) => curr_shader.set_matrix4fv_uniform(name, m),
-                _ => {}
+                _ => {panic!("improper key value: {}, while trying to apply shader", name)}
             }
         }
 
@@ -87,18 +87,16 @@ impl Material {
         }
     }
 
+    //I want these not to mutate them selves but I think they might have to well this one doesnt but the others do ig
     pub fn apply_no_model(&self, texture_manager: &TextureManager) {
         let curr_shader = self.shader.lock().unwrap();
         curr_shader.bind();
-        //currShader.set_matrix4fv_uniform("model", model_matrix);//like uuuuh dont do it like this chekc if made
-        println!("String self: {}", self.to_string());
-        println!("Shader: {}", curr_shader.to_string());
         for (name, value) in &self.uniforms {
             match value {
                 UniformValue::Float(f) => curr_shader.set_uniform1f(name, *f),
                 UniformValue::Vector4(v) => curr_shader.set_uniform4f(name, v),
                 UniformValue::Matrix4(m) => curr_shader.set_matrix4fv_uniform(name, m),
-                _ => {}
+                _ => {panic!("improper key value: {}, while trying to apply shader", name)}
             }
         }
 
@@ -117,22 +115,25 @@ impl Material {
         }
     }
 
-//ok so like what to do to test
-//unwind at end to see if it only binds successful second time
-//print like uniforms to make sure they r there
-    pub fn apply_no_texture(&self, model_matrix: &Matrix4<f32>) {
+    //ok so like what to do to test
+    //unwind at end to see if it only binds successful second time
+    //print like uniforms to make sure they r there
+
+    //this needs to be mutable for model ik ik it sucks but like whatever yall
+    pub fn apply_no_texture(&mut self, model_matrix: &Matrix4<f32>) {
         let curr_shader = self.shader.lock().expect("Could not apply texture");
         curr_shader.bind();
-        curr_shader.set_matrix4fv_uniform("model", model_matrix);
-        println!("String self: {}", self.to_string());
-        println!("Shader: {}", curr_shader.to_string());
+        //curr_shader.set_matrix4fv_uniform("model", model_matrix);
+        self.uniforms.insert("model".to_string(), UniformValue::Matrix4(*model_matrix));
+        // println!("String self: {}", self.to_string());
+        // println!("Shader: {}", curr_shader.to_string());
         for (name, value) in &self.uniforms {
-            println!("Key: {}, Value: {}", name, value.to_string());
+            //println!("Key: {}, Value: {}", name, value.to_string());
             match value {
                 UniformValue::Float(f) => curr_shader.set_uniform1f(name, *f),
                 UniformValue::Vector4(v) => curr_shader.set_uniform4f(name, v),
                 UniformValue::Matrix4(m) => curr_shader.set_matrix4fv_uniform(name, m),
-                _ => {panic!("improper key value: {}, while trying to apply shader", name) }
+                _ => {println!("improper key value: {}, while trying to apply shader", name)}
             }
         }
     }
@@ -149,21 +150,31 @@ impl Material {
     //im not gonna lie, the system of where things are stored is... dummay dumb
     //like I am abusing the unsafe in the gl_wrapper for the set class to get around making it mutable here
     //even through we are in fact editing shader values
-    pub fn set_uniform(&self, key: &str, value: &UniformValue)
+
+    //rraaaah should have been obvi when it wasnt mutating lllllll
+    //this should not be editing the shader just getting the uniforms ready for the shader
+    pub fn set_uniform(&mut self, key: &str, value: &UniformValue)
     {
-        let curr_shader = self.shader.lock().expect("set_uniform could not get the shader");
+        //let curr_shader = self.shader.lock().expect("set_uniform could not get the shader");
         match value {
             UniformValue::Float(f) => {
-                curr_shader.set_uniform1f(key, *f);
-                self.uniforms.insert(key.to_string(), f);},
-            UniformValue::Vector4(v) => curr_shader.set_uniform4f(key, v),
-            UniformValue::Matrix4(m) => curr_shader.set_matrix4fv_uniform(key, m),
+                //curr_shader.set_uniform1f(key, *f);//all this old stuff/ the old version of htis can be made into another function like... force shader uniform update or something
+                self.uniforms.insert(key.to_string(), UniformValue::Float(*f));},
+            UniformValue::Vector4(v) => {
+                //curr_shader.set_uniform4f(key, v)
+                self.uniforms.insert(key.to_string(), UniformValue::Vector4(*v));
+            },
+            UniformValue::Matrix4(m) => {
+                //curr_shader.set_matrix4fv_uniform(key, m)
+                self.uniforms.insert(key.to_string(), UniformValue::Matrix4(*m));
+            },
             _ => {println!("No Uniform of {}", key)}
         }
     }
 
     pub fn set_matrix4fv_uniform(&mut self, key: &str, value: &Matrix4<f32>) {
-        self.shader.lock().expect("failed to set matrix4fv uniform").set_matrix4fv_uniform(key, value);
+        //self.shader.lock().expect("failed to set matrix4fv uniform").set_matrix4fv_uniform(key, value);
+        self.uniforms.insert(key.to_string(), UniformValue::Matrix4(*value));
     }
 
     pub fn to_string(&self) -> String{

@@ -3,7 +3,7 @@ use crate::graphics::gl_wrapper::*;
 
 use gl::types::*;
 
-use super::materials::Material;
+use super::{materials::Material, texture_manager::{self, TextureManager}};
 // use std::mem;
 // use std::ptr;
 
@@ -145,19 +145,31 @@ impl Skybox {
         )
     }
 
+    //ok so skybox issue, I have a few ways to go about this
+    //I could just send texture manager to render... or I could make a skybox apply and store the skybox material here...
+    //yeah i think imma just do the first one
+    //if I were to actually do this right i would also need somethign to allow you to pull
+    //the material out of the depths to edit it which is balogney
+    //the second option might be correct and I might regret this later btw
+    // pub fn skybox_apply(&self, texture_manager: TextureManager){
+    //     shader_program.set_matrix4fv_uniform("view", &rotation_view);
+    //     shader_program.set_matrix4fv_uniform("projection", projection_matrix);
+    //     shader_program.apply_no_model(texture_manager);
+    // }
+
 
     //ok so this is for if you want to render the skybox seperate, if I were doing it someway else I could use this code and just put it in my other render
-    pub fn render(&self, shader_program: &mut Material, view_matrix: &cgmath::Matrix4<f32>, projection_matrix: &cgmath::Matrix4<f32>) {
+    pub fn render(&self, shader_program: &mut Material, texture_manager: &TextureManager, view_matrix: &cgmath::Matrix4<f32>, projection_matrix: &cgmath::Matrix4<f32>) {
         let rotation_view = *view_matrix; 
         //rotation_view.w = cgmath::Vector4::new(0.0, 0.0, 0.0, 1.0);//errrm is this done twice
-    
+        shader_program.set_matrix4fv_uniform("view", &rotation_view);
+        shader_program.set_matrix4fv_uniform("projection", projection_matrix);
+        shader_program.apply_no_model(texture_manager);
         unsafe {
             gl::DepthMask(gl::FALSE);
             gl::DepthFunc(gl::LEQUAL);
     
-            shader_program.set_matrix4fv_uniform("view", &rotation_view);
-            shader_program.set_matrix4fv_uniform("projection", projection_matrix);
-    
+            
             self.vao.bind();
             gl::BindTexture(gl::TEXTURE_CUBE_MAP, self.texture_id);
     

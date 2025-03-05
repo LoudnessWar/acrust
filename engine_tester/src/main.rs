@@ -112,7 +112,7 @@ fn main() {
     let mut skybox_material = Material::new_unlocked(skybox_shader);
     skybox_material.init_uniform("view");
     skybox_material.init_uniform("projection");
-    skybox_material.init_uniform("skybox");
+    // skybox_material.init_uniform("skybox");//geniuenly what did this do?
     
     let mut texture_manager = TextureManager::new();
 
@@ -280,13 +280,13 @@ fn main() {
         //cube.render(&texture_manager);
         //cube.render(&texture_manager);
         //cube2.render(&texture_manager);
-        // {
-        //     let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
-        //     let projection_matrix = camera.get_p_matrix();
+        {
+            let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
+            let projection_matrix = camera.get_p_matrix();
         
-        //     skybox_material.apply_no_model(&texture_manager);//even though textures are not even used
-        //     skybox.render(&mut skybox_material, &view_matrix, &projection_matrix);
-        // }
+            //skybox_material.apply_no_model(&texture_manager);//even though textures are not even used
+            skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
+        }
 
         //wave.render(&mut shader_manager, time, &camera);
         // mat_man.edit_material("mat1", |mat| {
