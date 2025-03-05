@@ -46,16 +46,16 @@ impl Camera {
         );
     }
 
-    pub fn get_vp_matrix(&self) -> Matrix4<f32> {
+    pub fn get_vp_matrix(&self) -> Matrix4<f32> {//ok to like shader here bc its new value produced as product of the other two
         self.projection * self.view
     }
 
-    pub fn get_p_matrix(&self) -> Matrix4<f32> {
-        self.projection
+    pub fn get_p_matrix(&self) -> &Matrix4<f32> {
+        &self.projection
     }
 
-    pub fn get_view(&self) -> Matrix4<f32> {
-        self.view
+    pub fn get_view(&self) -> &Matrix4<f32> {
+        &self.view
     }
 
     //Literally this is bc maybe you want this just for the camera and this will let you do it ezier

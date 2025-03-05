@@ -215,7 +215,7 @@ impl ShaderProgram {
         if uniform_location < 0 {
             panic!("Cannot locate uniform: {} \n    or issue with frament shader", uniform_name);
         } else {
-            //println!("sucessfully created unifrom {}", uniform_name);
+            println!("sucessfully created unifrom {}", uniform_name);
             self.uniform_ids.insert(uniform_name.to_string(), uniform_location);
         }
     }
@@ -328,7 +328,7 @@ impl ShaderManager {
 }
 
 #[derive(Debug)]
-pub enum UniformValue {
+pub enum UniformValue {//i need one for vec3 but im 2 lazy to add rn literally then need to add to materials shader shadermanager make trys for it and also materials maganager its ass 2 lazy
     Float(f32),
     Vector4(Vector4<f32>),
     Matrix4(Matrix4<f32>),

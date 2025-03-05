@@ -48,10 +48,7 @@ impl Cube {
     //Arc and Rwlock was the right move guys
     //this would be better actually though if I just passed material manager
     pub fn render(&self, texture_manager: &TextureManager) {
-        //self.get_material().read().unwrap().apply(texture_manager, &self.get_world_coords().get_model_matrix());
         self.get_material().read().unwrap().apply_no_model(texture_manager);
-        //self.get_material().read().unwrap().apply_no_model(texture_manager);
-        //self.get_mesh().draw();
         self.get_mesh().draw();
     }
 }

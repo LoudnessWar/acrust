@@ -16,6 +16,9 @@ use acrust::user_interface::ui_element::UIElementVisitor;
 use acrust::user_interface::ui_element::*;
 use acrust::graphics::materials::Material;
 use acrust::graphics::materials::MaterialManager;
+use acrust::model::objload::Model;
+use acrust::model::transform::WorldCoords;
+use acrust::model::objload::GeneralModel;
 
 use acrust::user_interface::ui_manager::DragState;
 
@@ -52,7 +55,8 @@ fn main() {
     let mut input_system = InputSystem::new();
 
     let mut shader_manager = ShaderManager::new();
-    shader_manager.load_shader("generic", "shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
+    shader_manager.load_shader("Basic", "shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
+    shader_manager.load_shader("generic", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl");
 
     let mut ui_shader = ShaderProgram::new("shaders/ui_vertex.glsl", "shaders/ui_fragment.glsl");
     ui_shader.create_uniform("projection");
@@ -61,7 +65,13 @@ fn main() {
 
     let mat_man = MaterialManager::new();
 
-    let material = mat_man.load_material("mat1", &shader_manager, "generic");
+    let material = mat_man.load_material("mat1", &shader_manager, "Basic");
+    let material = mat_man.load_material("mat2", &shader_manager, "generic");
+    
+    mat_man.init_uniform("mat2", "model");
+    mat_man.init_uniform("mat2", "view");
+    mat_man.init_uniform("mat2", "projection");
+
     mat_man.init_uniform("mat1", "transform");
 
     let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
@@ -79,7 +89,18 @@ fn main() {
     let mut cube = Cube::new(5.0, Vector3::new(0.0, 0.0, 0.0), 1.0, mat_man.get_mat("mat1"));
     let mut cube2 = Cube::new(5.0, Vector3::new(15.0, 15.0, 15.0), 1.0, mat_man.get_mat("mat1"));
 
-    let mut obj = load_obj("models/teddy.obj");
+    //let mut obj = load_obj("models/teddy.obj");
+
+    //ok my theries on why its black 1 is that, it doesnt have any color like value so it it is just black
+    //i can test this buy rendering the voxels with the shader or just like anything esle
+    //but the voxels prolly easy
+    //2 like it could also be color attribute again like omg i got no therioes yo the shader could just be broken
+    //it could also be something else
+    //like the ways its rendered... look at UI and Wave and Voxels figure it out commit like the one on Jan 29 is like a good like thing to look at
+    let mut model = GeneralModel::new(load_obj("models/teddy.obj"), WorldCoords::new(10.0, 10.0, 100.0, 1.0), mat_man.get_mat("mat2"));
+    mat_man.update_uniform("mat2", "lightDir", UniformValue::Vector4(vec4(0.0, 10.0, 0.0, 1.0)));
+    mat_man.update_uniform("mat2", "lightColor", UniformValue::Vector4(vec4(0.0, 1.0, 1.0, 1.0)));
+    mat_man.update_uniform("mat2", "objectColor", UniformValue::Vector4(vec4(1.0, 1.0, 1.0, 1.0)));
 
     let skybox_faces = [
         "textures/right.jpg",
@@ -95,8 +116,7 @@ fn main() {
     let mut skybox_material = Material::new_unlocked(skybox_shader);
     skybox_material.init_uniform("view");
     skybox_material.init_uniform("projection");
-    // skybox_material.init_uniform("skybox");//geniuenly what did this do?
-    
+
     let mut texture_manager = TextureManager::new();
 
     let texture_id = texture_manager.load_texture("textures/right.jpg")
@@ -252,6 +272,7 @@ fn main() {
         cube.render(&texture_manager);
         wave.render(&mut shader_manager, time, &camera);
         cube2.render(&texture_manager);
+        model.simple_render(&texture_manager, &camera);
 
         window.update();
         time += 0.1;

@@ -23,9 +23,11 @@ use super::texture_manager::TextureManager;
 /// 
 /// ok I think the enum could work here mainly because there are so many states of like some have textures some dont
 /// yada yada for application of like the material
+/// 
+/// should give material name like feature of its struct
 pub struct Material {
     shader: Arc<Mutex<ShaderProgram>>, // Reference to shader stored in ShaderManager
-    uniforms: HashMap<String, UniformValue>,
+    uniforms: HashMap<String, UniformValue>, //dude why tf did i use String and not &str
     texture_names: HashMap<String, String>, // Maps uniform name to texture file path
 }
 
@@ -130,7 +132,7 @@ impl Material {
         for (name, value) in &self.uniforms {
             //println!("Key: {}, Value: {}", name, value.to_string());
             match value {
-                UniformValue::Float(f) => curr_shader.set_uniform1f(name, *f),
+                UniformValue::Float(f) => curr_shader.set_uniform1f(name, *f),//ok idk y this isnt considred a shared reference
                 UniformValue::Vector4(v) => curr_shader.set_uniform4f(name, v),
                 UniformValue::Matrix4(m) => curr_shader.set_matrix4fv_uniform(name, m),
                 _ => {println!("improper key value: {}, while trying to apply shader", name)}
@@ -146,6 +148,15 @@ impl Material {
         self.shader.lock().unwrap().create_uniform(key);
         self.uniforms.insert(key.to_string(), UniformValue::Empty());
     }
+
+    pub fn init_uniforms(&mut self, keys_vector: Vec<&str>)//wish String here but for readability done here
+    {
+        for key in keys_vector.into_iter(){//using into_iter() so they are &str and not &&str
+            self.shader.lock().unwrap().create_uniform(key);
+            self.uniforms.insert(key.to_string(), UniformValue::Empty());
+        }
+    }
+
 
     //im not gonna lie, the system of where things are stored is... dummay dumb
     //like I am abusing the unsafe in the gl_wrapper for the set class to get around making it mutable here
@@ -224,7 +235,7 @@ impl MaterialManager {
             panic!("Shader '{}' not found in ShaderManager from manager!", shader_name);
         }
     }
-    
+
     /// # Edit Materials using
     ///
     /// ## Example

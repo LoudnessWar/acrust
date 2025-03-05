@@ -115,9 +115,9 @@ impl WaterRender {
         //self.material.set_matrix4fv_uniform("transform", transform);
 
         // Set camera matrices
-        self.material.set_matrix4fv_uniform("view", &camera.get_view());
+        self.material.set_matrix4fv_uniform("view", camera.get_view());
         //self.material.set_matrix4fv_uniform("model", &self.position.get_model_matrix().clone());
-        self.material.set_matrix4fv_uniform("projection",&camera.get_p_matrix());
+        self.material.set_matrix4fv_uniform("projection",camera.get_p_matrix());
 
         // Apply the material
         self.material.apply_no_texture(&self.position.get_model_matrix());

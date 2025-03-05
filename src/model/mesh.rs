@@ -29,7 +29,9 @@ impl Mesh {
         ebo.store_i32_data(indices);//why is this not u 32?... maybe useful in some weird situation
 
         // Set vertex attributes
-        VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<f32>() as i32, ptr::null()).enable();
+        VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<f32>() as i32, ptr::null()).enable();//this is like the important one
+
+        //this is for color... now, a lot of things dont do color like this and use textures so its kinda ... useless ig
         VertexAttribute::new(1, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<GLfloat>() as i32, (3 * mem::size_of::<GLfloat>()) as *const GLvoid).enable();
 
         Self {
