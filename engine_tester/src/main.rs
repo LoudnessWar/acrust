@@ -97,6 +97,8 @@ fn main() {
     //2 like it could also be color attribute again like omg i got no therioes yo the shader could just be broken
     //it could also be something else
     //like the ways its rendered... look at UI and Wave and Voxels figure it out commit like the one on Jan 29 is like a good like thing to look at
+    //also test obj on other shaders
+    //could also be how the attribute is becasue I changed it the second one in Mesh maybe convert it back and it will work
     let mut model = GeneralModel::new(load_obj("models/teddy.obj"), WorldCoords::new(10.0, 10.0, 100.0, 1.0), mat_man.get_mat("mat2"));
     mat_man.update_uniform("mat2", "lightDir", UniformValue::Vector4(vec4(0.0, 10.0, 0.0, 1.0)));
     mat_man.update_uniform("mat2", "lightColor", UniformValue::Vector4(vec4(0.0, 1.0, 1.0, 1.0)));
