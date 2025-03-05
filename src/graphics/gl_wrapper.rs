@@ -1,3 +1,4 @@
+use std::fmt;
 use std::collections::HashMap;
 use std::mem;
 use std::os::raw::*;
@@ -274,8 +275,18 @@ impl ShaderProgram {
         }
     }
 
-    pub fn get_program_handle(&self) -> u32 {
-        self.program_handle
+    pub fn get_program_handle(&self) -> &u32 {
+        &self.program_handle
+    }
+
+    pub fn to_string(&self) -> String{
+        let mut output = self.program_handle.to_string();
+        output = output + ": ";
+        for (key, _value) in self.uniform_ids.iter(){
+            output.push_str(&key);
+            output = output + ", ";
+        }
+        output
     }
 }
 
@@ -391,5 +402,13 @@ impl TryFrom<&u32> for UniformValue {
 
     fn try_from(value: &u32) -> Result<Self, Self::Error> {
         Ok(UniformValue::Texture(*value))
+    }
+}
+
+impl fmt::Display for UniformValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+        // or, alternatively:
+        // fmt::Debug::fmt(self, f)
     }
 }

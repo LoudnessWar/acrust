@@ -94,6 +94,7 @@ fn main() {
     camera.attach_to(&player.transform);
 
     let mut cube = Cube::new(5.0, Vector3::new(0.0, 0.0, 0.0), 1.0, mat_man.get_mat("mat1"));
+    let mut cube2 = Cube::new(5.0, Vector3::new(15.0, 15.0, 15.0), 1.0, mat_man.get_mat("mat1"));
 
     let mut obj = load_obj("models/teddy.obj");
 
@@ -156,6 +157,8 @@ fn main() {
 
     mat_man.init_uniform("mat1", "transform");
     mat_man.update_uniform("mat1", "transform", &Matrix4::identity());
+    shader_manager.enable_depth("generic");
+    shader_manager.enable_backface_culling("generic");
 
     while !window.should_close() {
         unsafe {
@@ -273,8 +276,10 @@ fn main() {
 // with draw function
 // why... idk maybe I need to reset shader after but that
 // is probably an extra and unneeded step
-        wave.render(&mut shader_manager, time, &camera);// I think this does not switch when it needs to 
+        // I think this does not switch when it needs to 
         //cube.render(&texture_manager);
+        //cube.render(&texture_manager);
+        //cube2.render(&texture_manager);
         // {
         //     let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
         //     let projection_matrix = camera.get_p_matrix();
@@ -283,23 +288,33 @@ fn main() {
         //     skybox.render(&mut skybox_material, &view_matrix, &projection_matrix);
         // }
 
-
-        mat_man.edit_material("mat1", |mat| {
-            //println!("{}", mat.to_string());
-            mat.apply_no_model(&texture_manager);//this needing to run twice is def some weird memory thing
-            // mat.set_uniform(&mut shader_manager, "color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0))); // Pinkish color
-            // mat.set_texture(&mut shader_manager, "diffuse_map", "textures/brick.jpg");
-        });
+        //wave.render(&mut shader_manager, time, &camera);
+        // mat_man.edit_material("mat1", |mat| {
+        //     //println!("{}", mat.to_string());
+        //     mat.apply_no_model(&texture_manager);//this needing to run twice is def some weird memory thing
+        //     // mat.set_uniform(&mut shader_manager, "color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0))); // Pinkish color
+        //     // mat.set_texture(&mut shader_manager, "diffuse_map", "textures/brick.jpg");
+        // });
 
         mat_man.update_uniform("mat1", "transform", &transform);
-        cube.render(&texture_manager);
+        //wave.render(&mut shader_manager, time, &camera);if here and then below cube it fails to render
+        //cube.render(&texture_manager);
         wave.render(&mut shader_manager, time, &camera);
+        //wave.render(&mut shader_manager, time, &camera);
+        cube2.render(&texture_manager);
+        //wave.render(&mut shader_manager, time, &camera);
+        
+        
+        //cube2.render(&texture_manager);
+        
+        
         
 
 
 
         window.update();
         time += 0.1;
+        //panic!("end");
     }
 
 }

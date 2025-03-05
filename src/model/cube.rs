@@ -19,14 +19,14 @@ impl Cube {
     pub fn new(size: f32, position: Vector3<f32>, rotation: f32, material: Arc<RwLock<Material>>) -> Self {
         let vertices: [f32; 48] = [//ok so thins cube is weird like most things if no back face and depth its inverse but still whatever
             // Positions         // Normals or color?
-            -size, -size, -size,  1.0,  0.0, 1.0,  
-             size, -size, -size,  1.0,  1.0, 1.0,  
-             size,  size, -size,  0.0,  0.0, 1.0,  
-            -size,  size, -size,  0.0,  0.0, 1.0,  
-            -size, -size,  size,  0.0,  1.0,  -1.0,  
-             size, -size,  size,  0.0,  1.0,  -1.0,  
-             size,  size,  size,  0.0,  0.0,  -1.0,  
-            -size,  size,  size,  1.0,  1.0,  1.0,  
+            -size + position.x, -size + position.y, -size + position.z,  1.0,  0.0, 1.0,  
+             size + position.x, -size + position.y, -size + position.z,  1.0,  1.0, 1.0,  
+             size + position.x,  size + position.y, -size + position.z,  0.0,  0.0, 1.0,  
+            -size + position.x,  size + position.y, -size + position.z,  0.0,  0.0, 1.0,  
+            -size + position.x, -size + position.y,  size + position.z,  0.0,  1.0,  -1.0,  
+             size + position.x, -size + position.y,  size + position.z,  0.0,  1.0,  -1.0,  
+             size + position.x,  size + position.y,  size + position.z,  0.0,  0.0,  -1.0,  
+            -size + position.x,  size + position.y,  size + position.z,  1.0,  1.0,  1.0,  
         ];
 
         let indices: [i32; 36] = [
@@ -50,6 +50,8 @@ impl Cube {
     pub fn render(&self, texture_manager: &TextureManager) {
         //self.get_material().read().unwrap().apply(texture_manager, &self.get_world_coords().get_model_matrix());
         self.get_material().read().unwrap().apply_no_model(texture_manager);
+        //self.get_material().read().unwrap().apply_no_model(texture_manager);
+        //self.get_mesh().draw();
         self.get_mesh().draw();
     }
 }

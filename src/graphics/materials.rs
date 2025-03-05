@@ -91,7 +91,8 @@ impl Material {
         let curr_shader = self.shader.lock().unwrap();
         curr_shader.bind();
         //currShader.set_matrix4fv_uniform("model", model_matrix);//like uuuuh dont do it like this chekc if made
-
+        println!("String self: {}", self.to_string());
+        println!("Shader: {}", curr_shader.to_string());
         for (name, value) in &self.uniforms {
             match value {
                 UniformValue::Float(f) => curr_shader.set_uniform1f(name, *f),
@@ -120,16 +121,18 @@ impl Material {
 //unwind at end to see if it only binds successful second time
 //print like uniforms to make sure they r there
     pub fn apply_no_texture(&self, model_matrix: &Matrix4<f32>) {
-        let curr_shader = self.shader.lock().unwrap();
+        let curr_shader = self.shader.lock().expect("Could not apply texture");
         curr_shader.bind();
         curr_shader.set_matrix4fv_uniform("model", model_matrix);
-
+        println!("String self: {}", self.to_string());
+        println!("Shader: {}", curr_shader.to_string());
         for (name, value) in &self.uniforms {
+            println!("Key: {}, Value: {}", name, value.to_string());
             match value {
                 UniformValue::Float(f) => curr_shader.set_uniform1f(name, *f),
                 UniformValue::Vector4(v) => curr_shader.set_uniform4f(name, v),
                 UniformValue::Matrix4(m) => curr_shader.set_matrix4fv_uniform(name, m),
-                _ => {}
+                _ => {panic!("improper key value: {}, while trying to apply shader", name) }
             }
         }
     }
@@ -148,23 +151,26 @@ impl Material {
     //even through we are in fact editing shader values
     pub fn set_uniform(&self, key: &str, value: &UniformValue)
     {
-        let curr_shader = self.shader.lock().unwrap();
+        let curr_shader = self.shader.lock().expect("set_uniform could not get the shader");
         match value {
-            UniformValue::Float(f) => curr_shader.set_uniform1f(key, *f),
+            UniformValue::Float(f) => {
+                curr_shader.set_uniform1f(key, *f);
+                self.uniforms.insert(key.to_string(), f);},
             UniformValue::Vector4(v) => curr_shader.set_uniform4f(key, v),
             UniformValue::Matrix4(m) => curr_shader.set_matrix4fv_uniform(key, m),
-            _ => {}
+            _ => {println!("No Uniform of {}", key)}
         }
     }
 
     pub fn set_matrix4fv_uniform(&mut self, key: &str, value: &Matrix4<f32>) {
-        self.shader.lock().unwrap().set_matrix4fv_uniform(key, value);
+        self.shader.lock().expect("failed to set matrix4fv uniform").set_matrix4fv_uniform(key, value);
     }
 
     pub fn to_string(&self) -> String{
         let mut output = String::new();
         for (key, _value) in self.uniforms.iter(){
-            output.push_str(&key);
+            output.push_str(&key);//looks bad lol
+            output = output + ", ";
         }
         output
     }

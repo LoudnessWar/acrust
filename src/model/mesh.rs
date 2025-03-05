@@ -1,6 +1,9 @@
 use std::mem;
 use std::ptr;
 
+use gl::types::GLfloat;
+use gl::types::GLvoid;
+
 use crate::graphics::gl_wrapper::Vao;
 use crate::graphics::gl_wrapper::VertexAttribute;
 use crate::graphics::gl_wrapper::BufferObject;
@@ -26,8 +29,8 @@ impl Mesh {
         ebo.store_i32_data(indices);//why is this not u 32?... maybe useful in some weird situation
 
         // Set vertex attributes
-        VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<f32>() as i32, 0 as *const _).enable();
-        VertexAttribute::new(1, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<f32>() as i32, (3 * mem::size_of::<f32>()) as *const _).enable();
+        VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<f32>() as i32, ptr::null()).enable();
+        VertexAttribute::new(1, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<GLfloat>() as i32, (3 * mem::size_of::<GLfloat>()) as *const GLvoid).enable();
 
         Self {
             vao,

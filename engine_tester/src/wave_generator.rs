@@ -84,7 +84,7 @@ impl WaterRender {
         material.init_uniform("view");
         material.init_uniform("projection");
         material.init_uniform("model");
-        material.init_uniform("model");
+        //material.init_uniform("model");
         //material.init_uniform("lightIntensity");
         //println!("HERE!@");
 
@@ -100,7 +100,6 @@ impl WaterRender {
 
     pub fn render(&mut self, smanager: &mut ShaderManager, time: f32, camera: &Camera) {
         self.vao.bind();
-
         
         // Set uniform values
         self.material.set_uniform("waterColor", &UniformValue::Vector4(vec4(0.0, 0.5, 1.0, 0.5)));
@@ -110,17 +109,19 @@ impl WaterRender {
         self.material.set_uniform("waveHeight", &UniformValue::Float(0.5));
         self.material.set_uniform("lightPosition", &UniformValue::Vector4(vec4(0.0, 10.0, 0.0, 1.0)));
         self.material.set_uniform("lightColor", &UniformValue::Vector4(vec4(0.0, 1.0, 1.0, 1.0)));
+        //self.material.set_uniform("model", &UniformValue::Matrix4(self.position.get_model_matrix()));
         //self.material.set_float_property("lightIntensity", 10.0);
         // Set transform matrix
         //self.material.set_matrix4fv_uniform("transform", transform);
 
         // Set camera matrices
         self.material.set_matrix4fv_uniform("view", &camera.get_view());
-        //self.material.set_matrix4fv_uniform("model", &self.position.get_model_matrix());
+        //self.material.set_matrix4fv_uniform("model", &self.position.get_model_matrix().clone());
         self.material.set_matrix4fv_uniform("projection",&camera.get_p_matrix());
 
         // Apply the material
         self.material.apply_no_texture(&self.position.get_model_matrix());
+        //self.material.apply_no_texture(&self.position.get_model_matrix());
         // Draw the water surface
         unsafe {
             gl::DrawElements(
