@@ -3,7 +3,7 @@ use crate::graphics::gl_wrapper::*;
 
 use gl::types::*;
 
-use super::{materials::Material, texture_manager::{self, TextureManager}};
+use super::{materials::Material, texture_manager::TextureManager};
 // use std::mem;
 // use std::ptr;
 

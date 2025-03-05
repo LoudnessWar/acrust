@@ -224,7 +224,16 @@ impl MaterialManager {
             panic!("Shader '{}' not found in ShaderManager from manager!", shader_name);
         }
     }
-
+    
+    /// # Edit Materials using
+    ///
+    /// ## Example
+    /// ```
+    /// foo.edit_material("name", |mat| {
+    ///     println!("{}", mat.to_string());
+    ///     mat.set_uniform(&mut shader_manager, "color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0)));
+    ///     mat.set_texture(&mut shader_manager, "diffuse_map", "textures/brick.jpg"); });
+    /// ```
     pub fn edit_material<F>(&self, name: &str, edit_fn: F)
     where
         F: FnOnce(&mut Material),

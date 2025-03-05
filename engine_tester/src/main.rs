@@ -51,20 +51,9 @@ fn main() {
 
     let mut input_system = InputSystem::new();
 
-
     let mut shader_manager = ShaderManager::new();
-    //let mut generic_mat = Material::new("generic");
-    //let mut generate_mat = Material::new(shader_manager.load_shader("generic", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl"));
-
     shader_manager.load_shader("generic", "shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
-    //let mut generic_mat2 = Material::new("two");
 
-    // shader_manager.enable_backface_culling("generic");
-    // shader_manager.enable_depth("generic");
-
-    // shader_manager.enable_backface_culling("two");
-    // shader_manager.enable_depth("two");
-    
     let mut ui_shader = ShaderProgram::new("shaders/ui_vertex.glsl", "shaders/ui_fragment.glsl");
     ui_shader.create_uniform("projection");
     ui_shader.create_uniform("color");
@@ -74,12 +63,6 @@ fn main() {
 
     let material = mat_man.load_material("mat1", &shader_manager, "generic");
     mat_man.init_uniform("mat1", "transform");
-
-    // mat_man.edit_material("mat1", |mat| {
-    //     println!("{}", mat.to_string());
-    //     // mat.set_uniform(&mut shader_manager, "color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0))); // Pinkish color
-    //     // mat.set_texture(&mut shader_manager, "diffuse_map", "textures/brick.jpg");
-    // });
 
     let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
 
@@ -146,19 +129,10 @@ fn main() {
 
     let mut ds = DragState::new();
 
-
-
-    //wave test
-
     shader_manager.load_shader("water", "shaders/water_vertex_shader.glsl", "shaders/water_fragment_shader.glsl");
     shader_manager.enable_depth("water");
     shader_manager.enable_backface_culling("water");
     let mut wave = WaterRender::new(12.0, 12.0, 12.0, "water", &shader_manager);
-
-    mat_man.init_uniform("mat1", "transform");
-    mat_man.update_uniform("mat1", "transform", &Matrix4::identity());
-    shader_manager.enable_depth("generic");
-    shader_manager.enable_backface_culling("generic");
 
     while !window.should_close() {
         unsafe {
@@ -268,49 +242,16 @@ fn main() {
 
         let transform = camera.get_vp_matrix();
 
-// test if ord3r matters here ie if I like
-// have wave render then cube then wave then cube
-// what happens vs wave wave cube cube
-// i theorize that what is happening is that
-// material is binding after it attempts to render it
-// with draw function
-// why... idk maybe I need to reset shader after but that
-// is probably an extra and unneeded step
-        // I think this does not switch when it needs to 
-        //cube.render(&texture_manager);
-        //cube.render(&texture_manager);
-        //cube2.render(&texture_manager);
         {
             let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
             let projection_matrix = camera.get_p_matrix();
-        
-            //skybox_material.apply_no_model(&texture_manager);//even though textures are not even used
             skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
         }
 
-        //wave.render(&mut shader_manager, time, &camera);
-        // mat_man.edit_material("mat1", |mat| {
-        //     //println!("{}", mat.to_string());
-        //     mat.apply_no_model(&texture_manager);//this needing to run twice is def some weird memory thing
-        //     // mat.set_uniform(&mut shader_manager, "color", UniformValue::Vector4(Vector4::new(1.0, 0.5, 0.5, 1.0))); // Pinkish color
-        //     // mat.set_texture(&mut shader_manager, "diffuse_map", "textures/brick.jpg");
-        // });
-
         mat_man.update_uniform("mat1", "transform", &transform);
-        //wave.render(&mut shader_manager, time, &camera);if here and then below cube it fails to render
-        //cube.render(&texture_manager);
+        cube.render(&texture_manager);
         wave.render(&mut shader_manager, time, &camera);
-        //wave.render(&mut shader_manager, time, &camera);
         cube2.render(&texture_manager);
-        //wave.render(&mut shader_manager, time, &camera);
-        
-        
-        //cube2.render(&texture_manager);
-        
-        
-        
-
-
 
         window.update();
         time += 0.1;
