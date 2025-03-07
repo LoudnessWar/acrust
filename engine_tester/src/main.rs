@@ -152,9 +152,16 @@ fn main() {
     let mut ds = DragState::new();
 
     shader_manager.load_shader("water", "shaders/water_vertex_shader.glsl", "shaders/water_fragment_shader.glsl");
-    shader_manager.enable_depth("water");
-    shader_manager.enable_backface_culling("water");
+    // shader_manager.enable_depth("water");
+    // shader_manager.enable_backface_culling("water");
     let mut wave = WaterRender::new(12.0, 12.0, 12.0, "water", &shader_manager);
+    
+
+    //chunk
+    let mut cm = ChunkManager::new();
+    let mut cg = TerrainGenerator::new(42, 8);
+
+    cm.add_octrees(cg.generate_multiple_chunks(0, 32, 0, 2, 1, 16));
 
     while !window.should_close() {
         unsafe {
@@ -270,17 +277,22 @@ fn main() {
             skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
         }
 
+        {
+            
+        }
+
         mat_man.update_uniform("mat1", "transform", &transform);
         cube.render(&texture_manager);
         wave.render(&mut shader_manager, time, &camera);
         cube2.render(&texture_manager);
         model.simple_render(&texture_manager, &camera);
 
+        cm.render_all();
+
         window.update();
         time += 0.1;
         //panic!("end");
     }
-
 }
 
 
