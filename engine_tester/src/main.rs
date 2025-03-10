@@ -152,8 +152,8 @@ fn main() {
     let mut ds = DragState::new();
 
     shader_manager.load_shader("water", "shaders/water_vertex_shader.glsl", "shaders/water_fragment_shader.glsl");
-    // shader_manager.enable_depth("water");
-    // shader_manager.enable_backface_culling("water");
+    shader_manager.enable_depth("water");
+    shader_manager.enable_backface_culling("water");
     let mut wave = WaterRender::new(12.0, 12.0, 12.0, "water", &shader_manager);
     
 
