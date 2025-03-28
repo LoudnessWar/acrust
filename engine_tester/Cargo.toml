@@ -7,4 +7,5 @@ edition = "2021"
 acrust = { path = "../" }
 gl = "0.14.0"
 cgmath = "0.18"
+midir = "0.10.1"
 rand = { version = "0.8.5", features = ["std_rng"] }

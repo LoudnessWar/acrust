@@ -19,3 +19,4 @@ pub mod logger;
 pub mod input;
 pub mod user_interface; 
 pub mod model;
+pub mod sound;
