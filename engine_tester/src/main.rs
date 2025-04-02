@@ -20,6 +20,10 @@ use acrust::model::objload::Model;
 use acrust::model::transform::WorldCoords;
 use acrust::model::objload::GeneralModel;
 
+
+use acrust::sound::sound::SoundEngine;
+use std::{thread, time::Duration};
+
 use acrust::user_interface::ui_manager::DragState;
 
 
@@ -28,6 +32,8 @@ use crate::voxel_render::VoxelRenderer;
 use crate::chunk_generator::*;
 use crate::chunk_manager::ChunkManager;
 use crate::wave_generator::WaterRender;
+use crate::midi::MidiHandler;
+
 use cgmath::Vector3;
 
 use acrust::model::cube::Cube;
@@ -47,6 +53,7 @@ mod chunk_generator;
 mod chunk_manager;
 mod octo;
 mod wave_generator;
+mod midi;
 
 fn main() {
     let mut window = Window::new(720, 720, "CUBE!", 60);
@@ -163,6 +170,16 @@ fn main() {
 
     cm.add_octrees(cg.generate_multiple_chunks(0, 32, 0, 2, 1, 16));
 
+    //sound init
+
+    let midi_handler = MidiHandler::new();
+    let sound_engine = SoundEngine::new();
+
+    let note = 60;
+    let freq = midi_handler.midi_to_freq(note);
+    let duration = Duration::from_secs(1);
+    let sequence = vec![(note, freq, duration)];
+
     while !window.should_close() {
         unsafe {
             gl::ClearColor(0.3, 0.3, 0.3, 1.0);
@@ -237,6 +254,8 @@ fn main() {
                 }
                 InputEvent::MouseButtonPressed(CLICKS::Left) => {
                     println!("pewpew");
+                    println!("Playing note {} at {:.2} Hz", note, freq);
+                    sound_engine.play_sequence(&sequence);
                     if (ui_manager.is_element_hovered(3)){//somthing here to pattern match instead of this
                         ui_manager.visit_element(3, &mut visitor);
                     }
