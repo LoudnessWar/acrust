@@ -173,11 +173,16 @@ fn main() {
     //sound init
 
     let midi_handler = MidiHandler::new();
-    let sound_engine = SoundEngine::new();
+    // let sound_engine = SoundEngine::new();
+
+    //sound_engine.init();
 
     let (tx, rx) = mpsc::channel::<(u8, f32, Duration)>();
 
     thread::spawn(move || {
+        let mut sound_engine = SoundEngine::new();
+        sound_engine.init();
+        
         while let Ok((note, freq, duration)) = rx.recv() {
             println!("Playing note {} at {:.2} Hz", note, freq);
             sound_engine.play_sequence(&vec![(note, freq, duration)]);
@@ -265,7 +270,7 @@ fn main() {
                 }
                 InputEvent::MouseButtonPressed(CLICKS::Left) => {
                     println!("pewpew");
-                    println!("Playing note {} at {:.2} Hz", note, freq);
+                    //println!("Playing note {} at {:.2} Hz", note, freq);
                     tx.send((note, freq, duration)).expect("Failed to send note");
                     if (ui_manager.is_element_hovered(3)){//somthing here to pattern match instead of this
                         ui_manager.visit_element(3, &mut visitor);
