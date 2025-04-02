@@ -22,7 +22,7 @@ use acrust::model::objload::GeneralModel;
 
 
 use acrust::sound::sound::SoundEngine;
-use std::{thread, time::Duration};
+use std::{sync::mpsc, thread, time::Duration};
 
 use acrust::user_interface::ui_manager::DragState;
 
@@ -175,10 +175,21 @@ fn main() {
     let midi_handler = MidiHandler::new();
     let sound_engine = SoundEngine::new();
 
+    let (tx, rx) = mpsc::channel::<(u8, f32, Duration)>();
+
+    thread::spawn(move || {
+        while let Ok((note, freq, duration)) = rx.recv() {
+            println!("Playing note {} at {:.2} Hz", note, freq);
+            sound_engine.play_sequence(&vec![(note, freq, duration)]);
+        }
+    });
+
     let note = 60;
     let freq = midi_handler.midi_to_freq(note);
     let duration = Duration::from_secs(1);
     let sequence = vec![(note, freq, duration)];
+
+    //tx.send((note, freq, duration)).expect("Failed to send note");
 
     while !window.should_close() {
         unsafe {
@@ -255,7 +266,7 @@ fn main() {
                 InputEvent::MouseButtonPressed(CLICKS::Left) => {
                     println!("pewpew");
                     println!("Playing note {} at {:.2} Hz", note, freq);
-                    sound_engine.play_sequence(&sequence);
+                    tx.send((note, freq, duration)).expect("Failed to send note");
                     if (ui_manager.is_element_hovered(3)){//somthing here to pattern match instead of this
                         ui_manager.visit_element(3, &mut visitor);
                     }
@@ -308,7 +319,7 @@ fn main() {
 
         cm.render_all();
 
-        window.update();
+        window.update();//frame_buffer here
         time += 0.1;
         //panic!("end");
     }
