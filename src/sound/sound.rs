@@ -3,6 +3,8 @@ use cpal::{Stream, StreamConfig};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use std::sync::mpsc::{self, Sender};
+
 
 pub struct SoundEngine {
     stream: Option<Stream>,
@@ -68,5 +70,31 @@ impl SoundEngine {
             let sample_count = (sample_rate * duration.as_secs_f32()) as usize;
             sounds.push((freq, 0.0, sample_count));
         }
+    }
+}
+
+pub struct SoundManager {
+    sender: Sender<(u8, f32, Duration)>,
+}
+
+impl SoundManager {
+    pub fn new() -> Self {
+        let (tx, rx) = mpsc::channel::<(u8, f32, Duration)>();
+
+        thread::spawn(move || {
+            let mut sound_engine = SoundEngine::new();
+            sound_engine.init();
+
+            while let Ok((note, freq, duration)) = rx.recv() {
+                println!("Playing note {} at {:.2} Hz", note, freq);
+                sound_engine.play_sequence(&vec![(note, freq, duration)]);
+            }
+        });
+
+        Self { sender: tx }
+    }
+
+    pub fn play_note(&self, note: u8, freq: f32, duration: Duration) {//this should probably be mut... but eeh
+        self.sender.send((note, freq, duration)).expect("failed to send note to thread");
     }
 }

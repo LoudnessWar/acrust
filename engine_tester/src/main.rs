@@ -21,7 +21,7 @@ use acrust::model::transform::WorldCoords;
 use acrust::model::objload::GeneralModel;
 
 
-use acrust::sound::sound::SoundEngine;
+use acrust::sound::sound::*;
 use std::{sync::mpsc, thread, time::Duration};
 
 use acrust::user_interface::ui_manager::DragState;
@@ -172,25 +172,8 @@ fn main() {
 
     //sound init
 
-    let midi_handler = MidiHandler::new();
-    // let sound_engine = SoundEngine::new();
-
-    //sound_engine.init();
-
-    let (tx, rx) = mpsc::channel::<(u8, f32, Duration)>();
-
-
-    //I mean do we just put this thread in the sound engine init or somewhere else
-    //to keep it ez for the user?... yes we do
-    thread::spawn(move || {
-        let mut sound_engine = SoundEngine::new();
-        sound_engine.init();
-        
-        while let Ok((note, freq, duration)) = rx.recv() {
-            println!("Playing note {} at {:.2} Hz", note, freq);
-            sound_engine.play_sequence(&vec![(note, freq, duration)]);
-        }
-    });
+    let midi_handler = MidiHandler::new();//literally... the only reason this is here is to just convert notes to frequencies
+    let sound_engine = SoundManager::new();
 
     let note = 60;
     let freq = midi_handler.midi_to_freq(note);//yeah like why are we passing the note and the frequency...
@@ -201,7 +184,6 @@ fn main() {
     let note2 = 50;
     let freq2 = midi_handler.midi_to_freq(note2);//yeah like why are we passing the note and the frequency...
     let duration2 = Duration::from_secs(1);
-    //tx.send((note, freq, duration)).expect("Failed to send note");
 
     while !window.should_close() {
         unsafe {
@@ -277,8 +259,7 @@ fn main() {
                 }
                 InputEvent::MouseButtonPressed(CLICKS::Left) => {
                     println!("pewpew");
-                    //println!("Playing note {} at {:.2} Hz", note, freq);
-                    tx.send((note, freq, duration)).expect("Failed to send note");
+                    sound_engine.play_note(note, freq, duration);
                     if (ui_manager.is_element_hovered(3)){//somthing here to pattern match instead of this
                         ui_manager.visit_element(3, &mut visitor);
                     }
@@ -290,7 +271,7 @@ fn main() {
                 }
                 InputEvent::MouseButtonPressed(CLICKS::Right) => {
                     println!("clear");
-                    tx.send((note2, freq2, duration2)).expect("Failed to send note");
+                    sound_engine.play_note(note2, freq2, duration2);
                 }
                 _ => {}
             }
