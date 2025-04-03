@@ -179,6 +179,9 @@ fn main() {
 
     let (tx, rx) = mpsc::channel::<(u8, f32, Duration)>();
 
+
+    //I mean do we just put this thread in the sound engine init or somewhere else
+    //to keep it ez for the user?... yes we do
     thread::spawn(move || {
         let mut sound_engine = SoundEngine::new();
         sound_engine.init();
@@ -190,10 +193,14 @@ fn main() {
     });
 
     let note = 60;
-    let freq = midi_handler.midi_to_freq(note);
+    let freq = midi_handler.midi_to_freq(note);//yeah like why are we passing the note and the frequency...
     let duration = Duration::from_secs(1);
-    let sequence = vec![(note, freq, duration)];
+    let sequence = vec![(note, freq, duration)];//ok I need to add something to play a vector of sewuences like this...
+    //ie send it to thread...
 
+    let note2 = 50;
+    let freq2 = midi_handler.midi_to_freq(note2);//yeah like why are we passing the note and the frequency...
+    let duration2 = Duration::from_secs(1);
     //tx.send((note, freq, duration)).expect("Failed to send note");
 
     while !window.should_close() {
@@ -283,6 +290,7 @@ fn main() {
                 }
                 InputEvent::MouseButtonPressed(CLICKS::Right) => {
                     println!("clear");
+                    tx.send((note2, freq2, duration2)).expect("Failed to send note");
                 }
                 _ => {}
             }
