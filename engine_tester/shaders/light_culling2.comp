@@ -1,0 +1,85 @@
+#version 450 core
+
+#define MAX_LIGHTS_PER_TILE 128
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0, std430) readonly buffer LightBuffer {
+    struct LightGPU {
+        vec3 position;
+        float radius;
+        vec3 color;
+        float _pad;
+    };
+    LightGPU lights[];
+};
+
+layout(binding = 1) uniform sampler2D u_depthTex;
+
+layout(binding = 2, std430) buffer LightCountBuffer {
+    uint lightCounts[];
+};
+
+layout(binding = 3, std430) buffer LightIndicesBuffer {
+    uint lightIndices[];
+};
+
+// Push constants or uniforms
+uniform mat4 u_inv_view_proj;  // Inverse View-Projection matrix
+uniform uint u_numLights;
+uniform uvec2 u_screenSize;
+uniform uvec2 u_tileSize;
+uniform uint u_numTilesX;
+
+vec3 reconstructWorldPos(vec2 fragCoord, float depth) {
+    vec4 ndc;
+    ndc.xy = (fragCoord / vec2(u_screenSize)) * 2.0 - 1.0;
+    ndc.y = -ndc.y; // Flip Y
+    ndc.z = depth * 2.0 - 1.0;
+    ndc.w = 1.0;
+
+    vec4 world = u_inv_view_proj * ndc;
+    return world.xyz / world.w;
+}
+
+void main() {
+    uvec2 tileCoord = gl_GlobalInvocationID.xy;
+    if (tileCoord.x >= u_screenSize.x / u_tileSize.x ||
+        tileCoord.y >= u_screenSize.y / u_tileSize.y)
+        return;
+
+    uint tileIndex = tileCoord.y * u_numTilesX + tileCoord.x;
+    ivec2 basePixel = ivec2(tileCoord * u_tileSize);
+
+    float minDepth = 1.0;
+    float maxDepth = 0.0;
+
+    for (uint y = 0; y < u_tileSize.y; ++y) {
+        for (uint x = 0; x < u_tileSize.x; ++x) {
+            ivec2 pixel = basePixel + ivec2(x, y);
+            if (pixel.x >= int(u_screenSize.x) || pixel.y >= int(u_screenSize.y)) continue;
+            float depth = texelFetch(u_depthTex, pixel, 0).r;
+            minDepth = min(minDepth, depth);
+            maxDepth = max(maxDepth, depth);
+        }
+    }
+
+    vec3 minPos = reconstructWorldPos(vec2(basePixel), minDepth);
+    vec3 maxPos = reconstructWorldPos(vec2(basePixel + u_tileSize - 1), maxDepth);
+
+    vec3 tileCenter = 0.5 * (minPos + maxPos);
+    float tileRadius = length(maxPos - tileCenter);
+
+    uint count = 0;
+    uint offset = tileIndex * MAX_LIGHTS_PER_TILE;
+
+    for (uint i = 0; i < u_numLights; ++i) {
+        float dist = length(lights[i].position - tileCenter);
+        if (dist < lights[i].radius + tileRadius && count < MAX_LIGHTS_PER_TILE) {
+            lightIndices[offset + count] = i;
+            count++;
+        }
+    }
+
+    lightCounts[tileIndex] = count;
+}
