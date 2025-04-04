@@ -1,4 +1,6 @@
 use cgmath::Vector3;
+use gl::types::GLsizeiptr;
+use gl::types::GLuint;
 
 use super::gl_wrapper::ShaderProgram;
 
@@ -45,39 +47,90 @@ pub struct LightGPU {
     pub _pad: f32,
 }
 
+// file: lightmanager.rs
 
-pub struct LightManager{
-    light_sources: Vec<Box<dyn LightTrait>>,//im wondering if I should have been using box more
-}//erm intuitevly, I could just make this a hashmap and then just replace the value with a new one in an instance of modification...
-//this might be unifficient
+use crate::graphics::gl_wrapper::*;
+use cgmath::Vector4;
+use std::mem;
 
-impl LightManager{
-    pub fn new() -> Self{
-        Self { light_sources: Vec::new() }
-    }
-
-    pub fn add_light(&mut self, light: Box<dyn LightTrait>){
-        self.light_sources.push(light);
-    }
-
-    pub unsafe fn upload_lights_to_ssbo(lights: &[LightGPU]) -> u32 {
-        let mut ssbo: u32 = 0;
-        gl::GenBuffers(1, &mut ssbo);
-        gl::BindBuffer(gl::SHADER_STORAGE_BUFFER, ssbo);
-    
-        let ptr = lights.as_ptr() as *const std::ffi::c_void;
-        let size = (std::mem::size_of::<LightGPU>() * lights.len()) as isize;
-    
-        gl::BufferData(gl::SHADER_STORAGE_BUFFER, size, ptr, gl::DYNAMIC_DRAW);
-        gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, ssbo); // binding = 1
-        gl::BindBuffer(gl::SHADER_STORAGE_BUFFER, 0);
-    
-        ssbo
-    }
-    
-
-    //pub fn compile_lights(&self,)
+#[derive(Clone, Copy, Debug)]
+pub struct Light {
+    pub position: Vector3<f32>,
+    pub radius: f32,
+    pub color: Vector3<f32>,
+    pub _pad: f32,
 }
+
+pub struct LightManager {
+    pub lights: Vec<Light>,
+    pub light_ssbo: GLuint,
+    pub max_lights: usize,
+}
+
+impl LightManager {
+    pub fn new(max_lights: usize) -> Self {
+        let mut light_ssbo = 0;
+        unsafe {
+            gl::GenBuffers(1, &mut light_ssbo);
+            gl::BindBuffer(gl::SHADER_STORAGE_BUFFER, light_ssbo);
+            gl::BufferData(
+                gl::SHADER_STORAGE_BUFFER,
+                (max_lights * mem::size_of::<Light>()) as GLsizeiptr,
+                std::ptr::null(),
+                gl::DYNAMIC_DRAW,
+            );
+            gl::BindBuffer(gl::SHADER_STORAGE_BUFFER, 0);
+        }
+
+        Self {
+            lights: Vec::with_capacity(max_lights),
+            light_ssbo,
+            max_lights,
+        }
+    }
+
+    pub fn update_ssbo(&self) {
+        unsafe {
+            gl::BindBuffer(gl::SHADER_STORAGE_BUFFER, self.light_ssbo);
+            let ptr = gl::MapBuffer(gl::SHADER_STORAGE_BUFFER, gl::WRITE_ONLY) as *mut Light;
+            if !ptr.is_null() {
+                for (i, light) in self.lights.iter().enumerate() {
+                    *ptr.add(i) = *light;
+                }
+            }
+            gl::UnmapBuffer(gl::SHADER_STORAGE_BUFFER);
+            gl::BindBuffer(gl::SHADER_STORAGE_BUFFER, 0);
+        }
+    }
+
+    pub fn bind_ssbo(&self, binding_point: GLuint) {
+        unsafe {
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, binding_point, self.light_ssbo);
+        }
+    }
+
+    pub fn add_light(&mut self, position: Vector3<f32>, radius: f32, color: Vector3<f32>) {
+        if self.lights.len() < self.max_lights {
+            self.lights.push(Light {
+                position,
+                radius,
+                color,
+                _pad: 0.0,
+            });
+        }
+    }
+}
+
+pub enum RenderPassType {
+    DepthPrepass,
+    ForwardPlus,
+}
+
+pub trait SceneRenderable {
+    fn draw(&self, pass: RenderPassType);
+}
+
+// Later we can extend this to support tiled light index buffers per tile for Forward+
 
 pub struct LightCullingBuffers {
     pub counts_ssbo: u32,
