@@ -2,6 +2,7 @@ use cgmath::{Vector2, Vector4};
 
 use crate::input::input::{InputSystem, CLICKS};
 
+//lol these should return like references bruh
 pub trait UIElementTrait {
     fn is_hovered(&self, mouse_pos: (f64, f64)) -> bool;
     fn get_id(&self) -> u32;
@@ -65,7 +66,7 @@ impl UIElementTrait for UIElement {
             && mouse_y as f32 <= self.position.y + self.size.y
     }
 
-    fn get_id(&self) -> u32 {
+    fn get_id(&self) -> u32 {//lol these need to be refrences later
         self.id
     }
 

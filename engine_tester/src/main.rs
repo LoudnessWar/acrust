@@ -4,8 +4,12 @@ use acrust::graphics::window::Window;
 use acrust::graphics::camera::Camera;
 use acrust::graphics::texture_manager::TextureManager;
 use acrust::graphics::skybox::Skybox;
-use acrust::input::input::{InputSystem, InputEvent, Key, CLICKS};
 use acrust::graphics::gl_wrapper::*;
+use acrust::graphics::materials::Material;
+use acrust::graphics::materials::MaterialManager;
+
+use acrust::input::input::{InputSystem, InputEvent, Key, CLICKS};
+
 use acrust::user_interface::ui_element::UIElement;
 use acrust::user_interface::ui_manager::UIManager;
 use acrust::user_interface::ui_element::UIElementTrait;
@@ -14,17 +18,19 @@ use acrust::user_interface::ui_element::Button;
 use acrust::user_interface::ui_element::Slider;
 use acrust::user_interface::ui_element::UIElementVisitor;
 use acrust::user_interface::ui_element::*;
-use acrust::graphics::materials::Material;
-use acrust::graphics::materials::MaterialManager;
+use acrust::user_interface::ui_manager::DragState;
+
+
 use acrust::model::objload::Model;
 use acrust::model::transform::WorldCoords;
 use acrust::model::objload::GeneralModel;
+use acrust::model::cube::Cube;
+use acrust::model::objload::load_obj;
 
 
 use acrust::sound::sound::*;
 use std::{sync::mpsc, thread, time::Duration};
 
-use acrust::user_interface::ui_manager::DragState;
 
 
 use crate::octo::OctreeNode;
@@ -33,19 +39,12 @@ use crate::chunk_generator::*;
 use crate::chunk_manager::ChunkManager;
 use crate::wave_generator::WaterRender;
 use crate::midi::MidiHandler;
-
-use cgmath::Vector3;
-
-use acrust::model::cube::Cube;
-use acrust::model::objload::load_obj;
-
 use crate::player::Player;
 
-//use gl::types::*;
-//use std::mem;
+use cgmath::Vector3;
 use std::time::Instant;
 use cgmath::*;
-//use std::env;
+
 
 mod voxel_render;
 mod player;
@@ -70,7 +69,10 @@ fn main() {
     ui_shader.create_uniform("color");
     ui_shader.create_uniform("useTexture");
 
-    let mat_man = MaterialManager::new();
+    let mat_man = MaterialManager::new();//ok I am going to give a like reasoning here as to why this isn't like a global variable
+    //or something and there are so many hoops jumped through with this and MaterialManager... ok the simple reason is
+    //its safer and uuh down the line will work out better because we arn't using this for read only. IE we are editing stuff even in the
+    //functions that dont we are just getting around decalairing it as such because of unsafe. SO basically. this is safer.
 
     let material = mat_man.load_material("mat1", &shader_manager, "Basic");
     let material = mat_man.load_material("mat2", &shader_manager, "generic");
