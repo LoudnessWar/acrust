@@ -2,6 +2,14 @@ use cgmath::Vector3;
 
 use crate::graphics::lightmanager::*;
 
+//dude... do I add this to like materials or objects themselves...
+//I think to the objects themselves is more flexible and like...
+//more ez lowkey because maybe I want my materials to have like different shaders and stuff
+//like ok right now.. forward plus we only really have like one shader
+//possible but like it can prolly be edited so like multiple things
+//have different shaders that all are like forward plus with like variation or
+//like utalize it and when I get there I dont want
+//like material locking to like bog down like messing with things or something
 pub struct LightSource {
     emission_color: Vector3<f32>,
     emission_intensity: f32,//maybe just u8

@@ -1,7 +1,5 @@
 use cgmath::Vector3;
 
-use crate::model::lightobj::*;
-
 //do I just make a Color Type?
 //even though it's a little bit tedious im making it a trait because later there will likely
 //be instances where I want to be able to run these functions on all light sources
@@ -32,7 +30,22 @@ pub trait LightTrait {
 //all that it would need to do then is generate a matrix of lights and their elements
 //this would be lit prolly
 
-pub struct LightManager{
-    light_sources: Vec<Box<dyn LightTrait>>,
-}
 
+//ok after a lot of cumtimplation we finna use forward+ shading
+
+pub struct LightManager{
+    light_sources: Vec<Box<dyn LightTrait>>,//im wondering if I should have been using box more
+}//erm intuitevly, I could just make this a hashmap and then just replace the value with a new one in an instance of modification...
+//this might be unifficient
+
+impl LightManager{
+    pub fn new() -> Self{
+        Self { light_sources: Vec::new() }
+    }
+
+    pub fn add_light(&mut self, light: Box<dyn LightTrait>){
+        self.light_sources.push(light);
+    }
+
+    //pub fn compile_lights(&self,)
+}

@@ -1,0 +1,59 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+#define MAX_LIGHTS 256
+#define MAX_LIGHTS_PER_TILE 128
+
+layout(std140, binding = 0) uniform CameraData {
+    mat4 view;
+    mat4 projection;
+    mat4 inverseProjection;
+    vec2 screenSize;
+    vec2 tileSize;
+};
+
+struct Light {
+    vec3 position;
+    float radius;
+    vec3 color;
+    float _pad;
+};
+
+layout(std430, binding = 1) buffer Lights {
+    Light lights[];
+};
+
+layout(std430, binding = 2) buffer LightIndices {
+    uint counts[];         
+    uint indices[];        
+};
+
+layout(binding = 3) uniform sampler2D depthTex;
+//i need version 450 to use all this shit
+void main() {
+    ivec2 tileCoord = ivec2(gl_GlobalInvocationID.xy);
+    int tileIndex = tileCoord.y * int(screenSize.x / tileSize.x) + tileCoord.x;
+
+    vec2 tileMin = vec2(tileCoord) * tileSize;
+    vec2 tileMax = tileMin + tileSize;
+
+    vec2 centerUV = (tileMin + tileMax) * 0.5 / screenSize;
+    float depth = texelFetch(depthTex, ivec2(centerUV * screenSize), 0).r;
+
+    vec4 viewPos = inverseProjection * vec4(centerUV * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+    viewPos /= viewPos.w;
+
+    uint count = 0;
+    uint baseIndex = tileIndex * MAX_LIGHTS_PER_TILE;
+
+    for (uint i = 0; i < MAX_LIGHTS; ++i) {
+        float dist = distance(lights[i].position, viewPos.xyz);
+        if (dist < lights[i].radius && count < MAX_LIGHTS_PER_TILE) {
+            indices[baseIndex + count] = i;
+            count++;
+        }
+    }
+
+    counts[tileIndex] = count;
+}
