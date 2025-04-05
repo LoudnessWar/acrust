@@ -747,7 +747,7 @@ fn initialize_light_shader() -> ShaderProgram {//i could make this dynamic but l
 
 //i should just... make this... a function so it can just store all this stuff as references or just store it all for me that will prolly be like
 //TODO first hing is do above prolly maybe just put it in light_manager or something man idk
-pub fn render_frame(
+fn render_frame(
     scene: &[Mesh],
     depth_shader: &ShaderProgram,
     light_shader: &ShaderProgram,

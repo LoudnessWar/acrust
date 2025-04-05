@@ -27,6 +27,8 @@ use acrust::model::objload::GeneralModel;
 use acrust::model::cube::Cube;
 use acrust::model::objload::load_obj;
 
+use acrust::graphics::gl_wrapper;//going to remove later
+
 
 use acrust::sound::sound::*;
 use std::{sync::mpsc, thread, time::Duration};
@@ -64,10 +66,24 @@ fn main() {
     shader_manager.load_shader("Basic", "shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
     shader_manager.load_shader("generic", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl");
 
+    shader_manager.init_forward_plus();
+
+    let depth_shader = shader_manager.get_shader("depth").unwrap();
+    let light_shader = shader_manager.get_shader("light").unwrap();
+
     let mut ui_shader = ShaderProgram::new("shaders/ui_vertex.glsl", "shaders/ui_fragment.glsl");
     ui_shader.create_uniform("projection");
     ui_shader.create_uniform("color");
     ui_shader.create_uniform("useTexture");
+
+    let mut light_manager = LightManager::new();
+
+    light_manager.lights.push(Light {
+        position: [0.0, 5.0, 0.0],
+        radius: 10.0,
+    });
+
+    light_manager.initialize_gpu_culling(720, 720, &shader_manager);
 
     let mat_man = MaterialManager::new();//ok I am going to give a like reasoning here as to why this isn't like a global variable
     //or something and there are so many hoops jumped through with this and MaterialManager... ok the simple reason is
@@ -134,6 +150,8 @@ fn main() {
     let mut time = 0.0;
 
     let mut ds = DragState::new();
+
+    let scene_objects = vec![Mesh::new]
 
     
     while !window.should_close() {
@@ -243,6 +261,16 @@ fn main() {
         }
 
         let transform = camera.get_vp_matrix();
+
+        gl_wrapper::render_frame(
+            &scene_objects,
+            &depth_shader.lock().unwrap(),
+            &light_shader.lock().unwrap(),
+            &mut light_manager,
+            &transform,
+            720,
+            720,
+        );
 
 
         mat_man.update_uniform("mat1", "transform", &transform);
