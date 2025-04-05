@@ -15,6 +15,10 @@ use std::sync::Arc;
 
 use crate::model::mesh;
 use crate::model::mesh::Mesh;
+use crate::model::objload::ModelTrait;
+
+use super::camera::Camera;
+use super::texture_manager::TextureManager;
 
 /// # Vertex Array Object
 ///
@@ -192,6 +196,7 @@ impl ShaderProgram {
     }
 
     fn compile_shader(source: &str, shader_type: GLenum) -> GLuint {
+        println!("Source: {}, Type: ", source);
         let shader = unsafe { gl::CreateShader(shader_type) };
         let c_str = CString::new(source).unwrap();
         unsafe {
@@ -231,7 +236,7 @@ impl ShaderProgram {
 
     //intrestng things these are they are not mut
     pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {
-        //println!("{}", uniform_name);
+        println!("{}", uniform_name);
         unsafe {
             gl::UniformMatrix4fv(
                 self.uniform_ids[uniform_name],
@@ -456,7 +461,7 @@ impl Framebuffer {
 pub fn run_depth_prepass(
     depth_shader: &ShaderProgram,
     framebuffer: &Framebuffer,
-    scene_objects: &[Mesh], // tuple of (VAO, index count)
+    scene_objects: &Vec<&Mesh>,
     light_manager: &mut LightManager,
     width: u32,
     height: u32,
@@ -702,9 +707,9 @@ impl LightManager {
             culling_buffers.bind(&self.lights);
             
             // Bind and set up the compute shader
-            let shader = compute_shader.lock().unwrap();
+            let mut shader = compute_shader.lock().unwrap();
             shader.bind();
-            
+            shader.create_uniform("u_viewProjection");
             // Set uniforms for the compute shader
             shader.set_matrix4fv_uniform("u_viewProjection", view_projection);
             shader.set_uniform1i("u_lightCount", &(self.lights.len() as i32));
@@ -747,38 +752,109 @@ fn initialize_light_shader() -> ShaderProgram {//i could make this dynamic but l
 
 //i should just... make this... a function so it can just store all this stuff as references or just store it all for me that will prolly be like
 //TODO first hing is do above prolly maybe just put it in light_manager or something man idk
-pub fn render_frame(
-    scene: &[Mesh],
-    depth_shader: &ShaderProgram,
-    light_shader: &ShaderProgram,
-    light_manager: &mut LightManager,
-    view_projection: &Matrix4<f32>, // Added view_projection matrix
-    width: u32,
-    height: u32,
-) {
-    let framebuffer = Framebuffer::new_depth_only(width, height);
 
-    // Depth pre-pass
-    run_depth_prepass(
-        depth_shader,
-        &framebuffer,
-        &scene,
-        light_manager,
-        width,
-        height,
-    );
+//ok i did above but now I need to add this to a sepereate file i am like pretty sure
+//2 many imports that were not previously needed by gl_wrapper
+pub struct ForwardPlusRenderer {
+    depth_shader: Arc<Mutex<ShaderProgram>>,//I might just make these not in shader_manager tbh
+    light_shader: Arc<Mutex<ShaderProgram>>,
+    light_manager: LightManager,
+}
+
+impl ForwardPlusRenderer {
+    pub fn new(shader_manager: &ShaderManager) -> Self {
+        let depth_shader = shader_manager.get_shader("depth")
+            .expect("Depth shader not found");
+
+        let light_shader = shader_manager.get_shader("light")
+            .expect("Light shader not found");
+
+        let light_manager = LightManager::new();
+        
+        Self {
+            depth_shader,
+            light_shader,
+            light_manager,
+        }
+    }
     
-    // Perform GPU-based light culling
-    light_manager.perform_gpu_light_culling(view_projection, width, height);
+    pub fn render<T: ModelTrait>(&mut self, 
+        models: &[T], 
+        camera: &Camera,
+        width: u32, 
+        height: u32,
+        texture_manager: &TextureManager
+    ) {
+        let view_projection = camera.get_vp_matrix();
+        let framebuffer = Framebuffer::new_depth_only(width, height);
+        
+        // Extract meshes for depth pass
+        let meshes: Vec<&Mesh> = models.iter().map(|model| model.get_mesh()).collect();
+        
+        // Depth pre-pass
+        run_depth_prepass(
+            &self.depth_shader.lock().expect("failed to get depth Shader during prepass"),
+            &framebuffer,
+            &meshes,
+            &mut self.light_manager,
+            width,
+            height,
+        );
+        
+        // Light culling
+        self.light_manager.perform_gpu_light_culling(&view_projection, width, height);
+        
+        // Light pass
+        Framebuffer::unbind();
+        
+        unsafe {
+            gl::Viewport(0, 0, width as i32, height as i32);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            gl::Enable(gl::DEPTH_TEST);
+        }
+        
+        self.light_shader.lock().expect("failed bind").bind();//if this was mutable would this work
+        //if im getting errrors later look into this
 
-    // Light pass (forward+ rendering)
-    run_light_pass(
-        light_shader,
-        &scene,
-        light_manager,
-        width,
-        height,
-    );
+        // Bind depth texture
+        let depth_tex = self.light_manager.get_depth_texture();
+        unsafe {
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
+        }
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
+        
+        // Bind light culling buffers
+        if let Some(culling_buffers) = &self.light_manager.culling_buffers {
+            unsafe {
+                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
+                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, culling_buffers.light_grid_buffer.get_id());
+                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id());
+            }
+            
+            let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
+            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountX", tile_count_x as f32);
+            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountY", tile_count_y as f32);
+        }
+        
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_lightCount", &(self.light_manager.lights.len() as i32));
+        
+        // Render each model with its material
+        for model in models {
+            model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
+            model.get_mesh().draw();
+        }
+        
+        ShaderProgram::unbind();
+    }
+    
+    pub fn add_light(&mut self, position: [f32; 3], radius: f32) {
+        self.light_manager.lights.push(Light { position, radius });
+    }
+    
+    pub fn initialize_light_culling(&mut self, width: u32, height: u32, shader_manager: &ShaderManager) {
+        self.light_manager.initialize_gpu_culling(width, height, shader_manager);
+    }
 }
 
 pub struct LightCullingBuffers {

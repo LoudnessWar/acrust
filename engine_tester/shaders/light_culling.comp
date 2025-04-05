@@ -30,8 +30,9 @@ layout(std430, binding = 2) buffer LightIndices {
 uniform sampler2D u_depthTexture;
 
 // Uniforms
-uniform mat4 u_viewProjection;
 uniform int u_lightCount;
+uniform mat4 u_viewProjection;
+
 uniform float u_screenWidth;
 uniform float u_screenHeight;
 
@@ -39,6 +40,8 @@ uniform float u_screenHeight;
 shared uint visibleLightCount;
 shared uint visibleLightIndices[64]; // Max lights per tile, adjust as needed
 
+shared uint sharedMinDepth;
+shared uint sharedMaxDepth;
 // Utility function to reconstruct view space position from depth
 vec3 reconstructPosition(vec2 uv, float depth) {
     // Convert to normalized device coordinates
@@ -72,6 +75,8 @@ void main() {
     // Initialize light count for this tile
     if (localID.x == 0 && localID.y == 0) {
         visibleLightCount = 0;
+        sharedMinDepth = floatBitsToUint(1.0); // largest depth
+    	sharedMaxDepth = floatBitsToUint(0.0); // smallest depth
     }
     
     // Ensure all threads in the work group have reached this point
@@ -84,13 +89,16 @@ void main() {
     // Sample depth values for local invocation
     vec2 uv = vec2(gl_GlobalInvocationID.xy) / vec2(u_screenWidth, u_screenHeight);
     float depth = texture(u_depthTexture, uv).r;
-    
-    // Update min/max depth atomically
-    atomicMin(floatBitsToUint(minDepth), floatBitsToUint(depth));
-    atomicMax(floatBitsToUint(maxDepth), floatBitsToUint(depth));
-    
+	uint depthBits = floatBitsToUint(depth);
+	
+	atomicMin(sharedMinDepth, depthBits);
+	atomicMax(sharedMaxDepth, depthBits);
+	    
     // Ensure all threads have updated min/max depth
     barrier();
+    
+    minDepth = uintBitsToFloat(sharedMinDepth);
+	maxDepth = uintBitsToFloat(sharedMaxDepth);
     
     // Reconstruct view-space frustum for this tile
     vec3 tileMinNear = reconstructPosition(tileMin, minDepth);
@@ -125,7 +133,7 @@ void main() {
     
     // Write results to global buffers
     if (localID.x == 0 && localID.y == 0) {
-        uint tileIndex = tileID.y * (u_screenWidth / TILE_SIZE) + tileID.x;
+        uint tileIndex = tileID.y * (uint(u_screenWidth) / TILE_SIZE) + tileID.x;
         uint offset = tileIndex * 64; // Offset in the indices buffer
         
         // Store offset and count in the grid
@@ -133,7 +141,7 @@ void main() {
         
         // Copy visible light indices to global buffer
         for (uint i = 0; i < visibleLightCount && i < 64; i++) {
-            indices[offset + i] = visibleLightIndices[i];
+            indices[offset + i] = int(visibleLightIndices[i]);
         }
     }
 }

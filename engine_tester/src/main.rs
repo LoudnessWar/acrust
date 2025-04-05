@@ -151,9 +151,14 @@ fn main() {
 
     let mut ds = DragState::new();
 
-    let scene_objects = vec![Mesh::new]
+    let mut fpr = ForwardPlusRenderer::new(&shader_manager);
 
-    
+    fpr.add_light([0.0, 5.0, 0.0], 10.0);
+
+    fpr.initialize_light_culling(720, 720, &shader_manager);
+
+    let models: Vec<GeneralModel> = vec![GeneralModel::new(load_obj("models/teddy.obj"), WorldCoords::new(10.0, 10.0, 100.0, 1.0), mat_man.get_mat("mat2"))];
+
     while !window.should_close() {
         unsafe {
             gl::ClearColor(0.3, 0.3, 0.3, 1.0);
@@ -262,14 +267,12 @@ fn main() {
 
         let transform = camera.get_vp_matrix();
 
-        gl_wrapper::render_frame(
-            &scene_objects,
-            &depth_shader.lock().unwrap(),
-            &light_shader.lock().unwrap(),
-            &mut light_manager,
-            &transform,
+        fpr.render(
+            &models,
+            &camera,
             720,
             720,
+            &texture_manager
         );
 
 
