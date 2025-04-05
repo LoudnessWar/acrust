@@ -42,6 +42,14 @@ impl Mesh {
         }
     }
 
+    pub fn get_vao(&self) -> &Vao{
+        &self.vao
+    }
+
+    pub fn get_index_count(&self) -> i32{//is it better to have pointer here or just like clone
+        self.index_count.clone()
+    }
+
     //this is just like a generic basic render like thing but like you need to apply textures first so thats
     //why like I will probably add a render trait to model
     pub fn draw(&self) {

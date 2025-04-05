@@ -98,35 +98,10 @@ fn main() {
     let mut cube = Cube::new(5.0, Vector3::new(0.0, 0.0, 0.0), 1.0, mat_man.get_mat("mat1"));
     let mut cube2 = Cube::new(5.0, Vector3::new(15.0, 15.0, 15.0), 1.0, mat_man.get_mat("mat1"));
 
-    //let mut obj = load_obj("models/teddy.obj");
-
-    //ok my theries on why its black 1 is that, it doesnt have any color like value so it it is just black
-    //i can test this buy rendering the voxels with the shader or just like anything esle
-    //but the voxels prolly easy
-    //2 like it could also be color attribute again like omg i got no therioes yo the shader could just be broken
-    //it could also be something else
-    //like the ways its rendered... look at UI and Wave and Voxels figure it out commit like the one on Jan 29 is like a good like thing to look at
-    //also test obj on other shaders
-    //could also be how the attribute is becasue I changed it the second one in Mesh maybe convert it back and it will work
     let mut model = GeneralModel::new(load_obj("models/teddy.obj"), WorldCoords::new(10.0, 10.0, 100.0, 1.0), mat_man.get_mat("mat2"));
     mat_man.update_uniform("mat2", "lightDir", UniformValue::Vector4(vec4(0.0, 10.0, 0.0, 1.0)));
     mat_man.update_uniform("mat2", "lightColor", UniformValue::Vector4(vec4(0.0, 1.0, 1.0, 1.0)));
     mat_man.update_uniform("mat2", "objectColor", UniformValue::Vector4(vec4(1.0, 1.0, 1.0, 1.0)));
-
-    let skybox_faces = [
-        "textures/right.jpg",
-        "textures/left.jpg",
-        "textures/top.png",
-        "textures/bottom.png",
-        "textures/front.jpg",
-        "textures/back.jpg",
-    ];
-
-    let skybox = Skybox::new(&skybox_faces);
-    let skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
-    let mut skybox_material = Material::new_unlocked(skybox_shader);
-    skybox_material.init_uniform("view");
-    skybox_material.init_uniform("projection");
 
     let mut texture_manager = TextureManager::new();
 
@@ -160,33 +135,7 @@ fn main() {
 
     let mut ds = DragState::new();
 
-    shader_manager.load_shader("water", "shaders/water_vertex_shader.glsl", "shaders/water_fragment_shader.glsl");
-    shader_manager.enable_depth("water");
-    shader_manager.enable_backface_culling("water");
-    let mut wave = WaterRender::new(12.0, 12.0, 12.0, "water", &shader_manager);
     
-
-    //chunk
-    let mut cm = ChunkManager::new();
-    let mut cg = TerrainGenerator::new(42, 8);
-
-    cm.add_octrees(cg.generate_multiple_chunks(0, 32, 0, 2, 1, 16));
-
-    //sound init
-
-    let midi_handler = MidiHandler::new();//literally... the only reason this is here is to just convert notes to frequencies
-    let sound_engine = SoundManager::new();
-
-    let note = 60;
-    let freq = midi_handler.midi_to_freq(note);//yeah like why are we passing the note and the frequency...
-    let duration = Duration::from_secs(1);
-    let sequence = vec![(note, freq, duration)];//ok I need to add something to play a vector of sewuences like this...
-    //ie send it to thread...
-
-    let note2 = 50;
-    let freq2 = midi_handler.midi_to_freq(note2);//yeah like why are we passing the note and the frequency...
-    let duration2 = Duration::from_secs(1);
-
     while !window.should_close() {
         unsafe {
             gl::ClearColor(0.3, 0.3, 0.3, 1.0);
@@ -261,7 +210,6 @@ fn main() {
                 }
                 InputEvent::MouseButtonPressed(CLICKS::Left) => {
                     println!("pewpew");
-                    sound_engine.play_note(note, freq, duration);
                     if (ui_manager.is_element_hovered(3)){//somthing here to pattern match instead of this
                         ui_manager.visit_element(3, &mut visitor);
                     }
@@ -273,7 +221,6 @@ fn main() {
                 }
                 InputEvent::MouseButtonPressed(CLICKS::Right) => {
                     println!("clear");
-                    sound_engine.play_note(note2, freq2, duration2);
                 }
                 _ => {}
             }
@@ -297,23 +244,11 @@ fn main() {
 
         let transform = camera.get_vp_matrix();
 
-        {
-            let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
-            let projection_matrix = camera.get_p_matrix();
-            skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
-        }
-
-        {
-            
-        }
 
         mat_man.update_uniform("mat1", "transform", &transform);
         cube.render(&texture_manager);
-        wave.render(&mut shader_manager, time, &camera);
         cube2.render(&texture_manager);
         model.simple_render(&texture_manager, &camera);
-
-        cm.render_all();
 
         window.update();//frame_buffer here
         time += 0.1;

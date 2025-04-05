@@ -1,0 +1,139 @@
+#version 430 core
+
+// Work group size (should match tile size)
+layout(local_size_x = 16, local_size_y = 16) in;
+
+// Light structure
+struct Light {
+    vec3 position;
+    float radius;
+    // Add more properties as needed (color, etc.)
+};
+
+// Input: light data
+layout(std430, binding = 0) buffer LightBuffer {
+    Light lights[];
+};
+
+// Output: light grid (per-tile light count and offset)
+layout(std430, binding = 1) buffer LightGrid {
+    // For each tile: [offset, count]
+    ivec2 grid[];
+};
+
+// Output: light indices
+layout(std430, binding = 2) buffer LightIndices {
+    int indices[];
+};
+
+// Depth texture
+uniform sampler2D u_depthTexture;
+
+// Uniforms
+uniform mat4 u_viewProjection;
+uniform int u_lightCount;
+uniform float u_screenWidth;
+uniform float u_screenHeight;
+
+// Shared memory for light culling within a work group
+shared uint visibleLightCount;
+shared uint visibleLightIndices[64]; // Max lights per tile, adjust as needed
+
+// Utility function to reconstruct view space position from depth
+vec3 reconstructPosition(vec2 uv, float depth) {
+    // Convert to normalized device coordinates
+    vec4 clipPos = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+    
+    // Unproject
+    vec4 viewPos = inverse(u_viewProjection) * clipPos;
+    return viewPos.xyz / viewPos.w;
+}
+
+// Utility function for frustum-sphere intersection
+bool sphereInFrustum(vec3 center, float radius, vec4 planes[6]) {
+    for (int i = 0; i < 6; i++) {
+        if (dot(vec4(center, 1.0), planes[i]) < -radius) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void main() {
+    // Get tile coordinates
+    uvec2 tileID = gl_WorkGroupID.xy;
+    uvec2 localID = gl_LocalInvocationID.xy;
+    
+    // Calculate tile boundaries in screen space
+    const uint TILE_SIZE = 16;
+    vec2 tileMin = vec2(tileID * TILE_SIZE) / vec2(u_screenWidth, u_screenHeight);
+    vec2 tileMax = vec2((tileID + 1) * TILE_SIZE) / vec2(u_screenWidth, u_screenHeight);
+    
+    // Initialize light count for this tile
+    if (localID.x == 0 && localID.y == 0) {
+        visibleLightCount = 0;
+    }
+    
+    // Ensure all threads in the work group have reached this point
+    barrier();
+    
+    // Find min/max depth in this tile
+    float minDepth = 1.0;
+    float maxDepth = 0.0;
+    
+    // Sample depth values for local invocation
+    vec2 uv = vec2(gl_GlobalInvocationID.xy) / vec2(u_screenWidth, u_screenHeight);
+    float depth = texture(u_depthTexture, uv).r;
+    
+    // Update min/max depth atomically
+    atomicMin(floatBitsToUint(minDepth), floatBitsToUint(depth));
+    atomicMax(floatBitsToUint(maxDepth), floatBitsToUint(depth));
+    
+    // Ensure all threads have updated min/max depth
+    barrier();
+    
+    // Reconstruct view-space frustum for this tile
+    vec3 tileMinNear = reconstructPosition(tileMin, minDepth);
+    vec3 tileMaxNear = reconstructPosition(tileMax, minDepth);
+    vec3 tileMinFar = reconstructPosition(tileMin, maxDepth);
+    vec3 tileMaxFar = reconstructPosition(tileMax, maxDepth);
+    
+    // Create frustum planes
+    vec4 frustumPlanes[6];
+    // Calculate frustum planes from corners (left, right, top, bottom, near, far)
+    // This is simplified and would need proper implementation
+    
+    // Only one thread per workgroup should process lights
+    if (localID.x == 0 && localID.y == 0) {
+        // Process all lights
+        for (int i = 0; i < u_lightCount; i++) {
+            Light light = lights[i];
+            
+            // Check if light intersects tile frustum
+            if (sphereInFrustum(light.position, light.radius, frustumPlanes)) {
+                // Light affects this tile, add to visible lights
+                uint index = atomicAdd(visibleLightCount, 1);
+                if (index < 64) { // Check against max lights per tile
+                    visibleLightIndices[index] = i;
+                }
+            }
+        }
+    }
+    
+    // Wait for light processing to complete
+    barrier();
+    
+    // Write results to global buffers
+    if (localID.x == 0 && localID.y == 0) {
+        uint tileIndex = tileID.y * (u_screenWidth / TILE_SIZE) + tileID.x;
+        uint offset = tileIndex * 64; // Offset in the indices buffer
+        
+        // Store offset and count in the grid
+        grid[tileIndex] = ivec2(offset, visibleLightCount);
+        
+        // Copy visible light indices to global buffer
+        for (uint i = 0; i < visibleLightCount && i < 64; i++) {
+            indices[offset + i] = visibleLightIndices[i];
+        }
+    }
+}

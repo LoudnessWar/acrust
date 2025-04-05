@@ -4,3 +4,4 @@ pub mod transform;
 pub mod objload;
 pub mod triangle;
 pub mod lightobj;
+pub mod scene;
