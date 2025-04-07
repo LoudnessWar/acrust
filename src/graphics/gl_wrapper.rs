@@ -248,6 +248,7 @@ impl ShaderProgram {
     }
 
     pub fn set_uniform1i(&self, uniform_name: &str, value: &i32) {
+        println!("{}", uniform_name);
         unsafe {
             gl::Uniform1iv(
                 self.uniform_ids[uniform_name],
@@ -696,6 +697,7 @@ impl LightManager {
         
         // Initialize culling buffers
         let culling_buffers = LightCullingBuffers::new(width, height, self.lights.len() as u32);
+        
         
         self.compute_shader = Some(compute_shader);
         self.culling_buffers = Some(culling_buffers);
