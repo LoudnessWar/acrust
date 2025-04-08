@@ -7,6 +7,7 @@ use std::fs::File;
 use std::ptr;
 use std::io::Read;
 use std::rc::Rc;
+use std::vec;
 // use std::sync::PoisonError;
 use cgmath::*;
 use gl::types::*;
@@ -196,7 +197,7 @@ impl ShaderProgram {
     }
 
     fn compile_shader(source: &str, shader_type: GLenum) -> GLuint {
-        println!("Source: {}, Type: ", source);
+        println!("Source: {}, Type: {}", source, shader_type);
         let shader = unsafe { gl::CreateShader(shader_type) };
         let c_str = CString::new(source).unwrap();
         unsafe {
@@ -219,6 +220,7 @@ impl ShaderProgram {
     }
 
     pub fn create_uniform(&mut self, uniform_name: &str) {//all this really does is like init a uniform and check if your shader actually like need it
+        print!("name {}", uniform_name);
         let uniform_location = unsafe {
             gl::GetUniformLocation(
                 self.program_handle,
@@ -232,6 +234,23 @@ impl ShaderProgram {
             self.uniform_ids.insert(uniform_name.to_string(), uniform_location);
         }
     }
+
+    // pub fn get_uniform_type(&self, uniform_name: &str) -> GLenum {
+    // let location = self.uniform_ids[uniform_name];
+    // let mut uniform_type: GLint = 0;
+    // unsafe {
+    //     gl::GetActiveUniform(
+    //         self.program_handle,
+    //         location as GLuint,
+    //         0, // nameLength parameter not used
+    //         std::ptr::null_mut(), // don't need length
+    //         std::ptr::null_mut(), // don't need size
+    //         &mut uniform_type, // this is what we want
+    //         std::ptr::null_mut(), // don't need name
+    //     );
+    // }
+    // uniform_type as GLenum
+    // }
 
 
     //intrestng things these are they are not mut
@@ -247,8 +266,10 @@ impl ShaderProgram {
         }
     }
 
-    pub fn set_uniform1i(&self, uniform_name: &str, value: &i32) {
-        println!("{}", uniform_name);
+
+    //idk what the diff between these two is... we need to add thsi one to material and stuff as well onjfod
+    pub fn set_uniform1iv(&self, uniform_name: &str, value: &i32) {
+        println!("try Uniform1iv :{}", uniform_name);
         unsafe {
             gl::Uniform1iv(
                 self.uniform_ids[uniform_name],
@@ -256,6 +277,19 @@ impl ShaderProgram {
                 value,
             )
         }
+        println!("set Uniform1iv :{}", uniform_name);
+    }
+
+    pub fn set_uniform1i(&self, uniform_name: &str, value: &i32) {
+        println!("try Uniform1i :{}", uniform_name);
+        unsafe {
+            // Change from Uniform1iv to Uniform1i for a single integer
+            gl::Uniform1i(
+                self.uniform_ids[uniform_name],
+                *value,
+            )
+        }
+        println!("set Uniform1i :{}", uniform_name);
     }
 
     pub fn set_uniform4f(&self, uniform_name: &str, value: &Vector4<f32>) {
@@ -374,6 +408,30 @@ impl ShaderManager {
     }
 
     pub fn init_forward_plus(&mut self){
+
+        unsafe {
+            gl::Enable(gl::DEBUG_OUTPUT);
+            gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS); // Makes debugging easier
+            gl::DebugMessageCallback(Some(debug_callback), std::ptr::null());
+        }
+        
+        extern "system" fn debug_callback(
+            source: GLenum,
+            type_: GLenum,
+            id: GLuint,
+            severity: GLenum,
+            _length: GLsizei,
+            message: *const GLchar,
+            _user_param: *mut c_void,
+        ) {
+            unsafe {
+                let string = std::ffi::CStr::from_ptr(message).to_string_lossy();
+                println!("GL CALLBACK: source = {}, type = {}, id = {}, severity = {}, message = {}",
+                         source, type_, id, severity, string);
+            }
+        }
+
+
         self.add_shader("depth", initialize_depth_shader());
         self.add_shader("light", initialize_light_shader());
     }
@@ -487,7 +545,7 @@ pub fn run_depth_prepass(
     light_manager.set_depth_texture(framebuffer.get_depth_texture());
 }
 
-fn run_light_pass(
+pub fn run_light_pass(
     light_shader: &ShaderProgram,
     scene_objects: &[Mesh],
     light_manager: &LightManager,
@@ -510,7 +568,8 @@ fn run_light_pass(
         gl::ActiveTexture(gl::TEXTURE0);
         gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
     }
-    light_shader.set_uniform1i("u_depthTex", &0);
+    
+    light_shader.set_uniform1iv("u_depthTex", &0);
     
     // Bind light culling buffers to their respective binding points
     if let Some(culling_buffers) = &light_manager.culling_buffers {
@@ -541,6 +600,7 @@ fn run_light_pass(
 #[derive(Debug)]
 pub enum UniformValue {//i need one for vec3 but im 2 lazy to add rn literally then need to add to materials shader shadermanager make trys for it and also materials maganager its ass 2 lazy
     Float(f32),
+    Int(i32),//erm should it be something else?
     Vector4(Vector4<f32>),
     Matrix4(Matrix4<f32>),
     Texture(u32),
@@ -555,6 +615,14 @@ impl TryFrom<f32> for UniformValue {
 
     fn try_from(value: f32) -> Result<Self, Self::Error> {
         Ok(UniformValue::Float(value))
+    }
+}
+
+impl TryFrom<i32> for UniformValue {
+    type Error = &'static str;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        Ok(UniformValue::Int(value))
     }
 }
 
@@ -588,6 +656,14 @@ impl TryFrom<&f32> for UniformValue {
 
     fn try_from(value: &f32) -> Result<Self, Self::Error> {
         Ok(UniformValue::Float(*value))//ok bro like this is def sus
+    }
+}
+
+impl TryFrom<&i32> for UniformValue {
+    type Error = &'static str;
+
+    fn try_from(value: &i32) -> Result<Self, Self::Error> {
+        Ok(UniformValue::Int(*value))//ok bro like this is def sus
     }
 }
 
@@ -698,8 +774,13 @@ impl LightManager {
         // Initialize culling buffers
         let culling_buffers = LightCullingBuffers::new(width, height, self.lights.len() as u32);
         
-        
-        self.compute_shader = Some(compute_shader);
+        compute_shader.lock().expect("Failed to lock computer shader").create_uniform("u_lightCount");
+        compute_shader.lock().expect("Failed to lock computer shader").create_uniform("u_viewProjection");
+        compute_shader.lock().expect("Failed to lock computer shader").create_uniform("u_screenWidth");
+        compute_shader.lock().expect("Failed to lock computer shader").create_uniform("u_screenHeight");
+        compute_shader.lock().expect("Failed to lock computer shader").create_uniform("u_depthTexture");
+
+        self.compute_shader = Some(compute_shader);//ok like it doesnt really need to be like a option
         self.culling_buffers = Some(culling_buffers);
     }
     
@@ -747,8 +828,11 @@ fn initialize_depth_shader() -> ShaderProgram {//i could make this dynamic but l
 }
 
 fn initialize_light_shader() -> ShaderProgram {//i could make this dynamic but like bruh
-    print!("erm couldnt do light");
-    ShaderProgram::new("shaders/forward_plus.vert","shaders/forward_plus.frag")
+    let mut light = ShaderProgram::new("shaders/forward_plus.vert","shaders/forward_plus.frag");
+    light.create_uniform("u_depthTex");
+    light.create_uniform("u_lightCount");
+    light.create_uniform("u_diffuseColor");//why was this ok that it was like not there
+    light
 }
 
 
@@ -824,6 +908,11 @@ impl ForwardPlusRenderer {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
         }
+
+        self.light_shader.lock().expect("failed bind").bind();
+
+        //lol move this create uniform somewhere else
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_depthTex");
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
         
         // Bind light culling buffers
@@ -839,7 +928,10 @@ impl ForwardPlusRenderer {
             self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountY", tile_count_y as f32);
         }
         
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_lightCount");
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_lightCount", &(self.light_manager.lights.len() as i32));
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 0.1, y: 0.1, z: 0.1, w: 0.1 });
+
         
         // Render each model with its material
         for model in models {

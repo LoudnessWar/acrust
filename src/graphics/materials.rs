@@ -68,9 +68,10 @@ impl Material {
         for (name, value) in &self.uniforms {
             match value {
                 UniformValue::Float(f) => curr_shader.set_uniform1f(name, *f),
+                UniformValue::Int(i) => curr_shader.set_uniform1i(name, i),
                 UniformValue::Vector4(v) => curr_shader.set_uniform4f(name, v),
                 UniformValue::Matrix4(m) => curr_shader.set_matrix4fv_uniform(name, m),
-                _ => {panic!("improper key value: {}, while trying to apply shader", name)}
+                _ => {panic!("improper key value: {}, while trying to apply shader: {}", name, curr_shader.to_string())}
             }
         }
 
@@ -81,7 +82,7 @@ impl Material {
                     gl::ActiveTexture(gl::TEXTURE0 + texture_unit);
                     gl::BindTexture(gl::TEXTURE_2D, texture_id);
                 }
-                curr_shader.set_uniform1i(uniform_name, &(texture_unit as i32));
+                curr_shader.set_uniform1iv(uniform_name, &(texture_unit as i32));//texture is iv
                 texture_unit += 1;
             } else {
                 eprintln!("Warning: Texture '{}' not found!", texture_path);
@@ -96,6 +97,7 @@ impl Material {
         for (name, value) in &self.uniforms {
             match value {
                 UniformValue::Float(f) => curr_shader.set_uniform1f(name, *f),
+                UniformValue::Int(i) => curr_shader.set_uniform1i(name, i),
                 UniformValue::Vector4(v) => curr_shader.set_uniform4f(name, v),
                 UniformValue::Matrix4(m) => curr_shader.set_matrix4fv_uniform(name, m),
                 _ => {panic!("improper key value: {}, while trying to apply shader", name)}
@@ -109,7 +111,7 @@ impl Material {
                     gl::ActiveTexture(gl::TEXTURE0 + texture_unit);
                     gl::BindTexture(gl::TEXTURE_2D, texture_id);
                 }
-                curr_shader.set_uniform1i(uniform_name, &(texture_unit as i32));
+                curr_shader.set_uniform1iv(uniform_name, &(texture_unit as i32));
                 texture_unit += 1;
             } else {
                 eprintln!("Warning: Texture '{}' not found!", texture_path);
@@ -133,6 +135,7 @@ impl Material {
             //println!("Key: {}, Value: {}", name, value.to_string());
             match value {
                 UniformValue::Float(f) => curr_shader.set_uniform1f(name, *f),//ok idk y this isnt considred a shared reference
+                UniformValue::Int(i) => curr_shader.set_uniform1i(name, i),
                 UniformValue::Vector4(v) => curr_shader.set_uniform4f(name, v),
                 UniformValue::Matrix4(m) => curr_shader.set_matrix4fv_uniform(name, m),
                 _ => {println!("improper key value: {}, while trying to apply shader", name)}
@@ -149,11 +152,15 @@ impl Material {
         self.uniforms.insert(key.to_string(), UniformValue::Empty());
     }
 
-    pub fn init_uniforms(&mut self, keys_vector: Vec<&str>)//wish String here but for readability done here
-    {
-        for key in keys_vector.into_iter(){//using into_iter() so they are &str and not &&str
-            self.shader.lock().unwrap().create_uniform(key);
-            self.uniforms.insert(key.to_string(), UniformValue::Empty());
+    //this checks if they are already there and only adds them if they are new... bc
+    //it was doubling up on GeneralModel when applying a material too multiple general models
+    //I might want to add a fix not here but for now this should do
+    pub fn init_uniforms(&mut self, keys_vector: Vec<&str>) {
+        for key in keys_vector.into_iter() {
+            if !self.uniforms.contains_key(key) {
+                self.shader.lock().unwrap().create_uniform(key);
+                self.uniforms.insert(key.to_string(), UniformValue::Empty());
+            }
         }
     }
 
@@ -178,6 +185,10 @@ impl Material {
             UniformValue::Matrix4(m) => {
                 //curr_shader.set_matrix4fv_uniform(key, m)
                 self.uniforms.insert(key.to_string(), UniformValue::Matrix4(*m));
+            },
+            UniformValue::Int(i) => {
+                //curr_shader.set_matrix4fv_uniform(key, m)
+                self.uniforms.insert(key.to_string(), UniformValue::Int(*i));
             },
             _ => {println!("No Uniform of {}", key)}
         }
@@ -294,6 +305,7 @@ impl MaterialManager {
                 Ok(val) => {
                     match val {
                         UniformValue::Float(_f) => mat.write().unwrap().set_uniform(key, &val),//ok this was like name earleir and idk how it like didnt like cause everything to fail
+                        UniformValue::Int(_i) => mat.write().unwrap().set_uniform(key, &val),
                         UniformValue::Vector4(_v) => mat.write().unwrap().set_uniform(key, &val),
                         UniformValue::Matrix4(_m) => mat.write().unwrap().set_uniform(key, &val),
                         _ => {}

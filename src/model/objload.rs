@@ -167,6 +167,7 @@ impl GeneralModel{
         // material.write().expect("cannot create new model due to when writing to material").init_uniform("lightColor");
         // material.write().expect("cannot create new model due to when writing to material").init_uniform("objectColor");
 
+        //if they are already there is that what is causing issue?
         material.write().expect("cannot create new model due to issue when writing to material").init_uniforms(vec!["model", "view", "projection", "lightDir", "lightColor", "objectColor"]); 
         GeneralModel {
             base: Model::new(mesh,  coords, material),
@@ -198,6 +199,12 @@ impl GeneralModel{
         self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("projection", camera.get_p_matrix());
         self.get_material().write().expect("Cannot Render Model due").apply(texture_manager, &self.get_world_coords().get_model_matrix());
         self.get_mesh().draw();
+    }
+
+    pub fn set_uniforms(&self, texture_manager: &TextureManager, camera: &Camera) {
+        self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("view", camera.get_view());
+        self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("projection", camera.get_p_matrix());
+        self.get_material().write().expect("Cannot Render Model due").apply(texture_manager, &self.get_world_coords().get_model_matrix());
     }
 }
 

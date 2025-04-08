@@ -153,11 +153,11 @@ fn main() {
 
     let mut fpr = ForwardPlusRenderer::new(&shader_manager);
 
-    fpr.add_light([0.0, 5.0, 0.0], 10.0);
+    fpr.add_light([0.0, 5.0, 0.0], 0.01);
 
     fpr.initialize_light_culling(720, 720, &shader_manager);
 
-    let models: Vec<GeneralModel> = vec![GeneralModel::new(load_obj("models/teddy.obj"), WorldCoords::new(10.0, 10.0, 100.0, 1.0), mat_man.get_mat("mat2"))];
+    let models: Vec<GeneralModel> = vec![GeneralModel::new(load_obj("models/teddy.obj"), WorldCoords::new(10.0, 10.0, 10.0, 1.0), mat_man.get_mat("mat2"))];
 
     while !window.should_close() {
         unsafe {
@@ -266,6 +266,8 @@ fn main() {
         }
 
         let transform = camera.get_vp_matrix();
+
+        model.set_uniforms(&texture_manager, &camera);
 
         fpr.render(
             &models,
