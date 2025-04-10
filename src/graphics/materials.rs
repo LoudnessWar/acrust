@@ -69,6 +69,7 @@ impl Material {
             match value {
                 UniformValue::Float(f) => curr_shader.set_uniform1f(name, *f),
                 UniformValue::Int(i) => curr_shader.set_uniform1i(name, i),
+                UniformValue::Vector3(v) => curr_shader.set_uniform3f(name, v),
                 UniformValue::Vector4(v) => curr_shader.set_uniform4f(name, v),
                 UniformValue::Matrix4(m) => curr_shader.set_matrix4fv_uniform(name, m),
                 _ => {panic!("improper key value: {}, while trying to apply shader: {}", name, curr_shader.to_string())}
@@ -82,12 +83,13 @@ impl Material {
                     gl::ActiveTexture(gl::TEXTURE0 + texture_unit);
                     gl::BindTexture(gl::TEXTURE_2D, texture_id);
                 }
-                curr_shader.set_uniform1iv(uniform_name, &(texture_unit as i32));//texture is iv
+                curr_shader.set_uniform1i(uniform_name, &(texture_unit as i32));//texture is iv
                 texture_unit += 1;
             } else {
                 eprintln!("Warning: Texture '{}' not found!", texture_path);
             }
         }
+        curr_shader.debug_print_uniforms();
     }
 
     //I want these not to mutate them selves but I think they might have to well this one doesnt but the others do ig
@@ -98,6 +100,7 @@ impl Material {
             match value {
                 UniformValue::Float(f) => curr_shader.set_uniform1f(name, *f),
                 UniformValue::Int(i) => curr_shader.set_uniform1i(name, i),
+                UniformValue::Vector3(v) => curr_shader.set_uniform3f(name, v),
                 UniformValue::Vector4(v) => curr_shader.set_uniform4f(name, v),
                 UniformValue::Matrix4(m) => curr_shader.set_matrix4fv_uniform(name, m),
                 _ => {panic!("improper key value: {}, while trying to apply shader", name)}
@@ -111,7 +114,7 @@ impl Material {
                     gl::ActiveTexture(gl::TEXTURE0 + texture_unit);
                     gl::BindTexture(gl::TEXTURE_2D, texture_id);
                 }
-                curr_shader.set_uniform1iv(uniform_name, &(texture_unit as i32));
+                curr_shader.set_uniform1i(uniform_name, &(texture_unit as i32));
                 texture_unit += 1;
             } else {
                 eprintln!("Warning: Texture '{}' not found!", texture_path);
@@ -136,6 +139,7 @@ impl Material {
             match value {
                 UniformValue::Float(f) => curr_shader.set_uniform1f(name, *f),//ok idk y this isnt considred a shared reference
                 UniformValue::Int(i) => curr_shader.set_uniform1i(name, i),
+                UniformValue::Vector3(v) => curr_shader.set_uniform3f(name, v),
                 UniformValue::Vector4(v) => curr_shader.set_uniform4f(name, v),
                 UniformValue::Matrix4(m) => curr_shader.set_matrix4fv_uniform(name, m),
                 _ => {println!("improper key value: {}, while trying to apply shader", name)}
@@ -181,6 +185,10 @@ impl Material {
             UniformValue::Vector4(v) => {
                 //curr_shader.set_uniform4f(key, v)
                 self.uniforms.insert(key.to_string(), UniformValue::Vector4(*v));
+            },
+            UniformValue::Vector3(v) => {
+                //curr_shader.set_uniform3f(key, v)
+                self.uniforms.insert(key.to_string(), UniformValue::Vector3(*v));
             },
             UniformValue::Matrix4(m) => {
                 //curr_shader.set_matrix4fv_uniform(key, m)
@@ -306,6 +314,7 @@ impl MaterialManager {
                     match val {
                         UniformValue::Float(_f) => mat.write().unwrap().set_uniform(key, &val),//ok this was like name earleir and idk how it like didnt like cause everything to fail
                         UniformValue::Int(_i) => mat.write().unwrap().set_uniform(key, &val),
+                        UniformValue::Vector3(_v) => mat.write().unwrap().set_uniform(key, &val),
                         UniformValue::Vector4(_v) => mat.write().unwrap().set_uniform(key, &val),
                         UniformValue::Matrix4(_m) => mat.write().unwrap().set_uniform(key, &val),
                         _ => {}

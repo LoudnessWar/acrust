@@ -115,9 +115,9 @@ fn main() {
     let mut cube2 = Cube::new(5.0, Vector3::new(15.0, 15.0, 15.0), 1.0, mat_man.get_mat("mat1"));
 
     let mut model = GeneralModel::new(load_obj("models/teddy.obj"), WorldCoords::new(10.0, 10.0, 100.0, 1.0), mat_man.get_mat("mat2"));
-    mat_man.update_uniform("mat2", "lightDir", UniformValue::Vector4(vec4(0.0, 10.0, 0.0, 1.0)));
-    mat_man.update_uniform("mat2", "lightColor", UniformValue::Vector4(vec4(0.0, 1.0, 1.0, 1.0)));
-    mat_man.update_uniform("mat2", "objectColor", UniformValue::Vector4(vec4(1.0, 1.0, 1.0, 1.0)));
+    mat_man.update_uniform("mat2", "lightDir", UniformValue::Vector3(vec3(0.0, 10.0, 0.0)));
+    mat_man.update_uniform("mat2", "lightColor", UniformValue::Vector3(vec3(0.0, 1.0, 1.0)));
+    mat_man.update_uniform("mat2", "objectColor", UniformValue::Vector3(vec3(1.0, 1.0, 1.0)));
 
     let mut texture_manager = TextureManager::new();
 
@@ -153,11 +153,11 @@ fn main() {
 
     let mut fpr = ForwardPlusRenderer::new(&shader_manager);
 
-    fpr.add_light([0.0, 5.0, 0.0], 0.01);
+    fpr.add_light([0.0, 5.0, 0.0], 0.1);
 
     fpr.initialize_light_culling(720, 720, &shader_manager);
 
-    let models: Vec<GeneralModel> = vec![GeneralModel::new(load_obj("models/teddy.obj"), WorldCoords::new(10.0, 10.0, 10.0, 1.0), mat_man.get_mat("mat2"))];
+    let models: Vec<Model> = vec![Model::new(load_obj("models/teddy.obj"), WorldCoords::new(10.0, 10.0, 10.0, 1.0), mat_man.get_mat("mat2"))];
 
     while !window.should_close() {
         unsafe {
@@ -281,7 +281,7 @@ fn main() {
         mat_man.update_uniform("mat1", "transform", &transform);
         cube.render(&texture_manager);
         cube2.render(&texture_manager);
-        model.simple_render(&texture_manager, &camera);
+        //model.simple_render(&texture_manager, &camera);
 
         window.update();//frame_buffer here
         time += 0.1;

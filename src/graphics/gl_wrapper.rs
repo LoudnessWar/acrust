@@ -7,6 +7,7 @@ use std::fs::File;
 use std::ptr;
 use std::io::Read;
 use std::rc::Rc;
+use std::thread::panicking;
 use std::vec;
 // use std::sync::PoisonError;
 use cgmath::*;
@@ -162,7 +163,7 @@ impl VertexAttribute {
 
 pub struct ShaderProgram {
     program_handle: u32,
-    uniform_ids: HashMap<String, GLint>,
+    uniform_ids: HashMap<String, GLint>,//lol
 }
 
 #[allow(temporary_cstring_as_ptr)]
@@ -235,6 +236,16 @@ impl ShaderProgram {
         }
     }
 
+    pub fn create_uniforms(&mut self, keys_vector: Vec<&str>) {//all this really does is like init a uniform and check if your shader actually like need it
+        for key in keys_vector.into_iter() {
+            if !self.uniform_ids.contains_key(key) {
+                self.create_uniform(key);
+            } else {
+                println!("Key: {} Already Defined-So Skipping", key)
+            }
+        }
+    }
+
     // pub fn get_uniform_type(&self, uniform_name: &str) -> GLenum {
     // let location = self.uniform_ids[uniform_name];
     // let mut uniform_type: GLint = 0;
@@ -252,6 +263,9 @@ impl ShaderProgram {
     // uniform_type as GLenum
     // }
 
+
+
+    //rules for new set... add to mat add to mat man add to enum add to shader man 
 
     //intrestng things these are they are not mut
     pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {
@@ -305,6 +319,16 @@ impl ShaderProgram {
     pub fn set_uniform1f(&self, name: &str, value: f32) {
         if let Some(&location) = self.uniform_ids.get(name) {
             unsafe { gl::Uniform1f(location, value) };
+        }
+    }
+
+    pub fn set_uniform3f(&self, name: &str, value: &Vector3<f32>) {
+        unsafe {
+            gl::Uniform3fv(
+                self.uniform_ids[name],
+                1,
+                value.as_ptr(),
+            )
         }
     }
 
@@ -363,7 +387,42 @@ impl ShaderProgram {
             gl::MemoryBarrier(gl::SHADER_STORAGE_BARRIER_BIT);
         }
     }
+
+    pub fn debug_print_uniforms(&self) {
+        let mut count: GLint = 0;
+        unsafe {
+            gl::GetProgramiv(self.program_handle, gl::ACTIVE_UNIFORMS, &mut count);
+        }
+        println!("Shader program ID: {}: ", self.get_program_handle());
+        for i in 0..count {
+            let mut name_buf = vec![0u8; 256];
+            let mut length: GLsizei = 0;
+            let mut size: GLint = 0;
+            let mut utype: GLenum = 0;
+    
+            unsafe {
+                gl::GetActiveUniform(
+                    self.program_handle,
+                    i as GLuint,
+                    256,
+                    &mut length,
+                    &mut size,
+                    &mut utype,
+                    name_buf.as_mut_ptr() as *mut GLchar,
+                );
+            }
+            
+    
+            let name = String::from_utf8_lossy(&name_buf[..length as usize]);
+            let loc = unsafe {
+                gl::GetUniformLocation(self.program_handle, CString::new(name.as_bytes()).unwrap().as_ptr())
+            };
+            println!("Uniform {} (type 0x{:x}) at location {}", name, utype, loc);
+        }
+    }
 }
+
+
 
 
 //this needs a lot
@@ -569,7 +628,7 @@ pub fn run_light_pass(
         gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
     }
     
-    light_shader.set_uniform1iv("u_depthTex", &0);
+    light_shader.set_uniform1i("u_depthTex", &(depth_tex.id as i32));//idk if I or IV is right also... what why is it 0
     
     // Bind light culling buffers to their respective binding points
     if let Some(culling_buffers) = &light_manager.culling_buffers {
@@ -583,7 +642,7 @@ pub fn run_light_pass(
         // Set the tile size for the fragment shader
         let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
         light_shader.set_uniform1f("u_tileCountX", tile_count_x as f32);
-        light_shader.set_uniform1f("u_tileCountY", tile_count_y as f32);
+        //light_shader.set_uniform1f("u_tileCountY", tile_count_y as f32);
     }
     
     // Set light count
@@ -602,6 +661,7 @@ pub enum UniformValue {//i need one for vec3 but im 2 lazy to add rn literally t
     Float(f32),
     Int(i32),//erm should it be something else?
     Vector4(Vector4<f32>),
+    Vector3(Vector3<f32>),
     Matrix4(Matrix4<f32>),
     Texture(u32),
     Empty(),
@@ -631,6 +691,14 @@ impl TryFrom<Vector4<f32>> for UniformValue {
 
     fn try_from(value: Vector4<f32>) -> Result<Self, Self::Error> {
         Ok(UniformValue::Vector4(value))
+    }
+}
+
+impl TryFrom<Vector3<f32>> for UniformValue {
+    type Error = &'static str;
+
+    fn try_from(value: Vector3<f32>) -> Result<Self, Self::Error> {
+        Ok(UniformValue::Vector3(value))
     }
 }
 
@@ -674,6 +742,15 @@ impl TryFrom<&Vector4<f32>> for UniformValue {
         Ok(UniformValue::Vector4(*value))
     }
 }
+
+impl TryFrom<&Vector3<f32>> for UniformValue {
+    type Error = &'static str;
+
+    fn try_from(value: &Vector3<f32>) -> Result<Self, Self::Error> {
+        Ok(UniformValue::Vector3(*value))
+    }
+}
+
 
 impl TryFrom<&Matrix4<f32>> for UniformValue {
     type Error = &'static str;
@@ -802,7 +879,7 @@ impl LightManager {
                     gl::ActiveTexture(gl::TEXTURE0);
                     gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
                 }
-                shader.set_uniform1i("u_depthTexture", &0);
+                shader.set_uniform1i("u_depthTexture", &(depth_tex.id as i32));//do i need this?
             }
             
             // Set screen size uniforms
@@ -829,6 +906,12 @@ fn initialize_depth_shader() -> ShaderProgram {//i could make this dynamic but l
 
 fn initialize_light_shader() -> ShaderProgram {//i could make this dynamic but like bruh
     let mut light = ShaderProgram::new("shaders/forward_plus.vert","shaders/forward_plus.frag");
+    light.create_uniform("model");
+    light.create_uniform("view");
+    light.create_uniform("projection");
+    light.create_uniform("u_specularPower");
+    light.create_uniform("u_tileCountX");
+    //light.create_uniforms(vec!["u_tileCountY", "u_screenWidth", "u_screenHeight"]);
     light.create_uniform("u_depthTex");
     light.create_uniform("u_lightCount");
     light.create_uniform("u_diffuseColor");//why was this ok that it was like not there
@@ -888,7 +971,7 @@ impl ForwardPlusRenderer {
         );
         
         // Light culling
-        self.light_manager.perform_gpu_light_culling(&view_projection, width, height);
+        self.light_manager.perform_gpu_light_culling(&view_projection, width, height);//vp should prolly be just done on gpu later
         
         // Light pass
         Framebuffer::unbind();
@@ -911,10 +994,15 @@ impl ForwardPlusRenderer {
 
         self.light_shader.lock().expect("failed bind").bind();
 
+        //idk gonna do like vertex stuff here
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", &camera.get_view());
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", &camera.get_p_matrix());
+
         //lol move this create uniform somewhere else
         //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_depthTex");
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
         
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
         // Bind light culling buffers
         if let Some(culling_buffers) = &self.light_manager.culling_buffers {
             unsafe {
@@ -924,18 +1012,23 @@ impl ForwardPlusRenderer {
             }
             
             let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
+            print!("tilecount {}", tile_count_x);
             self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountX", tile_count_x as f32);
-            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountY", tile_count_y as f32);
+            //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountY", tile_count_y as f32);
         }
         
         //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_lightCount");
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_lightCount", &(self.light_manager.lights.len() as i32));
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 0.1, y: 0.1, z: 0.1, w: 0.1 });
-
         
+        //this all needs to move later
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 10.0);
+        
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").debug_print_uniforms();
         // Render each model with its material
         for model in models {
-            model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
+            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
+            //model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
             model.get_mesh().draw();
         }
         

@@ -37,10 +37,10 @@ uniform float u_specularPower;
 
 // Global uniforms
 uniform float u_tileCountX;
-uniform float u_tileCountY;
+//uniform float u_tileCountY;
 uniform int u_lightCount;
-uniform float u_screenWidth;
-uniform float u_screenHeight;
+//uniform float u_screenWidth;
+//uniform float u_screenHeight;
 
 void main() {
     // Sample depth texture
