@@ -99,12 +99,12 @@ fn main() {
 
     mat_man.init_uniform("mat1", "transform");
 
-    let mut player = Player::new(0.0, 5.0, 10.0 , 100.0);
+    let mut player = Player::new(0.0, 0.0, -10.0 , 100.0);
 
     let perspective = PerspectiveFov {
         fovy: Rad(1.0),
         aspect: 1.0,
-        near: 0.1,
+        near: 2.0,
         far: 1000.0,
     };
 
@@ -153,11 +153,12 @@ fn main() {
 
     let mut fpr = ForwardPlusRenderer::new(&shader_manager);
 
-    fpr.add_light([0.0, 5.0, 0.0], 0.1);
+    fpr.add_light([0.0, 5.0, 0.0], 100.1);
 
     fpr.initialize_light_culling(720, 720, &shader_manager);
 
     let models: Vec<Model> = vec![Model::new(load_obj("models/teddy.obj"), WorldCoords::new(10.0, 10.0, 10.0, 1.0), mat_man.get_mat("mat2"))];
+
 
     while !window.should_close() {
         unsafe {
