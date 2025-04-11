@@ -89,6 +89,7 @@ void main() {
     // Sample depth values for local invocation
     vec2 uv = vec2(gl_GlobalInvocationID.xy) / vec2(u_screenWidth, u_screenHeight);
     float depth = texture(u_depthTexture, uv).r;
+    depth = 1.0 - depth;
 	uint depthBits = floatBitsToUint(depth);
 	
 	atomicMin(sharedMinDepth, depthBits);

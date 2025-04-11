@@ -8,6 +8,8 @@ pub struct Camera {
     pub parent: Option<*const WorldCoords>,
 }
 
+
+//ok I actually have a deliemma. Use Reverse Z or use linear space
 impl Camera {
     pub fn new(perspective: PerspectiveFov<f32>) -> Self {
         let projection = Matrix4::from(perspective);
@@ -16,6 +18,31 @@ impl Camera {
             Point3::new(0.0, 0.0, -1.0),
             Vector3::new(0.0, 1.0, 0.0),
         );
+        Camera {
+            transform: WorldCoords::new_empty(),
+            projection,
+            view,
+            parent: None,
+        }
+    }
+
+    pub fn new_reversed_z(aspect: f32, fov_y_rad: f32, near: f32, far: f32) -> Self {
+
+        let f = 1.0 / (fov_y_rad / 2.0).tan();
+    
+        let projection = Matrix4::<f32>::new(
+            f / aspect, 0.0,  0.0,                  0.0,
+            0.0,         f,    0.0,                  0.0,
+            0.0,         0.0,  near / (far - near), -1.0,
+            0.0,         0.0,  (far * near) / (far - near), 0.0,
+        );
+    
+        let view = Matrix4::look_at_rh(
+            Point3::new(0.0, 0.0, 0.0),
+            Point3::new(0.0, 0.0, -1.0),
+            Vector3::new(0.0, 1.0, 0.0),
+        );
+    
         Camera {
             transform: WorldCoords::new_empty(),
             projection,

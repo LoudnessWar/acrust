@@ -76,14 +76,19 @@ fn main() {
     ui_shader.create_uniform("color");
     ui_shader.create_uniform("useTexture");
 
+    ShaderManager::enable_backface_culling();
+    ShaderManager::enable_z_depth();
+
     let mut light_manager = LightManager::new();
 
     light_manager.lights.push(Light {
         position: [0.0, 5.0, 0.0],
-        radius: 10.0,
+        radius: 100.0,
+        color: [1.0, 1.0, 1.0],
+        intensity: 1.0
     });
 
-    light_manager.initialize_gpu_culling(720, 720, &shader_manager);
+    //light_manager.initialize_gpu_culling(720, 720, &shader_manager);
 
     let mat_man = MaterialManager::new();//ok I am going to give a like reasoning here as to why this isn't like a global variable
     //or something and there are so many hoops jumped through with this and MaterialManager... ok the simple reason is
@@ -101,14 +106,17 @@ fn main() {
 
     let mut player = Player::new(0.0, 0.0, -10.0 , 100.0);
 
-    let perspective = PerspectiveFov {
-        fovy: Rad(1.0),
-        aspect: 1.0,
-        near: 2.0,
-        far: 1000.0,
-    };
+    // let perspective = PerspectiveFov {
+    //     fovy: Rad(1.0),
+    //     aspect: 1.0,
+    //     near: 3.0,
+    //     far: 10000.0,
+    // };
 
-    let mut camera = Camera::new(perspective);
+    // let mut camera = Camera::new(perspective);
+
+    let mut camera = Camera::new_reversed_z(1.0, 1.0, 4.0, 1000.0);
+
     camera.attach_to(&player.transform);
 
     let mut cube = Cube::new(5.0, Vector3::new(0.0, 0.0, 0.0), 1.0, mat_man.get_mat("mat1"));
@@ -153,7 +161,12 @@ fn main() {
 
     let mut fpr = ForwardPlusRenderer::new(&shader_manager);
 
-    fpr.add_light([0.0, 5.0, 0.0], 100.1);
+    fpr.add_light(
+        [0.0, 5.0, 0.0],  // position
+        100.0,             // radius
+        [1.0, 1.0, 1.0],  // color (white)
+        1.0               // intensity
+    );
 
     fpr.initialize_light_culling(720, 720, &shader_manager);
 
@@ -165,6 +178,8 @@ fn main() {
             gl::ClearColor(0.3, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
+
+
 
         let current_mouse_position = window.get_mouse_position();
         let (delta_x, delta_y) = input_system.update_mouse_position(current_mouse_position);
@@ -269,6 +284,13 @@ fn main() {
         let transform = camera.get_vp_matrix();
 
         model.set_uniforms(&texture_manager, &camera);
+
+        // unsafe {
+        //     gl::Enable(gl::DEPTH_TEST);
+        //     gl::DepthFunc(gl::GEQUAL);  // For reverse Z
+        //     gl::ClearDepth(0.0);         // Clear to far plane (0.0 in reverse Z)
+        //     gl::ClipControl(gl::LOWER_LEFT, gl::ZERO_TO_ONE);//this might muck up some other thigns
+        // }
 
         fpr.render(
             &models,

@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::fmt;
 use std::collections::HashMap;
 use std::mem;
@@ -12,6 +13,7 @@ use std::vec;
 // use std::sync::PoisonError;
 use cgmath::*;
 use gl::types::*;
+use gl::SHADER;
 use std::sync::Mutex;
 use std::sync::Arc;
 
@@ -21,6 +23,16 @@ use crate::model::objload::ModelTrait;
 
 use super::camera::Camera;
 use super::texture_manager::TextureManager;
+
+macro_rules! gl_check {
+    ($call:expr) => {{
+        $call;
+        let err = unsafe { gl::GetError() };
+        if err != gl::NO_ERROR {
+            panic!("GL Error {:#x} in `{}` at line {}", err, stringify!($call), line!());
+        }
+    }}
+}
 
 /// # Vertex Array Object
 ///
@@ -77,6 +89,10 @@ impl BufferObject {
         let mut id = 0;
         unsafe {
             gl::GenBuffers(1, &mut id);
+            let err = gl::GetError();
+            if err != gl::NO_ERROR {
+                panic!("GL Error during GenBuffers: 0x{:x}", err);
+            }
         }
         BufferObject { id, r#type, usage }
     }
@@ -95,23 +111,42 @@ impl BufferObject {
 
     pub fn store_f32_data(&self, data: &[f32]) {
         unsafe {
-            gl::BufferData(
-                self.r#type,
-                (data.len() * mem::size_of::<gl::types::GLfloat>()) as gl::types::GLsizeiptr,
-                &data[0] as *const f32 as *const c_void,
-                self.usage,
-            );
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0); // unbind
+        }
+        self.bind();
+        let size = (data.len() * mem::size_of::<gl::types::GLfloat>()) as gl::types::GLsizeiptr;
+        println!("Buffer ID: {}, Size: {}", self.id, size);
+        println!("Binding buffer {} to target {:#X}", self.id, self.r#type);
+        print!("data {:#?}", data.len());
+
+        unsafe {
+            // let ctx_err = gl::GetError();
+            // if ctx_err != gl::NO_ERROR {
+            //     println!("GL context error before BufferData: 0x{:X}", ctx_err);
+            // }
+
+            gl_check!(gl::BufferData(self.r#type, size, &data[0] as *const _ as *const c_void, self.usage));
+            let err = gl::GetError();
+            if err != gl::NO_ERROR {
+                panic!("GL ERROR in BufferData: 0x{:X} for ID: {}", err, self.id);
+            }
+        }
+        unsafe {
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, self.id);
         }
     }
 
     pub fn store_i32_data(&self, data: &[i32]) {
+        let size = (data.len() * mem::size_of::<gl::types::GLfloat>()) as gl::types::GLsizeiptr;
+        println!("Buffer I32 ID: {}, Size: {} ", self.id, size);
+        print!("data {:#?}", data.len());
         unsafe {
-            gl::BufferData(
+            gl_check!(gl::BufferData(
                 self.r#type,
-                (data.len() * mem::size_of::<gl::types::GLfloat>()) as gl::types::GLsizeiptr,
+                size,
                 &data[0] as *const i32 as *const c_void,
                 self.usage,
-            );
+            ));
         }
     }
 
@@ -221,7 +256,7 @@ impl ShaderProgram {
     }
 
     pub fn create_uniform(&mut self, uniform_name: &str) {//all this really does is like init a uniform and check if your shader actually like need it
-        print!("name {}", uniform_name);
+        //print!("name {}", uniform_name);
         let uniform_location = unsafe {
             gl::GetUniformLocation(
                 self.program_handle,
@@ -269,7 +304,7 @@ impl ShaderProgram {
 
     //intrestng things these are they are not mut
     pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {
-        println!("{}", uniform_name);
+        //println!("{}", uniform_name);
         unsafe {
             gl::UniformMatrix4fv(
                 self.uniform_ids[uniform_name],
@@ -283,7 +318,7 @@ impl ShaderProgram {
 
     //idk what the diff between these two is... we need to add thsi one to material and stuff as well onjfod
     pub fn set_uniform1iv(&self, uniform_name: &str, value: &i32) {
-        println!("try Uniform1iv :{}", uniform_name);
+        //println!("try Uniform1iv :{}", uniform_name);
         unsafe {
             gl::Uniform1iv(
                 self.uniform_ids[uniform_name],
@@ -291,11 +326,11 @@ impl ShaderProgram {
                 value,
             )
         }
-        println!("set Uniform1iv :{}", uniform_name);
+        //println!("set Uniform1iv :{}", uniform_name);
     }
 
     pub fn set_uniform1i(&self, uniform_name: &str, value: &i32) {
-        println!("try Uniform1i :{}", uniform_name);
+        //println!("try Uniform1i :{}", uniform_name);
         unsafe {
             // Change from Uniform1iv to Uniform1i for a single integer
             gl::Uniform1i(
@@ -303,7 +338,7 @@ impl ShaderProgram {
                 *value,
             )
         }
-        println!("set Uniform1i :{}", uniform_name);
+        //println!("set Uniform1i :{}", uniform_name);
     }
 
     pub fn set_uniform4f(&self, uniform_name: &str, value: &Vector4<f32>) {
@@ -332,14 +367,14 @@ impl ShaderProgram {
         }
     }
 
-    pub fn enable_depth(&self) {
+    pub fn enable_depth() {
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthFunc(gl::LEQUAL);
         }
     }
 
-    pub fn enable_backface_culling(&self) {
+    pub fn enable_backface_culling() {
         unsafe {
             gl::Enable(gl::CULL_FACE);     // Enable face culling
             gl::CullFace(gl::BACK);        // Cull back faces
@@ -374,7 +409,7 @@ impl ShaderProgram {
             handle
         };
 
-        println!("successfully made computer shader");
+        //println!("successfully made computer shader");
         ShaderProgram {
             program_handle,
             uniform_ids: HashMap::new(),
@@ -382,9 +417,22 @@ impl ShaderProgram {
     }
     
     pub fn dispatch_compute(&self, x: u32, y: u32, z: u32) {
+        print!("run compute");
         unsafe {
             gl::DispatchCompute(x, y, z);
-            gl::MemoryBarrier(gl::SHADER_STORAGE_BARRIER_BIT);
+                    // Insert fence after compute dispatch
+            let fence = gl::FenceSync(gl::SYNC_GPU_COMMANDS_COMPLETE, 0);
+
+            // Wait for the GPU to complete compute
+            let wait_result = gl::ClientWaitSync(fence, gl::SYNC_FLUSH_COMMANDS_BIT, 1_000_000_000); // 1 sec
+            if wait_result == gl::TIMEOUT_EXPIRED {
+                println!("⚠️ Compute shader did not complete in time.");
+            }
+
+            gl::DeleteSync(fence);
+            //gl::MemoryBarrier(gl::SHADER_STORAGE_BARRIER_BIT);
+            gl::MemoryBarrier(gl::ALL_BARRIER_BITS);
+            gl::Finish();
         }
     }
 
@@ -497,12 +545,28 @@ impl ShaderManager {
         self.add_shader("light", initialize_light_shader());
     }
 
-    pub fn enable_backface_culling(&mut self, name: &str){
-        self.get_shader(name).expect("CANNOT FIND SHADER").lock().unwrap().enable_backface_culling();
+    // pub fn enable_backface_culling(&mut self, name: &str){
+    //     self.get_shader(name).expect("CANNOT FIND SHADER").lock().unwrap().enable_backface_culling();
+    // }
+
+    // pub fn enable_depth(&mut self, name: &str){
+    //     self.get_shader(name).expect("CANNOT FIND SHADER").lock().unwrap().enable_depth();
+    // }
+
+    pub fn enable_backface_culling(){
+        ShaderProgram::enable_backface_culling();
     }
 
-    pub fn enable_depth(&mut self, name: &str){
-        self.get_shader(name).expect("CANNOT FIND SHADER").lock().unwrap().enable_depth();
+    pub fn enable_depth(){
+        ShaderProgram::enable_depth();
+    }
+
+    pub fn enable_z_depth(){
+        unsafe {
+            gl::Enable(gl::DEPTH_TEST);
+            gl::DepthFunc(gl::GREATER);      // Reverse Z!
+            gl::ClearDepth(0.0);             // Reverse Z clears to 0 (max far plane)
+        }
     }
 }
 
@@ -523,7 +587,7 @@ impl Framebuffer {
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::DEPTH_COMPONENT as GLint,
+                gl::DEPTH_COMPONENT32F as GLint,
                 width as GLsizei,
                 height as GLsizei,
                 0,
@@ -841,6 +905,8 @@ impl fmt::Display for UniformValue {
 pub struct Light {
     pub position: [f32; 3],
     pub radius: f32,
+    pub color: [f32; 3],
+    pub intensity: f32,
 }
 
 pub struct LightManager {
@@ -870,36 +936,36 @@ impl LightManager {
         self.depth_texture.clone().expect("cant get depth texture")//dude like I HATE that i have to use clone here but optimization gotta come after I get his forward+ bruteforced
     }
 
-    pub fn cpu_tile_light_culling(&mut self, screen_width: u32, screen_height: u32) {
-        let tile_size = 16;
-        let tiles_x = (screen_width + tile_size - 1) / tile_size;
-        let tiles_y = (screen_height + tile_size - 1) / tile_size;
-        let num_tiles = (tiles_x * tiles_y) as usize;
+    // pub fn cpu_tile_light_culling(&mut self, screen_width: u32, screen_height: u32) {
+    //     let tile_size = 16;
+    //     let tiles_x = (screen_width + tile_size - 1) / tile_size;
+    //     let tiles_y = (screen_height + tile_size - 1) / tile_size;
+    //     let num_tiles = (tiles_x * tiles_y) as usize;
 
-        self.tile_light_indices = vec![vec![]; num_tiles];
+    //     self.tile_light_indices = vec![vec![]; num_tiles];
 
-        for (light_index, light) in self.lights.iter().enumerate() {
-            let light_screen_x = (light.position[0] / screen_width as f32 * tiles_x as f32) as u32;
-            let light_screen_y = (light.position[1] / screen_height as f32 * tiles_y as f32) as u32;
+    //     for (light_index, light) in self.lights.iter().enumerate() {
+    //         let light_screen_x = (light.position[0] / screen_width as f32 * tiles_x as f32) as u32;
+    //         let light_screen_y = (light.position[1] / screen_height as f32 * tiles_y as f32) as u32;
 
-            for ty in 0..tiles_y {
-                for tx in 0..tiles_x {
-                    let tile_index = (ty * tiles_x + tx) as usize;
-                    // Fake AABB check (placeholder)
-                    let tile_center_x = (tx * tile_size + tile_size / 2) as f32;
-                    let tile_center_y = (ty * tile_size + tile_size / 2) as f32;
+    //         for ty in 0..tiles_y {
+    //             for tx in 0..tiles_x {
+    //                 let tile_index = (ty * tiles_x + tx) as usize;
+    //                 // Fake AABB check (placeholder)
+    //                 let tile_center_x = (tx * tile_size + tile_size / 2) as f32;
+    //                 let tile_center_y = (ty * tile_size + tile_size / 2) as f32;
 
-                    let dx = light.position[0] - tile_center_x;
-                    let dy = light.position[1] - tile_center_y;
-                    let dist2 = dx * dx + dy * dy;
+    //                 let dx = light.position[0] - tile_center_x;
+    //                 let dy = light.position[1] - tile_center_y;
+    //                 let dist2 = dx * dx + dy * dy;
 
-                    if dist2 < light.radius * light.radius {
-                        self.tile_light_indices[tile_index].push(light_index);
-                    }
-                }
-            }
-        }
-    }
+    //                 if dist2 < light.radius * light.radius {
+    //                     self.tile_light_indices[tile_index].push(light_index);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     pub fn initialize_gpu_culling(&mut self, width: u32, height: u32, shader_manager: &ShaderManager) {
         // Create compute shader for light culling
@@ -949,14 +1015,61 @@ impl LightManager {
             
             // Get tile counts for dispatch size
             let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
-            
+            self.debug_comp(tile_count_x, tile_count_y);
             // Dispatch compute shader (1 work group per tile)
             shader.dispatch_compute(tile_count_x, tile_count_y, 1);
+            self.debug_read_buffers();
             
             // Unbind shader
             ShaderProgram::unbind();
         }
     }
+
+    pub fn debug_comp(&self, tile_count_x:u32,tile_count_y:u32){
+        let mut debug_tex: GLuint = 0;
+        unsafe {
+            gl::GenTextures(1, &mut debug_tex);
+            gl::BindTexture(gl::TEXTURE_2D, debug_tex);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::R32F as GLint, // or GL_RGBA32F for more data
+                tile_count_x as GLsizei,
+                tile_count_y as GLsizei,
+                0,
+                gl::RED,
+                gl::FLOAT,
+                std::ptr::null(),
+            );
+            gl::BindImageTexture(3, debug_tex, 0, gl::FALSE, 0, gl::WRITE_ONLY, gl::R32F);
+        }
+
+    }
+
+    pub fn debug_read_buffers(&self) {
+        if let Some(culling_buffers) = &self.culling_buffers {
+            // Read back light grid buffer
+            unsafe {
+                let buffer_size = (culling_buffers.tile_count_x * culling_buffers.tile_count_y * 2) as isize;
+                let mut data = vec![0i32; buffer_size as usize];
+                
+                gl::BindBuffer(gl::SHADER_STORAGE_BUFFER, culling_buffers.light_grid_buffer.get_id());
+                gl::GetBufferSubData(
+                    gl::SHADER_STORAGE_BUFFER, 
+                    0,
+                    (buffer_size * std::mem::size_of::<i32>() as isize) as isize,
+                    data.as_mut_ptr() as *mut std::os::raw::c_void
+                );
+                
+                // Print some sample data
+                println!("Light grid buffer sample:");
+                for i in 0..min(10, data.len()/2) {
+                    println!("Tile {}: offset={}, count={}", i, data[i*2], data[i*2 + 1]);
+                }
+            }
+        }
+    }
+
 }
 
 //rare public functions... do I just add these as like their own things in shadermanager... YES BRO OMG IM SO DUMB
@@ -1026,103 +1139,117 @@ impl ForwardPlusRenderer {
         
         self.depth_shader.lock().expect("failed to bind depth").bind();
 
-        let model_matrices: Vec<Matrix4<f32>> = models.iter()
-            .map(|model| model.get_world_coords().get_model_matrix())
-            .collect();
+        // let model_matrices: Vec<Matrix4<f32>> = models.iter()
+        //     .map(|model| model.get_world_coords().get_model_matrix())
+        //     .collect();
 
-        run_depth_debug_pass(
-            &self.depth_shader.lock().unwrap(),
-            &meshes,
-            &view_projection,
-            &model_matrices,
-        );
+        // run_depth_debug_pass(
+        //     &self.depth_shader.lock().unwrap(),
+        //     &meshes,
+        //     &view_projection,
+        //     &model_matrices,
+        // );
         
-        // for model in models {
-        //     self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("u_model", &model.get_world_coords().get_model_matrix());
-        //     self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("u_view_proj", &view_projection);
+        for model in models {
+            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("u_model", &model.get_world_coords().get_model_matrix());
+            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("u_view_proj", &view_projection);
 
-        //     // Depth pre-pass
-        //     run_depth_prepass(
-        //         &self.depth_shader.lock().expect("failed to get depth Shader during prepass"),
-        //         &framebuffer,
-        //         &meshes,
-        //         &mut self.light_manager,
-        //         width,
-        //         height,
-        //     );
-        // }
+            // Depth pre-pass
+            run_depth_prepass(
+                &self.depth_shader.lock().expect("failed to get depth Shader during prepass"),
+                &framebuffer,
+                &meshes,
+                &mut self.light_manager,
+                width,
+                height,
+            );
+        }
         
-        // // Light culling
-        // self.light_manager.perform_gpu_light_culling(&view_projection, width, height);//vp should prolly be just done on gpu later
+        // Light culling
+        self.light_manager.perform_gpu_light_culling(&view_projection, width, height);//vp should prolly be just done on gpu later
         
-        // // Light pass
-        // Framebuffer::unbind();
+        // Light pass
+        Framebuffer::unbind();
         
-        // unsafe {
-        //     gl::Viewport(0, 0, width as i32, height as i32);
-        //     gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-        //     gl::Enable(gl::DEPTH_TEST);
-        // }
+        unsafe {
+            gl::Viewport(0, 0, width as i32, height as i32);
+            gl::ClearDepth(0.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            gl::DepthFunc(gl::GREATER);//this is erm maybe finiky
+            gl::Enable(gl::DEPTH_TEST);
+        }
         
-        // self.light_shader.lock().expect("failed bind").bind();//if this was mutable would this work
-        // //if im getting errrors later look into this
+        self.light_shader.lock().expect("failed bind").bind();//if this was mutable would this work
+        //if im getting errrors later look into this
 
-        // // Bind depth texture
-        // let depth_tex = self.light_manager.get_depth_texture();
-        // unsafe {
-        //     gl::ActiveTexture(gl::TEXTURE0);
-        //     gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
-        // }
+        // Bind depth texture
+        let depth_tex = self.light_manager.get_depth_texture();
+        unsafe {
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
+        }
 
-        // //self.light_shader.lock().expect("failed bind").bind();
+        //self.light_shader.lock().expect("failed bind").bind();
 
-        // //idk gonna do like vertex stuff here
-        // self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", &camera.get_view());
-        // self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", &camera.get_p_matrix());
+        //idk gonna do like vertex stuff here
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", &camera.get_view());
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", &camera.get_p_matrix());
 
-        // //lol move this create uniform somewhere else
-        // //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_depthTex");
-        // self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
+        //lol move this create uniform somewhere else
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_depthTex");
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
         
-        // //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
-        // // Bind light culling buffers
-        // if let Some(culling_buffers) = &self.light_manager.culling_buffers {
-        //     unsafe {
-        //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
-        //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, culling_buffers.light_grid_buffer.get_id());
-        //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id());
-        //     }
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
+        // Bind light culling buffers
+        if let Some(culling_buffers) = &self.light_manager.culling_buffers {
+            unsafe {
+                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
+                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, culling_buffers.light_grid_buffer.get_id());
+                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id());
+            }
             
-        //     let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
-        //     print!("tilecount {}", tile_count_x);
-        //     self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountX", tile_count_x as f32);
-        //     //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountY", tile_count_y as f32);
-        // }
+            let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
+            print!("tilecount {}", tile_count_x);
+            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountX", tile_count_x as f32);
+            //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountY", tile_count_y as f32);
+        }
         
-        // //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_lightCount");
-        // self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_lightCount", &(self.light_manager.lights.len() as i32));
-        // self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 0.3, y: 0.3, z: 1.0, w: 1.0 });
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_lightCount");
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_lightCount", &(self.light_manager.lights.len() as i32));
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
         
-        // //this all needs to move later
-        // self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 10.0);
+        //this all needs to move later
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 1.0);
         
-        // self.light_shader.lock().expect("temp_light_shader failed to set uniform").debug_print_uniforms();
-        // // Render each model with its material
-        // for model in models {
-        //     self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
-        //     //model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
-        //     model.get_mesh().draw();
-        // }
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").debug_print_uniforms();
+        // Render each model with its material
+        for model in models {
+            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
+            //model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
+            model.get_mesh().draw();
+        }
         
-        // ShaderProgram::unbind();
+        ShaderProgram::unbind();
     }
     
-    pub fn add_light(&mut self, position: [f32; 3], radius: f32) {
-        self.light_manager.lights.push(Light { position, radius });
+    pub fn add_light(&mut self, position: [f32; 3], radius: f32, color: [f32; 3], intensity: f32) {
+        self.light_manager.lights.push(Light { 
+            position, 
+            radius, 
+            color, 
+            intensity 
+        });
     }
     
     pub fn initialize_light_culling(&mut self, width: u32, height: u32, shader_manager: &ShaderManager) {
         self.light_manager.initialize_gpu_culling(width, height, shader_manager);
+    }
+
+    pub fn debug_light_info(&self) {
+        for (i, light) in self.light_manager.lights.iter().enumerate() {
+            println!("Light {}: pos={:?}, radius={}, color={:?}, intensity={}", 
+                     i, light.position, light.radius, light.color, light.intensity);
+        }
     }
 }
 
@@ -1170,13 +1297,23 @@ impl LightCullingBuffers {
             light_data.push(light.position[1]);
             light_data.push(light.position[2]);
             light_data.push(light.radius);
-            // Add more light properties as needed (color, intensity, etc.)
+
+            light_data.push(light.color[0]);
+            light_data.push(light.color[1]);
+            light_data.push(light.color[2]);
+            light_data.push(light.intensity);
         }
         
         // Bind and upload light data
         self.light_buffer.bind();
+
+        println!("Buffer ID before store: {}", self.light_buffer.id);
+
+        print!("bf liught");
+        print!("light data: {:#?}", light_data);
+        self.light_buffer.bind();
         self.light_buffer.store_f32_data(&light_data);
-        
+        print!("af liught");
         // Prepare light grid buffer (will be filled by compute shader)
         let total_tiles = (self.tile_count_x * self.tile_count_y) as usize;
         let grid_size = total_tiles * 2; // Each tile has (offset, count)
@@ -1188,7 +1325,7 @@ impl LightCullingBuffers {
         // Prepare light index buffer (will be filled by compute shader)
         let index_buffer_size = total_tiles * self.max_lights_per_tile as usize;
         let mut index_data = vec![0i32; index_buffer_size];
-        
+
         self.light_index_buffer.bind();
         self.light_index_buffer.store_i32_data(&index_data);
         
@@ -1204,3 +1341,4 @@ impl LightCullingBuffers {
         (self.tile_count_x, self.tile_count_y)
     }
 }
+

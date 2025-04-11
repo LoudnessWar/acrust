@@ -10,7 +10,8 @@ layout(location = 0) out vec4 fragColor;
 struct Light {
     vec3 position;
     float radius;
-    // Add more properties as needed (color, etc.)
+    vec3 color;
+    float intensity;
 };
 
 // Light data from compute shader
@@ -44,7 +45,8 @@ uniform int u_lightCount;
 
 void main() {
     // Sample depth texture
-    float depth = texture(u_depthTex, TexCoord).r;
+    float depth = texture(u_depthTex, gl_FragCoord.xy / vec2(textureSize(u_depthTex, 0))).r;
+    depth = 1.0 - depth; // Reverse Z correction
     
     // Calculate tile ID
     const uint TILE_SIZE = 16;
@@ -73,6 +75,8 @@ void main() {
         if (lightIndex >= u_lightCount) continue;
         
         Light light = lights[lightIndex];
+
+        vec3 lightColor = light.color * light.intensity;
         
         // Calculate light direction and distance
         vec3 lightDir = light.position - FragPos;
@@ -83,16 +87,17 @@ void main() {
         if (distance > light.radius) continue;
         
         // Calculate attenuation
-        float attenuation = 1.0 - smoothstep(0.0, light.radius, distance);
+        //float attenuation = 1.0 - smoothstep(0.0, light.radius, distance);
+        float attenuation = max(0.0, 1.0 - distance / light.radius);
         
         // Diffuse lighting
         float diff = max(dot(normal, lightDir), 0.0);
-        vec3 diffuse = diff * u_diffuseColor.rgb;
+        vec3 diffuse = lightColor* diff * u_diffuseColor.rgb;
         
         // Specular lighting
         vec3 halfwayDir = normalize(lightDir + viewDir);
         float spec = pow(max(dot(normal, halfwayDir), 0.0), u_specularPower);
-        vec3 specular = spec * vec3(0.3); // Specular color
+        vec3 specular = lightColor * spec * vec3(0.3); // Specular color
         
         // Combine with attenuation
         lighting += (diffuse + specular) * attenuation;
@@ -100,8 +105,8 @@ void main() {
     
     // Apply light count influence (ensures u_lightCount is definitely used)
     // This is subtle but ensures the uniform won't be optimized out
-    float lightInfluence = 1.0 + float(u_lightCount) * 0.001; 
-    lighting *= min(lightInfluence, 1.1); // Limit the effect
+    // float lightInfluence = 1.0 + float(u_lightCount) * 0.001; 
+    // lighting *= min(lightInfluence, 1.1); // Limit the effect
     
     // Final color with depth influence
     fragColor = vec4(lighting, 1.0);
