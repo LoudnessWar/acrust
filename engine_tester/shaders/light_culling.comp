@@ -7,8 +7,10 @@ layout(local_size_x = 16, local_size_y = 16) in;
 struct Light {
     vec3 position;
     float radius;
-    // Add more properties as needed (color, etc.)
-};
+    vec3 color;
+    float intensity;
+};//im going to kill my self
+
 
 // Input: light data
 layout(std430, binding = 0) buffer LightBuffer {
@@ -29,9 +31,12 @@ layout(std430, binding = 2) buffer LightIndices {
 // Depth texture
 uniform sampler2D u_depthTexture;
 
+uniform mat4 view;
+uniform mat4 projection;
+
 // Uniforms
 uniform int u_lightCount;
-uniform mat4 u_viewProjection;
+//uniform mat4 u_viewProjection;
 
 uniform float u_screenWidth;
 uniform float u_screenHeight;
@@ -48,7 +53,7 @@ vec3 reconstructPosition(vec2 uv, float depth) {
     vec4 clipPos = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
     
     // Unproject
-    vec4 viewPos = inverse(u_viewProjection) * clipPos;
+    vec4 viewPos = inverse(view * projection) * clipPos;//used to be vp changed to v * p
     return viewPos.xyz / viewPos.w;
 }
 
@@ -89,8 +94,9 @@ void main() {
     // Sample depth values for local invocation
     vec2 uv = vec2(gl_GlobalInvocationID.xy) / vec2(u_screenWidth, u_screenHeight);
     float depth = texture(u_depthTexture, uv).r;
-    depth = 1.0 - depth;
-	uint depthBits = floatBitsToUint(depth);
+    //depth = 1.0 - depth; not doing this anymore bc I realize for this to work I need to like... use like Linear interpolation so like thise makes that fail pilled
+	depth = (0.5 * projection[3][2]) / (depth + 0.5 * projection[2][2] - 0.5);//need this bc its projection
+    uint depthBits = floatBitsToUint(depth);
 	
 	atomicMin(sharedMinDepth, depthBits);
 	atomicMax(sharedMaxDepth, depthBits);

@@ -1,10 +1,12 @@
-#version 450
+#version 430
 
 layout (location = 0) in vec3 aPos;
 
-uniform mat4 u_view_proj;
-uniform mat4 u_model;
+// Uniforms
+uniform mat4 projection;
+uniform mat4 view;
+uniform mat4 model;
 
 void main() {
-    gl_Position = u_view_proj * u_model * vec4(aPos, 1.0);
+	gl_Position = projection * view * model * vec4(aPos, 1.0);
 }

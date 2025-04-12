@@ -46,7 +46,7 @@ uniform int u_lightCount;
 void main() {
     // Sample depth texture
     float depth = texture(u_depthTex, gl_FragCoord.xy / vec2(textureSize(u_depthTex, 0))).r;
-    depth = 1.0 - depth; // Reverse Z correction
+    //depth = 1.0 - depth; // Reverse Z correction
     
     // Calculate tile ID
     const uint TILE_SIZE = 16;

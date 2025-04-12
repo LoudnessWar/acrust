@@ -77,7 +77,7 @@ fn main() {
     ui_shader.create_uniform("useTexture");
 
     ShaderManager::enable_backface_culling();
-    ShaderManager::enable_z_depth();
+    ShaderManager::enable_depth();
 
     let mut light_manager = LightManager::new();
 
@@ -106,16 +106,16 @@ fn main() {
 
     let mut player = Player::new(0.0, 0.0, -10.0 , 100.0);
 
-    // let perspective = PerspectiveFov {
-    //     fovy: Rad(1.0),
-    //     aspect: 1.0,
-    //     near: 3.0,
-    //     far: 10000.0,
-    // };
+    let perspective = PerspectiveFov {
+        fovy: Rad(1.0),
+        aspect: 1.0,
+        near: 1.0,
+        far: 1000.0,
+    };
 
-    // let mut camera = Camera::new(perspective);
+    let mut camera = Camera::new(perspective);
 
-    let mut camera = Camera::new_reversed_z(1.0, 1.0, 4.0, 1000.0);
+    // let mut camera = Camera::new_reversed_z(1.0, 1.0, 4.0, 1000.0);
 
     camera.attach_to(&player.transform);
 
@@ -178,8 +178,6 @@ fn main() {
             gl::ClearColor(0.3, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
-
-
 
         let current_mouse_position = window.get_mouse_position();
         let (delta_x, delta_y) = input_system.update_mouse_position(current_mouse_position);
