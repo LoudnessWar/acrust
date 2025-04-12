@@ -177,6 +177,10 @@ fn main() {
         unsafe {
             gl::ClearColor(0.3, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            let ctx_err = gl::GetError();
+            if ctx_err != gl::NO_ERROR {
+                panic!("GL context error before while loop or from previous call: 0x{:X}", ctx_err);
+            }
         }
 
         let current_mouse_position = window.get_mouse_position();
@@ -299,9 +303,9 @@ fn main() {
         );
 
 
-        mat_man.update_uniform("mat1", "transform", &transform);
-        cube.render(&texture_manager);
-        cube2.render(&texture_manager);
+        // mat_man.update_uniform("mat1", "transform", &transform);
+        // cube.render(&texture_manager);
+        // cube2.render(&texture_manager);
         //model.simple_render(&texture_manager, &camera);
 
         window.update();//frame_buffer here

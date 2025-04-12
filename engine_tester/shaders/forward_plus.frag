@@ -24,10 +24,18 @@ layout(std430, binding = 1) readonly buffer LightGrid {
     ivec2 grid[]; // [offset, count] for each tile
 };
 
-// Light indices from compute shader
-layout(std430, binding = 2) readonly buffer LightIndices {
-    int indices[];
+struct VisibleIndex {
+	int index;
 };
+
+layout(std430, binding = 2) writeonly buffer VisibleLightIndicesBuffer  {
+    VisibleIndex data[];
+} IndicesBuffer;
+
+// Light indices from compute shader
+// layout(std430, binding = 2) readonly buffer LightIndices {
+//     int indices[];
+// };
 
 // Depth texture from prepass
 uniform sampler2D u_depthTex;
@@ -68,7 +76,7 @@ void main() {
     
     // Process all lights affecting this tile
     for (int i = 0; i < lightCount; i++) {
-        int lightIndex = indices[lightOffset + i];
+        int lightIndex = IndicesBuffer.data[lightOffset + i].index;
         
         // Safety check to ensure we don't access beyond our light buffer
         // This ensures u_lightCount is used in the shader logic
@@ -92,7 +100,7 @@ void main() {
         
         // Diffuse lighting
         float diff = max(dot(normal, lightDir), 0.0);
-        vec3 diffuse = lightColor* diff * u_diffuseColor.rgb;
+        vec3 diffuse = lightColor * diff * u_diffuseColor.rgb;
         
         // Specular lighting
         vec3 halfwayDir = normalize(lightDir + viewDir);
@@ -100,14 +108,14 @@ void main() {
         vec3 specular = lightColor * spec * vec3(0.3); // Specular color
         
         // Combine with attenuation
-        lighting += (diffuse + specular) * attenuation;
+        lighting += ((diffuse * 2) + specular) * attenuation;
     }
     
     // Apply light count influence (ensures u_lightCount is definitely used)
     // This is subtle but ensures the uniform won't be optimized out
-    // float lightInfluence = 1.0 + float(u_lightCount) * 0.001; 
-    // lighting *= min(lightInfluence, 1.1); // Limit the effect
+    float lightInfluence = 1.0 + float(u_lightCount) * 0.001; 
+    lighting *= min(lightInfluence, 1.1); // Limit the effect
     
     // Final color with depth influence
-    fragColor = vec4(lighting, 1.0);
+    fragColor = vec4(lighting * 2, 1.0);
 }

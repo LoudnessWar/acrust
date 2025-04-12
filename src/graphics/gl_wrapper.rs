@@ -139,7 +139,7 @@ impl BufferObject {
     }
 
     pub fn store_i32_data(&self, data: &[i32]) {
-        let size = (data.len() * mem::size_of::<gl::types::GLfloat>()) as gl::types::GLsizeiptr;
+        let size = (data.len() * mem::size_of::<gl::types::GLint>()) as gl::types::GLsizeiptr;
         println!("Buffer I32 ID: {}, Size: {} ", self.id, size);
         print!("data {:#?}", data.len());
         unsafe {
@@ -326,7 +326,11 @@ impl ShaderProgram {
                 self.uniform_ids[uniform_name],
                 1,
                 value,
-            )
+            );
+            let err: u32 = gl::GetError();
+            if err != gl::NO_ERROR {
+                panic!("GL ERROR in BufferData: 0x{:X} for Name: {} with Value: {}", err, uniform_name, value);
+            }
         }
         //println!("set Uniform1iv :{}", uniform_name);
     }
@@ -338,7 +342,11 @@ impl ShaderProgram {
             gl::Uniform1i(
                 self.uniform_ids[uniform_name],
                 *value,
-            )
+            );
+            let err: u32 = gl::GetError();
+            if err != gl::NO_ERROR {
+                panic!("GL ERROR in BufferData: 0x{:X} for Name: {} with Value: {}", err, uniform_name, value);
+            }
         }
         //println!("set Uniform1i :{}", uniform_name);
     }
@@ -355,7 +363,13 @@ impl ShaderProgram {
 
     pub fn set_uniform1f(&self, name: &str, value: f32) {
         if let Some(&location) = self.uniform_ids.get(name) {
-            unsafe { gl::Uniform1f(location, value) };
+            unsafe { 
+                gl::Uniform1f(location, value);
+                let err: u32 = gl::GetError();
+                if err != gl::NO_ERROR {
+                    panic!("GL ERROR in BufferData: 0x{:X} for Name: {} with Value: {}", err, name, value);
+                }
+            };
         }
     }
 
@@ -421,7 +435,7 @@ impl ShaderProgram {
     pub fn dispatch_compute(&self, x: u32, y: u32, z: u32) {
         print!("run compute");
         unsafe {
-            gl::DispatchCompute(x, y, z);
+            gl_check!(gl::DispatchCompute(x, y, z));
                     // Insert fence after compute dispatch
             let fence = gl::FenceSync(gl::SYNC_GPU_COMMANDS_COMPLETE, 0);
 
@@ -434,7 +448,7 @@ impl ShaderProgram {
             gl::DeleteSync(fence);
             //gl::MemoryBarrier(gl::SHADER_STORAGE_BARRIER_BIT);
             gl::MemoryBarrier(gl::ALL_BARRIER_BITS);
-            gl::Finish();
+            gl_check!(gl::Finish());//before here
         }
     }
 
@@ -581,22 +595,22 @@ impl Framebuffer {
         let mut depth_tex: GLuint = 0;
 
         unsafe {
-            gl::GenFramebuffers(1, &mut fbo);
+            gl_check!(gl::GenFramebuffers(1, &mut fbo));
             //gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
 
             gl::GenTextures(1, &mut depth_tex);
             gl::BindTexture(gl::TEXTURE_2D, depth_tex);
-            gl::TexImage2D(
+            gl_check!(gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::DEPTH_COMPONENT32F as GLint,//maybe32f here or whatever
+                gl::DEPTH_COMPONENT as GLint,//maybe32f here or whatever
                 width as GLsizei,
                 height as GLsizei,
                 0,
                 gl::DEPTH_COMPONENT,
                 gl::FLOAT,
                 std::ptr::null(),
-            );
+            ));
 
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
@@ -670,7 +684,7 @@ pub fn run_depth_prepass(
     framebuffer.bind();
     
     unsafe {
-        gl::Viewport(0, 0, width as i32, height as i32);
+        gl_check!(gl::Viewport(0, 0, width as i32, height as i32));
         gl::Clear(gl::DEPTH_BUFFER_BIT);
         gl::Enable(gl::DEPTH_TEST);
     }
@@ -685,7 +699,7 @@ pub fn run_depth_prepass(
     unsafe {
         gl::DepthFunc(gl::LEQUAL); // Use LESS or LEQUAL based on your needs
         gl::DepthMask(gl::TRUE); // Ensure depth writing is enabled
-        gl::Enable(gl::MULTISAMPLE);//idk if this is needed looking at it it doesnt change much
+        gl_check!(gl::Enable(gl::MULTISAMPLE));//idk if this is needed looking at it it doesnt change much
 
     }
 
@@ -1019,10 +1033,10 @@ impl LightManager {
             
             if let Some(depth_tex) = &self.depth_texture {
                 unsafe {
-                    gl::ActiveTexture(gl::TEXTURE0);
-                    gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
+                    gl_check!(gl::ActiveTexture(gl::TEXTURE0));//after here
+                    gl_check!(gl::BindTexture(gl::TEXTURE_2D, depth_tex.id));
                 }
-                shader.set_uniform1i("u_depthTexture", &(depth_tex.id as i32));//do i need this?
+                shader.set_uniform1iv("u_depthTexture", &0);//do i need this? idk but crying emoji this was the error i spend 2 days on needed to be 0 😭😭😭😭😭😭😭😭😭😭😭😭😭😭😭😭
             }
             
             // Set screen size uniforms
@@ -1216,7 +1230,7 @@ impl ForwardPlusRenderer {
         // Bind depth texture
         let depth_tex = self.light_manager.get_depth_texture();
         unsafe {
-            gl::ActiveTexture(gl::TEXTURE0);
+            gl_check!(gl::ActiveTexture(gl::TEXTURE0));
             gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
         }
 
@@ -1236,7 +1250,7 @@ impl ForwardPlusRenderer {
             unsafe {
                 gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
                 gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, culling_buffers.light_grid_buffer.get_id());
-                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id());
+                gl_check!(gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id()));
             }
             
             let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
@@ -1342,7 +1356,7 @@ impl LightCullingBuffers {
 
         print!("bf liught");
         print!("light data: {:#?}", light_data);
-        self.light_buffer.bind();
+        //self.light_buffer.bind();
         self.light_buffer.store_f32_data(&light_data);
         print!("af liught");
         // Prepare light grid buffer (will be filled by compute shader)
