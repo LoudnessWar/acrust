@@ -48,12 +48,14 @@ uniform float u_specularPower;
 uniform float u_tileCountX;
 //uniform float u_tileCountY;
 uniform int u_lightCount;
+uniform mat4 projection;//does this just work?
 //uniform float u_screenWidth;
 //uniform float u_screenHeight;
 
 void main() {
     // Sample depth texture
     float depth = texture(u_depthTex, gl_FragCoord.xy / vec2(textureSize(u_depthTex, 0))).r;
+    depth = (0.5 * projection[3][2]) / (depth + 0.5 * projection[2][2] - 0.5);
     //depth = 1.0 - depth; // Reverse Z correction
     
     // Calculate tile ID

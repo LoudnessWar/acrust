@@ -6,6 +6,8 @@ uniform float far;
 out vec4 fragColor;
 
 // Need to linearize the depth because we are using the projection
+//this is like basically just using view and like project matrix to like
+//like we could just use them for this because near and far should well are lowkey attainable from them so its like over or whatever
 float LinearizeDepth(float depth) {
 	float z = depth * 2.0 - 1.0;
 	return (2.0 * near * far) / (far + near - z * (far - near));

@@ -1461,12 +1461,8 @@ fn initialize_light_shader_debug() -> ShaderProgram {//i could make this dynamic
     light.create_uniform("model");
     light.create_uniform("view");
     light.create_uniform("projection");
-    light.create_uniform("u_specularPower");
-    light.create_uniform("u_tileCountX");
-    //light.create_uniforms(vec!["u_tileCountY", "u_screenWidth", "u_screenHeight"]);
-    light.create_uniform("u_depthTex");
-    light.create_uniform("u_lightCount");
-    light.create_uniform("u_diffuseColor");//why was this ok that it was like not there
+    light.create_uniform("numberOfTilesX");
+    light.create_uniform("totalLightCount");
     light
 }
 
