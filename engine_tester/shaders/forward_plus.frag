@@ -55,7 +55,7 @@ uniform mat4 projection;//does this just work?
 void main() {
     // Sample depth texture
     float depth = texture(u_depthTex, gl_FragCoord.xy / vec2(textureSize(u_depthTex, 0))).r;
-    depth = (0.5 * projection[3][2]) / (depth + 0.5 * projection[2][2] - 0.5);
+    depth = (0.5 * projection[3][2]) / (depth + 0.5 * projection[2][2] - 0.5);//TODODODODO remove buddy just remove dude smh smh smh smh smh smh smh
     //depth = 1.0 - depth; // Reverse Z correction
     
     // Calculate tile ID

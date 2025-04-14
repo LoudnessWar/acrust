@@ -1494,6 +1494,22 @@ impl ForwardPlusRenderer {
             light_manager,
         }
     }
+
+    pub fn new_debug(shader_manager: &ShaderManager) -> Self {
+        let depth_shader = shader_manager.get_shader("depth")
+            .expect("Depth shader not found");
+
+        let light_shader = shader_manager.get_shader("light")
+            .expect("Light shader not found");
+
+        let light_manager = LightManager::new();
+        
+        Self {
+            depth_shader,
+            light_shader,
+            light_manager,
+        }
+    }
     
     pub fn render<T: ModelTrait>(&mut self, 
         models: &[T], 
