@@ -486,9 +486,9 @@ impl ShaderProgram {
 
             gl::DeleteSync(fence);
             //gl::MemoryBarrier(gl::SHADER_STORAGE_BARRIER_BIT);
-            gl::MemoryBarrier(gl::ALL_BARRIER_BITS);
+            //gl::MemoryBarrier(gl::ALL_BARRIER_BITS);
             gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT);
-            gl_check!(gl::Finish());//before here
+            //gl_check!(gl::Finish());//before here
         }
     }
 
@@ -602,35 +602,33 @@ impl ShaderManager {
     }
 
     pub fn init_forward_plus_light_debug(&mut self){
-
-
         //this is all like initializing debug stuff
-            unsafe {
-                gl::Enable(gl::DEBUG_OUTPUT);
-                gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
-                gl::DebugMessageCallback(Some(debug_callback), std::ptr::null());
-            }
-            
-            extern "system" fn debug_callback(
-                source: GLenum,
-                type_: GLenum,
-                id: GLuint,
-                severity: GLenum,
-                _length: GLsizei,
-                message: *const GLchar,
-                _user_param: *mut c_void,
-            ) {
-                unsafe {
-                    let string = std::ffi::CStr::from_ptr(message).to_string_lossy();
-                    println!("GL CALLBACK: source = {}, type = {}, id = {}, severity = {}, message = {}",
-                             source, type_, id, severity, string);
-                }
-            }
-    
-    
-            self.add_shader("depth", initialize_depth_shader());
-            self.add_shader("light", initialize_light_shader_debug());
+        unsafe {
+            gl::Enable(gl::DEBUG_OUTPUT);
+            gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
+            gl::DebugMessageCallback(Some(debug_callback), std::ptr::null());
         }
+        
+        extern "system" fn debug_callback(
+            source: GLenum,
+            type_: GLenum,
+            id: GLuint,
+            severity: GLenum,
+            _length: GLsizei,
+            message: *const GLchar,
+            _user_param: *mut c_void,
+        ) {
+            unsafe {
+                let string = std::ffi::CStr::from_ptr(message).to_string_lossy();
+                println!("GL CALLBACK: source = {}, type = {}, id = {}, severity = {}, message = {}",
+                            source, type_, id, severity, string);
+            }
+        }
+
+
+        self.add_shader("depth", initialize_depth_shader());
+        self.add_shader("light", initialize_light_shader_debug());
+    }
 
     // pub fn enable_backface_culling(&mut self, name: &str){
     //     self.get_shader(name).expect("CANNOT FIND SHADER").lock().unwrap().enable_backface_culling();
@@ -757,7 +755,7 @@ pub fn run_depth_prepass(
     unsafe {
         gl_check!(gl::Viewport(0, 0, width as i32, height as i32));
         gl::Clear(gl::DEPTH_BUFFER_BIT);
-        gl::Enable(gl::DEPTH_TEST);
+        gl::Enable(gl::DEPTH_TEST);//need this for it to work even thought this should already be enabled?
     }
 
     // unsafe {
@@ -770,7 +768,7 @@ pub fn run_depth_prepass(
     unsafe {
         gl::DepthFunc(gl::LEQUAL); // Use LESS or LEQUAL based on your needs
         gl::DepthMask(gl::TRUE); // Ensure depth writing is enabled
-        gl_check!(gl::Enable(gl::MULTISAMPLE));//idk if this is needed looking at it it doesnt change much
+        //gl_check!(gl::Enable(gl::MULTISAMPLE));//idk if this is needed looking at it it doesnt change much
 
     }
 
@@ -1027,7 +1025,7 @@ impl LightManager {
     }
 
     pub fn set_depth_texture(&mut self, texture: Rc<depthTexture>) {
-        self.depth_texture = Some(texture);
+        self.depth_texture = Some(texture);//this is ideally from FBO
     }
 
     pub fn get_depth_texture(&self) -> Rc<depthTexture>{
@@ -1076,7 +1074,7 @@ impl LightManager {
         // Initialize culling buffers
         let culling_buffers = LightCullingBuffers::new(width, height, self.lights.len() as u32);//TODO only have one light initializtion we got 2 rn for fpr and lightmangaer
         
-        compute_shader.lock().expect("Failed to lock computer shader").create_uniform("view");//as to why I create the uniforms here... idk im dumb
+        compute_shader.lock().expect("Failed to lock computer shader").create_uniform("view");//as to why I create the uniforms here... idk im dumb I will move later in fact TODO move later to comp
         compute_shader.lock().expect("Failed to lock computer shader").create_uniform("projection");
 
         compute_shader.lock().expect("Failed to lock computer shader").create_uniform("u_lightCount");
@@ -1085,6 +1083,12 @@ impl LightManager {
         compute_shader.lock().expect("Failed to lock computer shader").create_uniform("u_screenHeight");
         compute_shader.lock().expect("Failed to lock computer shader").create_uniform("u_depthTexture");
 
+        // These onl;e need to happen on init
+        compute_shader.lock().expect("Failed to lock computer shader").bind();
+        compute_shader.lock().expect("Failed to lock computer shader").set_uniform1f("u_screenWidth", width as f32);
+        compute_shader.lock().expect("Failed to lock computer shader").set_uniform1f("u_screenHeight", height as f32);
+
+        ShaderProgram::unbind();
         self.compute_shader = Some(compute_shader);//ok like it doesnt really need to be like a option
         self.culling_buffers = Some(culling_buffers);
     }
@@ -1113,43 +1117,50 @@ impl LightManager {
             }
             
             // Set screen size uniforms
-            shader.set_uniform1f("u_screenWidth", width as f32);
-            shader.set_uniform1f("u_screenHeight", height as f32);
+            // shader.set_uniform1f("u_screenWidth", width as f32);
+            // shader.set_uniform1f("u_screenHeight", height as f32);
             
             // Get tile counts for dispatch size
             let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
             //self.debug_comp(tile_count_x, tile_count_y);
             // Dispatch compute shader (1 work group per tile)
             shader.dispatch_compute(tile_count_x, tile_count_y, 1);
-            println!("Compute dispatched for tiles: {} x {}", tile_count_x, tile_count_y);
+            //println!("Compute dispatched for tiles: {} x {}", tile_count_x, tile_count_y);
 
-            self.debug_read_buffers();
-            unsafe {
-                gl::BindTexture(gl::TEXTURE_2D, self.debug_texture.unwrap());
-                let mut data = vec![0.0f32; (tile_count_x * tile_count_y * 4) as usize];
-                gl::GetTexImage(
-                    gl::TEXTURE_2D,
-                    0,
-                    gl::RGBA,
-                    gl::FLOAT,
-                    data.as_mut_ptr() as *mut c_void,
-                );
+            //self.debug_read_buffers();
+            // unsafe {
+            //     gl::BindTexture(gl::TEXTURE_2D, self.debug_texture.unwrap());
+            //     let mut data = vec![0.0f32; (tile_count_x * tile_count_y * 4) as usize];
+            //     gl::GetTexImage(
+            //         gl::TEXTURE_2D,
+            //         0,
+            //         gl::RGBA,
+            //         gl::FLOAT,
+            //         data.as_mut_ptr() as *mut c_void,
+            //     );
             
-                for i in 0..10 {
-                    println!(
-                        "Pixel {}: {:?}",
-                        i,
-                        &data[(i * 4)..(i * 4 + 4)]
-                    );
-                }
+            //     for i in 0..10 {
+            //         println!(
+            //             "Pixel {}: {:?}",
+            //             i,
+            //             &data[(i * 4)..(i * 4 + 4)]
+            //         );
+            //     }
+            // }
+
+            unsafe {
+                gl_check!(gl::ActiveTexture(gl::TEXTURE0));
+                gl::BindTexture(gl::TEXTURE_2D, 0);
+                gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             }
+
             
             // Unbind shader
             ShaderProgram::unbind();
         }
     }
 
-    pub fn debug_perform_gpu_light_culling(&mut self, view: &Matrix4<f32>, projection: &Matrix4<f32>, width: u32, height: u32) -> Option<GLuint> {
+    pub fn debug_perform_gpu_light_culling(&mut self, view: &Matrix4<f32>, projection: &Matrix4<f32>) -> Option<GLuint> {
         let mut debug_tex = None;
         
         if let (Some(culling_buffers), Some(compute_shader)) = (&self.culling_buffers, &self.compute_shader) {
@@ -1177,22 +1188,27 @@ impl LightManager {
             if let Some(depth_tex) = &self.depth_texture {
                 unsafe {
                     gl_check!(gl::ActiveTexture(gl::TEXTURE0));
+                    shader.set_uniform1iv("u_depthTexture", &0);
                     gl_check!(gl::BindTexture(gl::TEXTURE_2D, depth_tex.id));
                 }
-                shader.set_uniform1iv("u_depthTexture", &0);
             }
-            
-            // Set screen size uniforms
-            shader.set_uniform1f("u_screenWidth", width as f32);
-            shader.set_uniform1f("u_screenHeight", height as f32);
+        
             
             // Dispatch compute shader (1 work group per tile)
             shader.dispatch_compute(tile_count_x, tile_count_y, 1);
+            //self.debug_read_buffers();
             
-            // Memory barrier to ensure writes are completed
+            // Memory barrier to ensure writes are completed idk if this is doing much TODO or the unsafe below
             unsafe {
                 gl_check!(gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT));
             }
+
+            unsafe {
+                gl_check!(gl::ActiveTexture(gl::TEXTURE0));
+                gl::BindTexture(gl::TEXTURE_2D, 0);
+                gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            }
+
             
             // Unbind shader
             ShaderProgram::unbind();
@@ -1283,6 +1299,8 @@ impl LightManager {
                 gl::BindVertexArray(0);
                 gl::DeleteBuffers(1, &vbo);
                 gl::DeleteVertexArrays(1, &vao);
+
+                gl::Enable(gl::DEPTH_TEST);
             }
                         
             // Create a VAO for the fullscreen quad (can be cached and reused)
@@ -1457,7 +1475,7 @@ fn initialize_light_shader() -> ShaderProgram {//i could make this dynamic but l
 }
 
 fn initialize_light_shader_debug() -> ShaderProgram {//i could make this dynamic but like bruh
-    let mut light = ShaderProgram::new("shaders/forward_plus.vert","shaders/forward_plus.frag");
+    let mut light = ShaderProgram::new("shaders/debug_forward.vert","shaders/debug_forward.frag");
     light.create_uniform("model");
     light.create_uniform("view");
     light.create_uniform("projection");
@@ -1560,7 +1578,9 @@ impl ForwardPlusRenderer {
         
         // Light pass
         Framebuffer::unbind();
-        
+        unsafe{
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        }
         // unsafe {
         //     gl::Viewport(0, 0, width as i32, height as i32);
         //     gl::ClearDepth(0.0);
@@ -1663,19 +1683,26 @@ impl ForwardPlusRenderer {
                 height,
             );
         }
+
+        if let Some(culling_buffers) = &self.light_manager.culling_buffers {
+            unsafe {
+                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
+                //gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, culling_buffers.light_grid_buffer.get_id());
+                gl_check!(gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id()));
+            }
+        }
+        
         
         // Light culling
         //self.light_manager.debug_perform_gpu_light_culling(camera.get_view(),camera.get_p_matrix(), width, height);//vp should prolly be just done on gpu later
         let debug_texture = self.light_manager.debug_perform_gpu_light_culling(
             camera.get_view(),
-            camera.get_p_matrix(), 
-            width, 
-            height
+            camera.get_p_matrix(),
         );
     
         
         // Light pass
-        Framebuffer::unbind();
+        //Framebuffer::unbind();
         
         // unsafe {
         //     gl::Viewport(0, 0, width as i32, height as i32);
@@ -1689,11 +1716,11 @@ impl ForwardPlusRenderer {
         //if im getting errrors later look into this
 
         // Bind depth texture
-        let depth_tex = self.light_manager.get_depth_texture();
-        unsafe {
-            gl_check!(gl::ActiveTexture(gl::TEXTURE0));
-            gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
-        }
+        //let depth_tex = self.light_manager.get_depth_texture();
+        // unsafe {
+        //     gl_check!(gl::ActiveTexture(gl::TEXTURE0));
+        //     gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
+        // }
 
         //self.light_shader.lock().expect("failed bind").bind();
 
@@ -1703,29 +1730,23 @@ impl ForwardPlusRenderer {
 
         //lol move this create uniform somewhere else
         //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_depthTex");
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
         
         //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
         // Bind light culling buffers
-        if let Some(culling_buffers) = &self.light_manager.culling_buffers {
-            unsafe {
-                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
-                //gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, culling_buffers.light_grid_buffer.get_id());
-                gl_check!(gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id()));
-            }
-            
-            let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
-            print!("tilecount {}", tile_count_x);
-            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountX", tile_count_x as f32);
-            //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountY", tile_count_y as f32);
+
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_lightCount");
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("totalLightCount", &(self.light_manager.lights.len() as i32));
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
+        
+        if let Some(culling_buffers) = &self.light_manager.culling_buffers {//If i get rid of if this doesnt work and I forget why... I think its something like if if we know its there so no need to account for like refstuff
+            let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();//TODO move this and num of tiles to where shader is set up
+            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("numberOfTilesX", &(tile_count_x as i32));
         }
         
-        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_lightCount");
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_lightCount", &(self.light_manager.lights.len() as i32));
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
-        
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountY", tile_count_y as f32);
         //this all needs to move later
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 1.0);
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 1.0);
         
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").debug_print_uniforms();
         // Render each model with its material
@@ -1735,14 +1756,19 @@ impl ForwardPlusRenderer {
             model.get_mesh().draw();
         }
 
-        if let Some(debug_tex) = debug_texture {
-            // Now render the debug texture (can be in corner of screen)
-            self.light_manager.render_debug_visualization(debug_tex, width, height, debug_comp_shader);
+        // if let Some(debug_tex) = debug_texture {
+        //     // Now render the debug texture (can be in corner of screen)
+        //     self.light_manager.render_debug_visualization(debug_tex, width, height, debug_comp_shader);
             
-            // Clean up the debug texture when done
-            unsafe {
-                gl_check!(gl::DeleteTextures(1, &debug_tex));
-            }
+        //     // Clean up the debug texture when done
+        //     unsafe {
+        //         gl_check!(gl::DeleteTextures(1, &debug_tex));
+        //     }
+        // }
+
+        unsafe{
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
+		    gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, 0);
         }
         
         ShaderProgram::unbind();
@@ -1781,9 +1807,9 @@ pub struct LightCullingBuffers {
 impl LightCullingBuffers {
     pub fn new(width: u32, height: u32, max_lights: u32) -> Self {
         let tile_size = 16; // Tile size, same as in your CPU implementation
-        let tile_count_x = (width + tile_size - 1) / tile_size;
-        let tile_count_y = (height + tile_size - 1) / tile_size;
-        let max_lights_per_tile = 64; // Can be adjusted based on your needs
+        let tile_count_x = (width + (tile_size % tile_size) / tile_size);//TODO cahnged these look at this as well
+        let tile_count_y = (height + (tile_size % tile_size)) / tile_size;
+        let max_lights_per_tile = 64; // HERHEHERHEH look at this is this it YEHA THIS WAS IT
         
         // Create SSBO for light data
         let light_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
@@ -1830,10 +1856,10 @@ impl LightCullingBuffers {
         //self.light_buffer.bind();
         self.light_buffer.store_f32_data(&light_data);
         print!("af liught");
-        // Prepare light grid buffer (will be filled by compute shader)
+        // Prepare light grid buffer (will be filled by compute shader)TODO LOOK HEREH HERHEHREHR EHRHE
         let total_tiles = (self.tile_count_x * self.tile_count_y) as usize;
-        let grid_size = total_tiles * 2; // Each tile has (offset, count)
-        let mut grid_data = vec![0i32; grid_size];
+        //let grid_size = total_tiles * 2; // Each tile has (offset, count)
+        //let mut grid_data = vec![0i32; grid_size];
         
         // self.light_grid_buffer.bind();//TODO ifeel bad for killing him
         // self.light_grid_buffer.store_i32_data(&grid_data);

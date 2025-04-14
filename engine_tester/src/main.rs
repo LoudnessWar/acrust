@@ -66,7 +66,9 @@ fn main() {
     shader_manager.load_shader("Basic", "shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
     shader_manager.load_shader("generic", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl");
 
-    shader_manager.init_forward_plus();
+    //shader_manager.init_forward_plus();
+
+    shader_manager.init_forward_plus_light_debug();
 
     let depth_shader = shader_manager.get_shader("depth").unwrap();
     let light_shader = shader_manager.get_shader("light").unwrap();
@@ -83,14 +85,14 @@ fn main() {
 
     light_manager.lights.push(Light {
         position: [0.0, 5.0, 0.0],
-        radius: 100.0,
+        radius: 10.0,
         color: [1.0, 1.0, 1.0],
         intensity: 100.0
     });
 
     light_manager.lights.push(Light {
         position: [0.0, 5.0, 0.0],
-        radius: 1000.0,
+        radius: 10.0,
         color: [1.0, 1.0, 1.0],
         intensity: 100.0
     });
@@ -172,14 +174,14 @@ fn main() {
 
     fpr.add_light(
         [0.0, 5.0, 0.0],  // position
-        100.0,             // radius
+        10.0,             // radius
         [1.0, 1.0, 1.0],  // color (white)
         100.0               // intensity
     );
 
     fpr.add_light(
         [0.0, 15.0, 0.0],
-        1000.0, // Giant radius
+        10.0, // Giant radius
         [1.0, 1.0, 1.0],
         100.0
     );
