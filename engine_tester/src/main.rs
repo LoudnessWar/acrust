@@ -85,8 +85,17 @@ fn main() {
         position: [0.0, 5.0, 0.0],
         radius: 100.0,
         color: [1.0, 1.0, 1.0],
-        intensity: 1.0
+        intensity: 100.0
     });
+
+    light_manager.lights.push(Light {
+        position: [0.0, 5.0, 0.0],
+        radius: 1000.0,
+        color: [1.0, 1.0, 1.0],
+        intensity: 100.0
+    });
+
+    let mut debug_comp_shader = LightManager::create_debug_display_shader();
 
     //light_manager.initialize_gpu_culling(720, 720, &shader_manager);
 
@@ -122,7 +131,7 @@ fn main() {
     let mut cube = Cube::new(5.0, Vector3::new(0.0, 0.0, 0.0), 1.0, mat_man.get_mat("mat1"));
     let mut cube2 = Cube::new(5.0, Vector3::new(15.0, 15.0, 15.0), 1.0, mat_man.get_mat("mat1"));
 
-    let mut model = GeneralModel::new(load_obj("models/teddy.obj"), WorldCoords::new(10.0, 10.0, 100.0, 1.0), mat_man.get_mat("mat2"));
+    let mut model = GeneralModel::new(load_obj("models/teddy.obj"), WorldCoords::new(0.0, 10.0, 100.0, 1.0), mat_man.get_mat("mat2"));
     mat_man.update_uniform("mat2", "lightDir", UniformValue::Vector3(vec3(0.0, 10.0, 0.0)));
     mat_man.update_uniform("mat2", "lightColor", UniformValue::Vector3(vec3(0.0, 1.0, 1.0)));
     mat_man.update_uniform("mat2", "objectColor", UniformValue::Vector3(vec3(1.0, 1.0, 1.0)));
@@ -165,12 +174,19 @@ fn main() {
         [0.0, 5.0, 0.0],  // position
         100.0,             // radius
         [1.0, 1.0, 1.0],  // color (white)
-        1.0               // intensity
+        100.0               // intensity
+    );
+
+    fpr.add_light(
+        [0.0, 15.0, 0.0],
+        1000.0, // Giant radius
+        [1.0, 1.0, 1.0],
+        100.0
     );
 
     fpr.initialize_light_culling(720, 720, &shader_manager);
 
-    let models: Vec<Model> = vec![Model::new(load_obj("models/teddy.obj"), WorldCoords::new(10.0, 10.0, 10.0, 1.0), mat_man.get_mat("mat2"))];
+    let models: Vec<Model> = vec![Model::new(load_obj("models/teddy.obj"), WorldCoords::new(0.0, 10.0, 0.0, 1.0), mat_man.get_mat("mat2"))];
 
 
     while !window.should_close() {
@@ -294,12 +310,13 @@ fn main() {
         //     gl::ClipControl(gl::LOWER_LEFT, gl::ZERO_TO_ONE);//this might muck up some other thigns
         // }
 
-        fpr.render(
+        fpr.render_debug(
             &models,
             &camera,
             720,
             720,
-            &texture_manager
+            &texture_manager,
+            &mut debug_comp_shader
         );
 
 

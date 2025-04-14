@@ -7,7 +7,7 @@ in vec3 Normal;
 layout(location = 0) out vec4 fragColor;
 
 // Light structure
-struct Light {
+struct Light {//TODO should prolly change these to like vec4 so like no just like spam casting to vec4 from vec3 
     vec3 position;
     float radius;
     vec3 color;

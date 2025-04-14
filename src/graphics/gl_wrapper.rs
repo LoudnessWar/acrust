@@ -242,6 +242,25 @@ impl ShaderProgram {
             gl::ShaderSource(shader, 1, &c_str.as_ptr(), ptr::null());
             gl::CompileShader(shader);
         }
+        let mut status = gl::FALSE as GLint;
+        unsafe {
+            gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut status);
+            if status != gl::TRUE as GLint {
+                let mut len: GLint = 0;
+                gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
+                let mut buffer = vec![0u8; len as usize];
+                gl::GetShaderInfoLog(
+                    shader,
+                    len,
+                    std::ptr::null_mut(),
+                    buffer.as_mut_ptr() as *mut GLchar,
+                );
+                panic!(
+                    "Shader compilation failed: {}",
+                    String::from_utf8_lossy(&buffer)
+                );
+            }
+        }
         shader
     }
 
@@ -320,7 +339,7 @@ impl ShaderProgram {
 
     //idk what the diff between these two is... we need to add thsi one to material and stuff as well onjfod
     pub fn set_uniform1iv(&self, uniform_name: &str, value: &i32) {
-        //println!("try Uniform1iv :{}", uniform_name);
+        println!("try Uniform1iv :{}", uniform_name);
         unsafe {
             gl::Uniform1iv(
                 self.uniform_ids[uniform_name],
@@ -336,7 +355,7 @@ impl ShaderProgram {
     }
 
     pub fn set_uniform1i(&self, uniform_name: &str, value: &i32) {
-        //println!("try Uniform1i :{}", uniform_name);
+        println!("try Uniform1i :{}", uniform_name);
         unsafe {
             // Change from Uniform1iv to Uniform1i for a single integer
             gl::Uniform1i(
@@ -425,6 +444,26 @@ impl ShaderProgram {
             handle
         };
 
+        // let mut status = gl::FALSE as GLint;
+        // unsafe {
+        //     gl::GetShaderiv(program_handle, gl::COMPILE_STATUS, &mut status);
+        //     if status != gl::TRUE as GLint {
+        //         let mut len: GLint = 0;
+        //         gl::GetShaderiv(program_handle, gl::INFO_LOG_LENGTH, &mut len);
+        //         let mut buffer = vec![0u8; len as usize];
+        //         gl::GetShaderInfoLog(
+        //             program_handle,
+        //             len,
+        //             std::ptr::null_mut(),
+        //             buffer.as_mut_ptr() as *mut GLchar,
+        //         );
+        //         panic!(
+        //             "Shader compilation failed: {}",
+        //             String::from_utf8_lossy(&buffer)
+        //         );
+        //     }
+        // }
+
         //println!("successfully made computer shader");
         ShaderProgram {
             program_handle,
@@ -448,6 +487,7 @@ impl ShaderProgram {
             gl::DeleteSync(fence);
             //gl::MemoryBarrier(gl::SHADER_STORAGE_BARRIER_BIT);
             gl::MemoryBarrier(gl::ALL_BARRIER_BITS);
+            gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT);
             gl_check!(gl::Finish());//before here
         }
     }
@@ -560,6 +600,37 @@ impl ShaderManager {
         self.add_shader("depth", initialize_depth_shader());
         self.add_shader("light", initialize_light_shader());
     }
+
+    pub fn init_forward_plus_light_debug(&mut self){
+
+
+        //this is all like initializing debug stuff
+            unsafe {
+                gl::Enable(gl::DEBUG_OUTPUT);
+                gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
+                gl::DebugMessageCallback(Some(debug_callback), std::ptr::null());
+            }
+            
+            extern "system" fn debug_callback(
+                source: GLenum,
+                type_: GLenum,
+                id: GLuint,
+                severity: GLenum,
+                _length: GLsizei,
+                message: *const GLchar,
+                _user_param: *mut c_void,
+            ) {
+                unsafe {
+                    let string = std::ffi::CStr::from_ptr(message).to_string_lossy();
+                    println!("GL CALLBACK: source = {}, type = {}, id = {}, severity = {}, message = {}",
+                             source, type_, id, severity, string);
+                }
+            }
+    
+    
+            self.add_shader("depth", initialize_depth_shader());
+            self.add_shader("light", initialize_light_shader_debug());
+        }
 
     // pub fn enable_backface_culling(&mut self, name: &str){
     //     self.get_shader(name).expect("CANNOT FIND SHADER").lock().unwrap().enable_backface_culling();
@@ -940,6 +1011,7 @@ pub struct LightManager {
     pub tile_light_indices: Vec<Vec<usize>>, // per-tile light indices (for CPU culling)
     pub culling_buffers: Option<LightCullingBuffers>, // GPU culling buffers
     pub compute_shader: Option<Arc<Mutex<ShaderProgram>>>, // Compute shader for light culling
+    pub debug_texture: Option<GLuint>,//remove this later TODO
 }
 
 impl LightManager {
@@ -950,6 +1022,7 @@ impl LightManager {
             tile_light_indices: vec![],
             culling_buffers: None,
             compute_shader: None,
+            debug_texture: None,
         }
     }
 
@@ -997,11 +1070,11 @@ impl LightManager {
         //println!("cum poop shader");
         let compute_shader = shader_manager.load_shader_compute(//yoooooooo this shit does not work with the shader is the acrust src only looks at the engine buttttt... who cares bro fix later
             "light_culling", 
-            "shaders/light_culling.comp" // Path to your compute shader
+            "shaders/comp_debug.comp" // Path to your compute shader
         );
         
         // Initialize culling buffers
-        let culling_buffers = LightCullingBuffers::new(width, height, self.lights.len() as u32);
+        let culling_buffers = LightCullingBuffers::new(width, height, self.lights.len() as u32);//TODO only have one light initializtion we got 2 rn for fpr and lightmangaer
         
         compute_shader.lock().expect("Failed to lock computer shader").create_uniform("view");//as to why I create the uniforms here... idk im dumb
         compute_shader.lock().expect("Failed to lock computer shader").create_uniform("projection");
@@ -1048,32 +1121,278 @@ impl LightManager {
             //self.debug_comp(tile_count_x, tile_count_y);
             // Dispatch compute shader (1 work group per tile)
             shader.dispatch_compute(tile_count_x, tile_count_y, 1);
+            println!("Compute dispatched for tiles: {} x {}", tile_count_x, tile_count_y);
+
             self.debug_read_buffers();
+            unsafe {
+                gl::BindTexture(gl::TEXTURE_2D, self.debug_texture.unwrap());
+                let mut data = vec![0.0f32; (tile_count_x * tile_count_y * 4) as usize];
+                gl::GetTexImage(
+                    gl::TEXTURE_2D,
+                    0,
+                    gl::RGBA,
+                    gl::FLOAT,
+                    data.as_mut_ptr() as *mut c_void,
+                );
+            
+                for i in 0..10 {
+                    println!(
+                        "Pixel {}: {:?}",
+                        i,
+                        &data[(i * 4)..(i * 4 + 4)]
+                    );
+                }
+            }
             
             // Unbind shader
             ShaderProgram::unbind();
         }
     }
 
-    pub fn debug_comp(&self, tile_count_x:u32,tile_count_y:u32){
+    pub fn debug_perform_gpu_light_culling(&mut self, view: &Matrix4<f32>, projection: &Matrix4<f32>, width: u32, height: u32) -> Option<GLuint> {
+        let mut debug_tex = None;
+        
+        if let (Some(culling_buffers), Some(compute_shader)) = (&self.culling_buffers, &self.compute_shader) {
+            // Bind the light data buffers
+            culling_buffers.bind(&self.lights);
+            
+            // Get tile counts for dispatch size
+            let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
+            
+            // Create debug texture
+            let tex_id = self.create_debug_texture(tile_count_x, tile_count_y);
+            debug_tex = Some(tex_id);
+            self.debug_texture = Some(tex_id); // I have a bomb if you are reading this
+
+            
+            // Bind and set up the compute shader
+            let mut shader = compute_shader.lock().unwrap();
+            shader.bind();
+            
+            // Set uniforms for the compute shader
+            shader.set_matrix4fv_uniform("view", view);
+            shader.set_matrix4fv_uniform("projection", projection);
+            shader.set_uniform1i("u_lightCount", &(self.lights.len() as i32));
+            
+            if let Some(depth_tex) = &self.depth_texture {
+                unsafe {
+                    gl_check!(gl::ActiveTexture(gl::TEXTURE0));
+                    gl_check!(gl::BindTexture(gl::TEXTURE_2D, depth_tex.id));
+                }
+                shader.set_uniform1iv("u_depthTexture", &0);
+            }
+            
+            // Set screen size uniforms
+            shader.set_uniform1f("u_screenWidth", width as f32);
+            shader.set_uniform1f("u_screenHeight", height as f32);
+            
+            // Dispatch compute shader (1 work group per tile)
+            shader.dispatch_compute(tile_count_x, tile_count_y, 1);
+            
+            // Memory barrier to ensure writes are completed
+            unsafe {
+                gl_check!(gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT));
+            }
+            
+            // Unbind shader
+            ShaderProgram::unbind();
+        }
+        
+        debug_tex
+    }
+
+    // pub fn debug_comp(&mut self, tile_count_x: u32, tile_count_y: u32) {
+    //     let mut debug_tex: GLuint = 0;
+    //     unsafe {
+    //         gl_check!(gl::GenTextures(1, &mut debug_tex));
+    //         gl::BindTexture(gl::TEXTURE_2D, debug_tex);
+    //         gl::TexImage2D(
+    //             gl::TEXTURE_2D,
+    //             0,
+    //             gl::RGBA32F as GLint,
+    //             tile_count_x as GLsizei,
+    //             tile_count_y as GLsizei,
+    //             0,
+    //             gl::RGBA,
+    //             gl::FLOAT,
+    //             std::ptr::null(),
+    //         );
+    //         gl_check!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32));
+    //         gl_check!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32));
+    //         gl_check!(gl::BindImageTexture(3, debug_tex, 0, gl::FALSE, 0, gl::WRITE_ONLY, gl::RGBA32F));
+    //     }
+        
+    //     self.debug_texture = Some(debug_tex);
+    // }
+
+    pub fn render_debug_visualization(&self, texture_id: GLuint, width: u32, height: u32, debug_shader: &mut ShaderProgram) {
+        let debug_width = width / 4;  // 1/4 of screen width
+        let debug_height = height / 4; // 1/4 of screen height
+        
+        unsafe {
+            gl::Viewport(
+                (width - debug_width) as i32, 
+                0, 
+                debug_width as i32, 
+                debug_height as i32
+            );
+        }
+
+        
+        if let Some(debug_tex) = self.debug_texture {
+            // Create a simple fullscreen quad shader if you don't have one
+            //let debug_shader = LightManager::create_debug_display_shader();
+            debug_shader.bind();
+
+            let vertices: [f32; 8] = [
+                -1.0, -1.0,
+                 1.0, -1.0,
+                -1.0,  1.0,
+                 1.0,  1.0,
+            ];
+
+            let mut vao: GLuint = 0;
+            let mut vbo: GLuint = 0;
+
+            unsafe {
+                gl::GenVertexArrays(1, &mut vao);
+                gl::GenBuffers(1, &mut vbo);
+
+                gl::BindVertexArray(vao);
+                gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+                gl::BufferData(
+                    gl::ARRAY_BUFFER,
+                    (vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+                    vertices.as_ptr() as *const c_void,
+                    gl::STATIC_DRAW,
+                );
+
+                gl::EnableVertexAttribArray(0);
+                gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, 2 * std::mem::size_of::<f32>() as GLsizei, ptr::null());
+
+                gl::Disable(gl::DEPTH_TEST);
+
+                gl::UseProgram(debug_shader.get_program_handle().clone());
+
+                gl::ActiveTexture(gl::TEXTURE0);
+                gl::BindTexture(gl::TEXTURE_2D, debug_tex);
+                //debug_shader.create_uniform("debugTexture");
+                debug_shader.set_uniform1i("debugTexture", &0);
+
+                gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
+                gl::BindVertexArray(0);
+                gl::DeleteBuffers(1, &vbo);
+                gl::DeleteVertexArrays(1, &vao);
+            }
+                        
+            // Create a VAO for the fullscreen quad (can be cached and reused)
+            // let mut vao: GLuint = 0;
+            // let mut vbo: GLuint = 0;
+            
+            // // Define fullscreen quad vertices (position and texture coordinates)
+            // let vertices: [f32; 20] = [
+            //     // Position (3) and TexCoord (2)
+            //     -1.0, -1.0, 0.0,   0.0, 0.0,
+            //      1.0, -1.0, 0.0,   1.0, 0.0,
+            //     -1.0,  1.0, 0.0,   0.0, 1.0,
+            //      1.0,  1.0, 0.0,   1.0, 1.0,
+            // ];
+            
+            // unsafe {
+            //     // Disable depth testing for this debug render
+            //     gl::Disable(gl::DEPTH_TEST);
+                
+            //     // Create and set up VAO and VBO
+            //     gl::GenVertexArrays(1, &mut vao);
+            //     gl::GenBuffers(1, &mut vbo);
+                
+            //     gl::BindVertexArray(vao);
+            //     gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            //     gl::BufferData(
+            //         gl::ARRAY_BUFFER,
+            //         (vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+            //         vertices.as_ptr() as *const std::ffi::c_void,
+            //         gl::STATIC_DRAW
+            //     );
+                
+            //     // Position attribute
+            //     gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 5 * std::mem::size_of::<f32>() as GLsizei, std::ptr::null());
+            //     gl::EnableVertexAttribArray(0);
+                
+            //     // Texture coordinate attribute
+            //     gl::VertexAttribPointer(
+            //         1, 
+            //         2, 
+            //         gl::FLOAT, 
+            //         gl::FALSE, 
+            //         5 * std::mem::size_of::<f32>() as GLsizei, 
+            //         (3 * std::mem::size_of::<f32>()) as *const std::ffi::c_void
+            //     );
+            //     gl::EnableVertexAttribArray(1);
+                
+            //     // Bind the debug texture
+            //     gl::ActiveTexture(gl::TEXTURE0);
+            //     gl::BindTexture(gl::TEXTURE_2D, debug_tex);
+            //     gl::GetError();
+                
+            //     // Set the shader uniform
+            //     debug_shader.set_uniform1i("debugTexture", &0);
+                
+            //     // Draw the quad
+            //     gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
+                
+            //     // Clean up
+            //     gl::BindVertexArray(0);
+            //     gl::DeleteVertexArrays(1, &vao);
+            //     gl::DeleteBuffers(1, &vbo);
+                
+            //     // Re-enable depth testing
+            //     //gl::Enable(gl::DEPTH_TEST);add back
+            // }
+            
+            ShaderProgram::unbind();
+        }
+
+        unsafe {
+            gl::Viewport(0, 0, width as i32, height as i32);
+        }
+    }
+
+    pub fn create_debug_display_shader() -> ShaderProgram {//lol this is just me being lazy
+        let vertex_src = "shaders/debug_comp.vert";
+        
+        let fragment_src = "shaders/debug_comp.frag";
+        
+        // Create shader program
+        let mut shader = ShaderProgram::new(vertex_src, fragment_src);
+        shader.create_uniform("debugTexture");
+        shader
+    }
+
+    pub fn create_debug_texture(&self, tile_count_x: u32, tile_count_y: u32) -> GLuint {
         let mut debug_tex: GLuint = 0;
         unsafe {
-            gl::GenTextures(1, &mut debug_tex);
+            gl_check!(gl::GenTextures(1, &mut debug_tex));
             gl::BindTexture(gl::TEXTURE_2D, debug_tex);
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::R32F as GLint, // or GL_RGBA32F for more data
+                gl::RGBA32F as GLint,
                 tile_count_x as GLsizei,
                 tile_count_y as GLsizei,
                 0,
-                gl::RED,
+                gl::RGBA,
                 gl::FLOAT,
                 std::ptr::null(),
             );
-            gl::BindImageTexture(3, debug_tex, 0, gl::FALSE, 0, gl::WRITE_ONLY, gl::R32F);
+            gl_check!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32));
+            gl_check!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32));
+            gl_check!(gl::BindImageTexture(3, debug_tex, 0, gl::FALSE, 0, gl::WRITE_ONLY, gl::RGBA32F));
+            let err = gl::GetError();
+            assert_eq!(err, gl::NO_ERROR, "BindImageTexture failed: 0x{:x}", err);
         }
-
+        
+        debug_tex
     }
 
     pub fn debug_read_buffers(&self) {
@@ -1083,7 +1402,7 @@ impl LightManager {
                 let buffer_size = (culling_buffers.tile_count_x * culling_buffers.tile_count_y * 2) as isize;
                 let mut data = vec![0i32; buffer_size as usize];
                 
-                gl::BindBuffer(gl::SHADER_STORAGE_BUFFER, culling_buffers.light_grid_buffer.get_id());
+                //gl::BindBuffer(gl::SHADER_STORAGE_BUFFER, culling_buffers.light_grid_buffer.get_id());
                 gl::GetBufferSubData(
                     gl::SHADER_STORAGE_BUFFER, 
                     0,
@@ -1124,6 +1443,20 @@ fn initialize_depth_debug_shader() -> ShaderProgram {//i could make this dynamic
 }
 
 fn initialize_light_shader() -> ShaderProgram {//i could make this dynamic but like bruh
+    let mut light = ShaderProgram::new("shaders/forward_plus.vert","shaders/forward_plus.frag");
+    light.create_uniform("model");
+    light.create_uniform("view");
+    light.create_uniform("projection");
+    light.create_uniform("u_specularPower");
+    light.create_uniform("u_tileCountX");
+    //light.create_uniforms(vec!["u_tileCountY", "u_screenWidth", "u_screenHeight"]);
+    light.create_uniform("u_depthTex");
+    light.create_uniform("u_lightCount");
+    light.create_uniform("u_diffuseColor");//why was this ok that it was like not there
+    light
+}
+
+fn initialize_light_shader_debug() -> ShaderProgram {//i could make this dynamic but like bruh
     let mut light = ShaderProgram::new("shaders/forward_plus.vert","shaders/forward_plus.frag");
     light.create_uniform("model");
     light.create_uniform("view");
@@ -1249,7 +1582,7 @@ impl ForwardPlusRenderer {
         if let Some(culling_buffers) = &self.light_manager.culling_buffers {
             unsafe {
                 gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
-                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, culling_buffers.light_grid_buffer.get_id());
+                //gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, culling_buffers.light_grid_buffer.get_id());
                 gl_check!(gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id()));
             }
             
@@ -1272,6 +1605,132 @@ impl ForwardPlusRenderer {
             self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
             //model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
             model.get_mesh().draw();
+        }
+        
+        ShaderProgram::unbind();
+    }
+
+    pub fn render_debug<T: ModelTrait>(&mut self, 
+        models: &[T], 
+        camera: &Camera,
+        width: u32, 
+        height: u32,
+        texture_manager: &TextureManager,
+        debug_comp_shader: &mut ShaderProgram,
+    ) {
+        let framebuffer = Framebuffer::new_depth_only(width, height);
+        let meshes: Vec<&Mesh> = models.iter().map(|model| model.get_mesh()).collect();
+        
+        self.depth_shader.lock().expect("failed to bind depth").bind();
+
+        // let debugshader = initialize_depth_debug_shader();//lol recompiling this is not optimal btw
+        // debugshader.bind();
+
+        // let model_matrices: Vec<Matrix4<f32>> = models.iter()
+        //     .map(|model| model.get_world_coords().get_model_matrix())
+        //     .collect();
+
+        // run_depth_debug_pass(
+        //     &debugshader,
+        //     &meshes,
+        //     camera,
+        //     &model_matrices,
+        // );//this works really well now
+        
+        for model in models {
+            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
+            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", camera.get_view());
+            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", camera.get_p_matrix());
+            // Depth pre-pass
+            run_depth_prepass(
+                &self.depth_shader.lock().expect("failed to get depth Shader during prepass"),
+                &framebuffer,
+                &meshes,
+                &mut self.light_manager,
+                width,
+                height,
+            );
+        }
+        
+        // Light culling
+        //self.light_manager.debug_perform_gpu_light_culling(camera.get_view(),camera.get_p_matrix(), width, height);//vp should prolly be just done on gpu later
+        let debug_texture = self.light_manager.debug_perform_gpu_light_culling(
+            camera.get_view(),
+            camera.get_p_matrix(), 
+            width, 
+            height
+        );
+    
+        
+        // Light pass
+        Framebuffer::unbind();
+        
+        // unsafe {
+        //     gl::Viewport(0, 0, width as i32, height as i32);
+        //     gl::ClearDepth(0.0);
+        //     gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        //     gl::DepthFunc(gl::GREATER);//this is erm maybe finiky
+        //     gl::Enable(gl::DEPTH_TEST);
+        // }
+        
+        self.light_shader.lock().expect("failed bind").bind();//if this was mutable would this work
+        //if im getting errrors later look into this
+
+        // Bind depth texture
+        let depth_tex = self.light_manager.get_depth_texture();
+        unsafe {
+            gl_check!(gl::ActiveTexture(gl::TEXTURE0));
+            gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
+        }
+
+        //self.light_shader.lock().expect("failed bind").bind();
+
+        //idk gonna do like vertex stuff here
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", &camera.get_view());
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", &camera.get_p_matrix());
+
+        //lol move this create uniform somewhere else
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_depthTex");
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
+        
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
+        // Bind light culling buffers
+        if let Some(culling_buffers) = &self.light_manager.culling_buffers {
+            unsafe {
+                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
+                //gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, culling_buffers.light_grid_buffer.get_id());
+                gl_check!(gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id()));
+            }
+            
+            let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
+            print!("tilecount {}", tile_count_x);
+            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountX", tile_count_x as f32);
+            //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountY", tile_count_y as f32);
+        }
+        
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_lightCount");
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_lightCount", &(self.light_manager.lights.len() as i32));
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
+        
+        //this all needs to move later
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 1.0);
+        
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").debug_print_uniforms();
+        // Render each model with its material
+        for model in models {
+            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
+            //model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
+            model.get_mesh().draw();
+        }
+
+        if let Some(debug_tex) = debug_texture {
+            // Now render the debug texture (can be in corner of screen)
+            self.light_manager.render_debug_visualization(debug_tex, width, height, debug_comp_shader);
+            
+            // Clean up the debug texture when done
+            unsafe {
+                gl_check!(gl::DeleteTextures(1, &debug_tex));
+            }
         }
         
         ShaderProgram::unbind();
@@ -1301,7 +1760,7 @@ impl ForwardPlusRenderer {
 pub struct LightCullingBuffers {
     light_buffer: BufferObject,          // SSBO for light data
     light_index_buffer: BufferObject,    // SSBO for light indices per tile
-    light_grid_buffer: BufferObject,     // SSBO for light grid data
+    //light_grid_buffer: BufferObject,     // SSBO for light grid data
     tile_count_x: u32,
     tile_count_y: u32,
     max_lights_per_tile: u32,
@@ -1321,12 +1780,12 @@ impl LightCullingBuffers {
         let light_index_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
         
         // Create SSBO for light grid
-        let light_grid_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
+        //let light_grid_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
         
         Self {
             light_buffer,
             light_index_buffer,
-            light_grid_buffer,
+            //light_grid_buffer,
             tile_count_x,
             tile_count_y,
             max_lights_per_tile,
@@ -1364,8 +1823,8 @@ impl LightCullingBuffers {
         let grid_size = total_tiles * 2; // Each tile has (offset, count)
         let mut grid_data = vec![0i32; grid_size];
         
-        self.light_grid_buffer.bind();
-        self.light_grid_buffer.store_i32_data(&grid_data);
+        // self.light_grid_buffer.bind();//TODO ifeel bad for killing him
+        // self.light_grid_buffer.store_i32_data(&grid_data);
         
         // Prepare light index buffer (will be filled by compute shader)
         let index_buffer_size = total_tiles * self.max_lights_per_tile as usize;
@@ -1377,7 +1836,7 @@ impl LightCullingBuffers {
         // Bind the buffers to their respective binding points
         unsafe {
             gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, self.light_buffer.get_id());
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, self.light_grid_buffer.get_id());
+            //gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, self.light_grid_buffer.get_id());
             gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, self.light_index_buffer.get_id());
         }
     }
