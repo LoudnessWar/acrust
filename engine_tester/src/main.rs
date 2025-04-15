@@ -66,9 +66,9 @@ fn main() {
     shader_manager.load_shader("Basic", "shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
     shader_manager.load_shader("generic", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl");
 
-    //shader_manager.init_forward_plus();
+    //shader_manager.init_forward_plus_light_debug();
 
-    shader_manager.init_forward_plus_light_debug();
+    shader_manager.init_forward_plus();
 
     let depth_shader = shader_manager.get_shader("depth").unwrap();
     let light_shader = shader_manager.get_shader("light").unwrap();
@@ -92,12 +92,12 @@ fn main() {
 
     light_manager.lights.push(Light {
         position: [15.0, 15.0, 0.0],
-        radius: 10.0,
-        color: [1.0, 1.0, 1.0],
+        radius: 100.0,
+        color: [0.2, 1.0, 1.0],
         intensity: 100.0
     });
 
-    let mut debug_comp_shader = LightManager::create_debug_display_shader();
+    //let mut debug_comp_shader = LightManager::create_debug_display_shader();
 
     //light_manager.initialize_gpu_culling(720, 720, &shader_manager);
 
@@ -180,9 +180,9 @@ fn main() {
     );
 
     fpr.add_light(
-        [15.0, 15.0, 0.0],
-        10.0, // Giant radius
-        [1.0, 1.0, 1.0],
+        [30.0, 15.0, 0.0],
+        400.0, // Giant radius
+        [0.2, 1.0, 1.0],
         100.0
     );
 
@@ -312,14 +312,23 @@ fn main() {
         //     gl::ClipControl(gl::LOWER_LEFT, gl::ZERO_TO_ONE);//this might muck up some other thigns
         // }
 
-        fpr.render_debug(
+        fpr.render(
             &models,
             &camera,
             720,
             720,
-            &texture_manager,
-            &mut debug_comp_shader
+            &texture_manager
         );
+
+        // fpr.render_debug(
+        //     &models,
+        //     &camera,
+        //     720,
+        //     720,
+        //     &texture_manager,
+        //     &mut debug_comp_shader
+        // );
+
 
 
         // mat_man.update_uniform("mat1", "transform", &transform);

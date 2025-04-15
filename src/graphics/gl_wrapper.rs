@@ -1093,10 +1093,14 @@ impl LightManager {
         self.culling_buffers = Some(culling_buffers);
     }
     
-    pub fn perform_gpu_light_culling(&mut self, view: &Matrix4<f32>, projection: &Matrix4<f32>, width: u32, height: u32) {
+
+    //there was width and height here but now its gone omg
+    pub fn perform_gpu_light_culling(&mut self, view: &Matrix4<f32>, projection: &Matrix4<f32>) {
         if let (Some(culling_buffers), Some(compute_shader)) = (&self.culling_buffers, &self.compute_shader) {
             // Bind the light data buffers
             culling_buffers.bind(&self.lights);
+
+            let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
             
             // Bind and set up the compute shader
             let mut shader = compute_shader.lock().unwrap();
@@ -1111,20 +1115,21 @@ impl LightManager {
             if let Some(depth_tex) = &self.depth_texture {
                 unsafe {
                     gl_check!(gl::ActiveTexture(gl::TEXTURE0));//after here
+                    shader.set_uniform1iv("u_depthTexture", &0);//do i need this? idk but crying emoji this was the error i spend 2 days on needed to be 0 😭😭😭😭😭😭😭😭😭😭😭😭😭😭😭😭
                     gl_check!(gl::BindTexture(gl::TEXTURE_2D, depth_tex.id));
                 }
-                shader.set_uniform1iv("u_depthTexture", &0);//do i need this? idk but crying emoji this was the error i spend 2 days on needed to be 0 😭😭😭😭😭😭😭😭😭😭😭😭😭😭😭😭
             }
             
+            shader.dispatch_compute(tile_count_x, tile_count_y, 1);
             // Set screen size uniforms
             // shader.set_uniform1f("u_screenWidth", width as f32);
             // shader.set_uniform1f("u_screenHeight", height as f32);
             
             // Get tile counts for dispatch size
-            let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
+            //let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
             //self.debug_comp(tile_count_x, tile_count_y);
             // Dispatch compute shader (1 work group per tile)
-            shader.dispatch_compute(tile_count_x, tile_count_y, 1);
+            
             //println!("Compute dispatched for tiles: {} x {}", tile_count_x, tile_count_y);
 
             //self.debug_read_buffers();
@@ -1468,7 +1473,7 @@ fn initialize_light_shader() -> ShaderProgram {//i could make this dynamic but l
     light.create_uniform("u_specularPower");
     light.create_uniform("u_tileCountX");
     //light.create_uniforms(vec!["u_tileCountY", "u_screenWidth", "u_screenHeight"]);
-    light.create_uniform("u_depthTex");
+    //light.create_uniform("u_depthTex");
     light.create_uniform("u_lightCount");
     light.create_uniform("u_diffuseColor");//why was this ok that it was like not there
     light
@@ -1536,27 +1541,10 @@ impl ForwardPlusRenderer {
         height: u32,
         texture_manager: &TextureManager
     ) {
-        //let view_projection = camera.get_vp_matrix();
         let framebuffer = Framebuffer::new_depth_only(width, height);
-        
-        // Extract meshes for depth pass
         let meshes: Vec<&Mesh> = models.iter().map(|model| model.get_mesh()).collect();
         
         self.depth_shader.lock().expect("failed to bind depth").bind();
-
-        // let debugshader = initialize_depth_debug_shader();//lol recompiling this is not optimal btw
-        // debugshader.bind();
-
-        // let model_matrices: Vec<Matrix4<f32>> = models.iter()
-        //     .map(|model| model.get_world_coords().get_model_matrix())
-        //     .collect();
-
-        // run_depth_debug_pass(
-        //     &debugshader,
-        //     &meshes,
-        //     camera,
-        //     &model_matrices,
-        // );//this works really well now
         
         for model in models {
             self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
@@ -1572,15 +1560,22 @@ impl ForwardPlusRenderer {
                 height,
             );
         }
+
+        if let Some(culling_buffers) = &self.light_manager.culling_buffers {
+            unsafe {
+                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
+                gl_check!(gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id()));
+            }
+        }
         
         // Light culling
-        self.light_manager.perform_gpu_light_culling(camera.get_view(),camera.get_p_matrix(), width, height);//vp should prolly be just done on gpu later
+        self.light_manager.perform_gpu_light_culling(camera.get_view(),camera.get_p_matrix());//vp should prolly be just done on gpu later
         
         // Light pass
-        Framebuffer::unbind();
-        unsafe{
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-        }
+        // Framebuffer::unbind();//TODO CHECK WHAT THIS DOES THESE TWO LINES OR I GUESS 4
+        // unsafe{
+        //     gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        // }
         // unsafe {
         //     gl::Viewport(0, 0, width as i32, height as i32);
         //     gl::ClearDepth(0.0);
@@ -1593,11 +1588,11 @@ impl ForwardPlusRenderer {
         //if im getting errrors later look into this
 
         // Bind depth texture
-        let depth_tex = self.light_manager.get_depth_texture();
-        unsafe {
-            gl_check!(gl::ActiveTexture(gl::TEXTURE0));
-            gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
-        }
+        // let depth_tex = self.light_manager.get_depth_texture();
+        // unsafe {
+        //     gl_check!(gl::ActiveTexture(gl::TEXTURE0));
+        //     gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
+        // }
 
         //self.light_shader.lock().expect("failed bind").bind();
 
@@ -1605,38 +1600,41 @@ impl ForwardPlusRenderer {
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", &camera.get_view());
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", &camera.get_p_matrix());
 
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("totalLightCount", &(self.light_manager.lights.len() as i32));
         //lol move this create uniform somewhere else
         //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_depthTex");
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
         
         //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
-        // Bind light culling buffers
-        if let Some(culling_buffers) = &self.light_manager.culling_buffers {
-            unsafe {
-                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
-                //gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, culling_buffers.light_grid_buffer.get_id());
-                gl_check!(gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id()));
-            }
-            
-            let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
-            print!("tilecount {}", tile_count_x);
-            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountX", tile_count_x as f32);
-            //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountY", tile_count_y as f32);
+
+        if let Some(culling_buffers) = &self.light_manager.culling_buffers {//If i get rid of if this doesnt work and I forget why... I think its something like if if we know its there so no need to account for like refstuff
+            let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();//TODO move this and num of tiles to where shader is set up
+            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_tileCountX", &(tile_count_x as i32));
         }
         
+
         //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_lightCount");
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_lightCount", &(self.light_manager.lights.len() as i32));
+
+
+        //the two below I will add to like materials or something... PROBABLY PROBABLY IN FACT TODO, impliment a Forward_Plus Material Trait for materials that can be used here in this forward plus...
+        //maybe they just like dont have a shader and like have these material properties instead... maybe I make it completely different from the materials we have hmmm yeah
+        //so what I should do is have a materials trait that has like 2 sub catagories wich is like shader material and forward plus material and they both have like material properties
+        //one just had a shader and some other stuff. This would probably greatly simplify it and prevent it from needing to use arc and stuff making it like smaller or whatever
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
-        
-        //this all needs to move later
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 1.0);
         
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").debug_print_uniforms();
+        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").debug_print_uniforms();
         // Render each model with its material
         for model in models {
             self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
             //model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
             model.get_mesh().draw();
+        }
+
+        unsafe{//just a precaution
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
+		    gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, 0);
         }
         
         ShaderProgram::unbind();

@@ -30,7 +30,7 @@ uniform int numberOfTilesX;
 uniform int totalLightCount;
 uniform mat4 view;
 uniform mat4 projection;
-uniform vec3 cameraPosition;
+//uniform vec3 cameraPosition;
 
 out vec4 fragColor;
 
