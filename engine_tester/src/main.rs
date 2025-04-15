@@ -84,14 +84,14 @@ fn main() {
     let mut light_manager = LightManager::new();
 
     light_manager.lights.push(Light {
-        position: [0.0, 5.0, 0.0],
+        position: [0.0, -5.0, 0.0],
         radius: 10.0,
         color: [1.0, 1.0, 1.0],
         intensity: 100.0
     });
 
     light_manager.lights.push(Light {
-        position: [0.0, 15.0, 0.0],
+        position: [15.0, 15.0, 0.0],
         radius: 10.0,
         color: [1.0, 1.0, 1.0],
         intensity: 100.0
@@ -173,14 +173,14 @@ fn main() {
     let mut fpr = ForwardPlusRenderer::new(&shader_manager);
 
     fpr.add_light(
-        [0.0, 5.0, 0.0],  // position
+        [0.0, -5.0, 0.0],  // position
         10.0,             // radius
         [1.0, 1.0, 1.0],  // color (white)
         100.0               // intensity
     );
 
     fpr.add_light(
-        [0.0, 15.0, 0.0],
+        [15.0, 15.0, 0.0],
         10.0, // Giant radius
         [1.0, 1.0, 1.0],
         100.0
