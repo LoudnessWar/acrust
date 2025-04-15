@@ -91,7 +91,7 @@ fn main() {
     });
 
     light_manager.lights.push(Light {
-        position: [0.0, 5.0, 0.0],
+        position: [0.0, 15.0, 0.0],
         radius: 10.0,
         color: [1.0, 1.0, 1.0],
         intensity: 100.0

@@ -52,13 +52,13 @@ uniform float u_screenHeight;
 shared uint minDepthInt; 
 shared uint maxDepthInt;
 shared uint visibleLightCount;
-shared int visibleLightIndices[64]; // Increased from 64 to handle more lights
+shared int visibleLightIndices[256]; // Increased from 64 to handle more lights
 shared vec4 frustumPlanes[6];
 shared mat4 viewProjection;
 
 #define TILE_SIZE 16
 layout(local_size_x = TILE_SIZE, local_size_y = TILE_SIZE, local_size_z = 1) in;//idk what this line does
-const uint MAX_LIGHTS_PER_TILE = 64;
+const uint MAX_LIGHTS_PER_TILE = 256;//needs to be equivilent to value in LightCullingBuffers
 
 // Utility function to check if a sphere intersects with the frustum
 bool sphereInFrustum(vec3 center, float radius, vec4 planes[6]) {
@@ -186,12 +186,12 @@ void main() {
     // Step 4: Write results to global buffers
     if (gl_LocalInvocationIndex == 0) {
         // Store offset and count in the grid
-        uint offset = index * 64;
+        uint offset = index * MAX_LIGHTS_PER_TILE;
         for (uint i = 0; i < visibleLightCount; i++) {
 			IndicesBuffer.data[offset + i].index = visibleLightIndices[i];
 		}
 
-        if (visibleLightCount != 64) {
+        if (visibleLightCount != MAX_LIGHTS_PER_TILE) {
 			// Unless we have totally filled the entire array, mark it's end with -1
 			// Final shader step will use this to determine where to stop (without having to pass the light count)
 			IndicesBuffer.data[offset + visibleLightCount].index = -1;
@@ -213,15 +213,15 @@ void main() {
         vec4 debugColor;
         
         // Heat map for light count (red = high, blue = low)
-        //float normalizedCount = float(visibleLightCount) / float(16);
+        float normalizedCount = float(visibleLightCount) / float(16);
         
-        // Option 1: Simple RGB mapping
-        // debugColor = vec4(
-        //     normalizedCount,                    // Red channel (light count)
-        //     float(tileID.x) / float(tileNumber.x), // Green (tile X position)
-        //     float(tileID.y) / float(tileNumber.y), // Blue (tile Y position)
-        //     1.0                                // Alpha
-        // );
+        //Option 1: Simple RGB mapping
+        debugColor = vec4(
+            normalizedCount,                    // Red channel (light count)
+            float(tileID.x) / float(tileNumber.x), // Green (tile X position)
+            float(tileID.y) / float(tileNumber.y), // Blue (tile Y position)
+            1.0                                // Alpha
+        );
 
         //debugColor = vec4(1.0, 0.0, 0.0, 1.0);
 
@@ -235,7 +235,7 @@ void main() {
         // debugColor.r = float(visibleLightCount > 0); // 🔴 1.0 if any light hits
         // //imageStore(debugTexture, tileID, debugColor);
 
-        debugColor = vec4(float(visibleLightCount) / 10.0, 0.0, 0.0, 1.0); // scale down for visibility
+        //debugColor = vec4(float(visibleLightCount) / 10.0, 0.0, 0.0, 1.0); // scale down for visibility
         
         // Write debug info to the debug texture
         imageStore(debugImage, ivec2(tileID), debugColor);

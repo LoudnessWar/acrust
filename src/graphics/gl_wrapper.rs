@@ -481,7 +481,7 @@ impl ShaderProgram {
             // Wait for the GPU to complete compute
             let wait_result = gl::ClientWaitSync(fence, gl::SYNC_FLUSH_COMMANDS_BIT, 1_000_000_000); // 1 sec
             if wait_result == gl::TIMEOUT_EXPIRED {
-                println!("⚠️ Compute shader did not complete in time.");
+                println!("⚠️ Compute shader did not complete in time. 😭😭😭😭😭😭😭😭😭😭");
             }
 
             gl::DeleteSync(fence);
@@ -1756,15 +1756,15 @@ impl ForwardPlusRenderer {
             model.get_mesh().draw();
         }
 
-        // if let Some(debug_tex) = debug_texture {
-        //     // Now render the debug texture (can be in corner of screen)
-        //     self.light_manager.render_debug_visualization(debug_tex, width, height, debug_comp_shader);
+        if let Some(debug_tex) = debug_texture {
+            // Now render the debug texture (can be in corner of screen)
+            self.light_manager.render_debug_visualization(debug_tex, width, height, debug_comp_shader);
             
-        //     // Clean up the debug texture when done
-        //     unsafe {
-        //         gl_check!(gl::DeleteTextures(1, &debug_tex));
-        //     }
-        // }
+            // Clean up the debug texture when done
+            unsafe {
+                gl_check!(gl::DeleteTextures(1, &debug_tex));
+            }
+        }
 
         unsafe{
             gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
@@ -1809,7 +1809,7 @@ impl LightCullingBuffers {
         let tile_size = 16; // Tile size, same as in your CPU implementation
         let tile_count_x = (width + (tile_size % tile_size) / tile_size);//TODO cahnged these look at this as well
         let tile_count_y = (height + (tile_size % tile_size)) / tile_size;
-        let max_lights_per_tile = 64; // HERHEHERHEH look at this is this it YEHA THIS WAS IT
+        let max_lights_per_tile = 256; // HERHEHERHEHERE look at this is this it YEHA THIS WAS IT
         
         // Create SSBO for light data
         let light_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);

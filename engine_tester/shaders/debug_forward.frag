@@ -38,9 +38,9 @@ void main() {
     uint index = tileID.y * numberOfTilesX + tileID.x;
 
     // Count visible lights for this tile
-    uint offset = index *  64;
+    uint offset = index *  256;
     uint i;
-    for (i = 0; i < 64 && visibleLightIndicesBuffer.data[offset + i].index != -1; i++);
+    for (i = 0; i < 256 && visibleLightIndicesBuffer.data[offset + i].index != -1; i++);
 
     // Visualize the ratio of visible lights to total lights
     float ratio = float(i) / float(totalLightCount);
@@ -53,4 +53,6 @@ void main() {
         return;
     }
     fragColor = vec4(vec3(ratio, ratio, ratio), 1.0);
+    //fragColor = vec4(normalize(fragment_in.normalVector) * 0.5 + 0.5, 1.0);
 }
+
