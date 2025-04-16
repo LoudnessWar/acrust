@@ -38,7 +38,7 @@ pub fn load_obj(file_path: &str) -> Mesh {
         }
 
         match parts[0] {
-            "v" => {//Todo use resultr
+            "v" => {//Todo use resultr I mean this would be nice if I grouped them in 3 bud itdk how
                 let x: f32 = parts[1].parse().unwrap();//? better then unwrap sometimes
                 let y: f32 = parts[2].parse().unwrap();
                 let z: f32 = parts[3].parse().unwrap();
@@ -71,8 +71,8 @@ pub fn load_obj(file_path: &str) -> Mesh {
             _ => {}
         }
     }
-
-    Mesh::new(&vertices, &indices)
+    //pick back up heres
+    Mesh::new(&vertices, &indices)//thisd is kinda like eeeehhh bc no normals for mesh ig like they aint easy ios what im sayin 
 }
 
 //ok now... I should probably... PROBABLY have new be a function in the trait

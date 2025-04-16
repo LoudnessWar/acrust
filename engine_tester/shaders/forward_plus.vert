@@ -24,8 +24,8 @@
 #version 430 core
 
 layout(location = 0) in vec3 position;
-layout(location = 2) in vec3 normal;//i swapped these two and it did... something?
-layout(location = 1) in vec2 texCoords;
+layout(location = 1) in vec3 normal;//i swapped these two and it did... something? TODO check this out???
+layout(location = 2) in vec2 texCoords;
 
 out VERTEX_OUT {//why do it like this you vapid silly baka... its like better ok like we did it in class once
     vec3 fragmentPosition;

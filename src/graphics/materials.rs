@@ -89,7 +89,7 @@ impl Material {
                 eprintln!("Warning: Texture '{}' not found!", texture_path);
             }
         }
-        curr_shader.debug_print_uniforms();
+        //curr_shader.debug_print_uniforms();
     }
 
     //I want these not to mutate them selves but I think they might have to well this one doesnt but the others do ig

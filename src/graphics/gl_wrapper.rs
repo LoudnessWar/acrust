@@ -117,9 +117,9 @@ impl BufferObject {
         }
         self.bind();
         let size = (data.len() * mem::size_of::<gl::types::GLfloat>()) as gl::types::GLsizeiptr;
-        println!("Buffer ID: {}, Size: {}", self.id, size);
-        println!("Binding buffer {} to target {:#X}", self.id, self.r#type);
-        print!("data {:#?}", data.len());
+        //println!("Buffer ID: {}, Size: {}", self.id, size);
+        //println!("Binding buffer {} to target {:#X}", self.id, self.r#type);
+        //print!("data {:#?}", data.len());
 
         unsafe {
             let ctx_err = gl::GetError();
@@ -140,8 +140,8 @@ impl BufferObject {
 
     pub fn store_i32_data(&self, data: &[i32]) {
         let size = (data.len() * mem::size_of::<gl::types::GLint>()) as gl::types::GLsizeiptr;
-        println!("Buffer I32 ID: {}, Size: {} ", self.id, size);
-        print!("data {:#?}", data.len());
+        //ln!("Buffer I32 ID: {}, Size: {} ", self.id, size);
+        //print!("data {:#?}", data.len());
         unsafe {
             gl_check!(gl::BufferData(
                 self.r#type,
@@ -235,7 +235,7 @@ impl ShaderProgram {
     }
 
     fn compile_shader(source: &str, shader_type: GLenum) -> GLuint {
-        println!("Source: {}, Type: {}", source, shader_type);
+        //println!("Source: {}, Type: {}", source, shader_type);
         let shader = unsafe { gl::CreateShader(shader_type) };
         let c_str = CString::new(source).unwrap();
         unsafe {
@@ -287,7 +287,7 @@ impl ShaderProgram {
         if uniform_location < 0 {
             panic!("Cannot locate uniform: {} \n    or issue with frament shader", uniform_name);
         } else {
-            println!("sucessfully created unifrom {}", uniform_name);
+            //println!("sucessfully created unifrom {}", uniform_name);
             self.uniform_ids.insert(uniform_name.to_string(), uniform_location);
         }
     }
@@ -325,7 +325,7 @@ impl ShaderProgram {
 
     //intrestng things these are they are not mut
     pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {
-        println!("{}", uniform_name);
+        //println!("{}", uniform_name);
         unsafe {
             gl::UniformMatrix4fv(
                 self.uniform_ids[uniform_name],
@@ -339,7 +339,7 @@ impl ShaderProgram {
 
     //idk what the diff between these two is... we need to add thsi one to material and stuff as well onjfod
     pub fn set_uniform1iv(&self, uniform_name: &str, value: &i32) {
-        println!("try Uniform1iv :{}", uniform_name);
+        //println!("try Uniform1iv :{}", uniform_name);
         unsafe {
             gl::Uniform1iv(
                 self.uniform_ids[uniform_name],
@@ -355,7 +355,7 @@ impl ShaderProgram {
     }
 
     pub fn set_uniform1i(&self, uniform_name: &str, value: &i32) {
-        println!("try Uniform1i :{}", uniform_name);
+        //println!("try Uniform1i :{}", uniform_name);
         unsafe {
             // Change from Uniform1iv to Uniform1i for a single integer
             gl::Uniform1i(
@@ -433,7 +433,7 @@ impl ShaderProgram {
 
     //computer shader stuff 
     pub fn new_compute(compute_shader_path: &str) -> Self {
-        println!("comp path {}", compute_shader_path );
+        //println!("comp path {}", compute_shader_path );
         let compute_shader_source = Self::read_shader_source(compute_shader_path);
         let program_handle = unsafe {
             let compute_shader = Self::compile_shader(&compute_shader_source, gl::COMPUTE_SHADER);
@@ -472,7 +472,7 @@ impl ShaderProgram {
     }
     
     pub fn dispatch_compute(&self, x: u32, y: u32, z: u32) {
-        print!("run compute");
+        //print!("run compute");
         unsafe {
             gl_check!(gl::DispatchCompute(x, y, z));
                     // Insert fence after compute dispatch
@@ -1847,13 +1847,13 @@ impl LightCullingBuffers {
         // Bind and upload light data
         self.light_buffer.bind();
 
-        println!("Buffer ID before store: {}", self.light_buffer.id);
+        //println!("Buffer ID before store: {}", self.light_buffer.id);
 
-        print!("bf liught");
-        print!("light data: {:#?}", light_data);
+        //print!("bf liught");
+        //print!("light data: {:#?}", light_data);
         //self.light_buffer.bind();
         self.light_buffer.store_f32_data(&light_data);
-        print!("af liught");
+        //print!("af liught");
         // Prepare light grid buffer (will be filled by compute shader)TODO LOOK HEREH HERHEHREHR EHRHE
         let total_tiles = (self.tile_count_x * self.tile_count_y) as usize;
         //let grid_size = total_tiles * 2; // Each tile has (offset, count)

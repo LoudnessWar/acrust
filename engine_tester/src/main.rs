@@ -78,21 +78,21 @@ fn main() {
     ui_shader.create_uniform("color");
     ui_shader.create_uniform("useTexture");
 
-    ShaderManager::enable_backface_culling();
+    //ShaderManager::enable_backface_culling();
     ShaderManager::enable_depth();
 
     let mut light_manager = LightManager::new();
 
     light_manager.lights.push(Light {
-        position: [0.0, -5.0, 0.0],
+        position: [0.0, -20.0, 0.0],
         radius: 10.0,
         color: [1.0, 1.0, 1.0],
         intensity: 100.0
     });
 
     light_manager.lights.push(Light {
-        position: [15.0, 15.0, 0.0],
-        radius: 100.0,
+        position: [0.0, 15.0, -15.0],
+        radius: 30.0,
         color: [0.2, 1.0, 1.0],
         intensity: 100.0
     });
@@ -173,24 +173,24 @@ fn main() {
     let mut fpr = ForwardPlusRenderer::new(&shader_manager);
 
     fpr.add_light(
-        [0.0, -5.0, 0.0],  // position
+        [0.0, -20.0, 0.0],  // position
         10.0,             // radius
         [1.0, 1.0, 1.0],  // color (white)
         100.0               // intensity
     );
 
     fpr.add_light(
-        [30.0, 15.0, 0.0],
-        400.0, // Giant radius
-        [0.2, 1.0, 1.0],
+        [0.0, 15.0, 0.0],
+        20.0, // Giant radius
+        [0.2, 0.3, 1.0],
         100.0
     );
 
     fpr.initialize_light_culling(720, 720, &shader_manager);
 
-    let models: Vec<Model> = vec![Model::new(load_obj("models/teddy.obj"), WorldCoords::new(0.0, 10.0, 0.0, 1.0), mat_man.get_mat("mat2"))];
+    let models: Vec<Model> = vec![Model::new(load_obj("models/teddy.obj"), WorldCoords::new(0.0, 0.0, 0.0, 0.0), mat_man.get_mat("mat2"))];
 
-
+    
     while !window.should_close() {
         unsafe {
             gl::ClearColor(0.3, 0.3, 0.3, 1.0);
