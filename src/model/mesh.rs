@@ -19,7 +19,6 @@ pub struct Mesh {
     vbo: BufferObject,
     ebo: BufferObject,
     index_count: i32,
-    normals_buffer: Option<BufferObject>,//every mesh needs like vertices and like indicies and stuff yada yada but not every mesh will like need normals
     normals: Option<Vec<f32>>
 }
 
@@ -57,14 +56,16 @@ impl Mesh {
             vbo,
             ebo,
             index_count: indices.len() as i32,
-            normals_buffer: None,
             normals: None,
         }
     }
 
+
+    //TODO need some mesh optimization for duplicate models
+    //especiialy when we calculate the normals by hand like this
     pub fn new_normals(vertices: &[f32], indices: &[i32]) -> Self {
         let vao = Vao::new();
-        vao.bind();//
+        vao.bind();
 
         //verticies buffer object
         let vbo = BufferObject::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW);
@@ -94,7 +95,6 @@ impl Mesh {
             vbo,
             ebo,
             index_count: indices.len() as i32,
-            normals_buffer: None,
             normals: None,//im storing these for now for uuuhhh like debugging purpouses
         };
 
@@ -107,111 +107,11 @@ impl Mesh {
         &self.vao
     }
 
-    // pub fn calculate_normals(&mut self, vertices: &[f32], indices: &[i32]){
-    //     //le psudo code for getting normals
-    //     // let edge1 = B - A;
-    //     // let edge2 = C - A;
-    //     // let face_normal = edge1.cross(edge2).normalize();
-
-    //     //so we need like the verticies and indicies... I think my best like option for this would to be to store it in the BufferObjectThemselves... The problem is that the values can get really big so I think it will probably not work out the best
-    //     //in the long run so this should be passed them instead. I cam probably instead then create seperate consturctors for if you want normals or not
-
-    //     //ok compute shader is just better for this
-
-    //     //bind buffers idk if i need the like normal one yet I also am not sure if the vba will like
-    //     //mess these up or if they are just in the way
-    //     //also i guess not bc it might be best to do this when the vbo is not bound it doesnt mess with them but
-    //     //the buffer base automatically account for the like the vertex attribute here
-    //     // tbh idrk like TODO will the vbo be read by the compute shader?
-    //     //if so its definitely more beneficial then creating another buffer base to be sent over.
-    //     //wait!!! I definitely need to like bind the compute shader first
-    //     //thinking about it like I only need it to run once when it is first like modeled even like once only ever bc i could add it to the obj file so no need i think.
-
-    //     //0 is empty
-    //     self.normals = vec![0i32; grid_size];
-                
-    //             // self.light_grid_buffer.bind();//TODO ifeel bad for killing him
-    //             // self.light_grid_buffer.store_i32_data(&grid_data);
-
-    //     let mut compshader = ShaderProgram::new_compute("shaders/normals.comp");
-
-    //     compshader.bind();
-
-    //     unsafe{
-    //     gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, self.vbo);
-
-    //     gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, self.ebo);
-
-    //     //I should probably make the normals a buffer
-    //     gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, self.vbo);
-
-    //     }
-
-    //     compshader.dispatch_compute(16, 16, 1);
-
-    //     unsafe{
-    //     gl::MapBufferRange(GL::SHADER_STORAGE_BUFFER, 2, (6 * mem::size_of::<GLfloat>()), GL::MAP_READ_BIT)
-    //     }//lol this mapping is definitely wrong TODO fix
-    //     //below is cool and all but would rather use compute shader
-    //     // let (mut edge1, mut edge2): (f32, f32);
-    //     // let mut face_normal;
-
-
-    //     // // //dude like... is this even efficient. I just like this stuff
-    //     // // let map= indices.chunks_exact(3).enumerate().map(|(i, xyz)| (i, vertices.chunks_exact(3).map(|verts| ([verts[0] as usize], vertices[verts[1] as usize], vertices[verts[2] as usize]))));
-    //     // let vertex_map: Result<Vec<_>, _> = indices.chunks_exact(3)
-    //     //     .enumerate()
-    //     //     .map(|(group_idx, idx_group)| {
-    //     //         let get_vertex = |idx| {
-    //     //             let pos = (idx as usize) * 3;
-    //     //             if pos + 2 >= vertices.len() {
-    //     //                 Err(format!("Vertex index {} out of bounds", idx))
-    //     //             } else {
-    //     //                 Ok((vertices[pos], vertices[pos+1], vertices[pos+2]))
-    //     //             }
-    //     //         };
-                
-    //     //         Ok((
-    //     //             group_idx,
-    //     //             get_vertex(idx_group[0])?,
-    //     //             get_vertex(idx_group[1])?,
-    //     //             get_vertex(idx_group[2])?
-    //     //         ))
-    //     //     }).collect();
-
-        
-
-    //     //)//[xyz[0] as usize], vertices[xyz[1] as usize], vertices[xyz[2] as usize])).map(|(i, x, y ,z)| 
-    //     // {   edge1 = y - x;
-    //     //     edge2 = z - x;
-    //     //     face_normal = edge1.cross(edge2).normalize()
-    //     // });
-
-    //     // for (i, x, y, z) in map{
-    //     //     edge1 = y - x;
-    //     //     edge2 = z - x;
-    //     //     face_normal = edge1.cross(edge2).normalize()
-    //     // }
-    //     // for (x, y ,z) in indices{
-    //     //     xp = vertices.get(x);
-    //     //     yp = vertices.get(y);
-    //     //     zp = vertices.get(z);
-
-            
-    //     // }
-
-    // }
-
-    pub fn calculate_normals(&mut self, vertices: &[f32], indices: &[i32]) {
-        // Create a dedicated buffer for normals
-        let normals_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::STATIC_DRAW);
-        normals_buffer.bind();
-        
+    pub fn calculate_normals(&self, vertices: &[f32], indices: &[i32]) -> Option<Vec<f32>>{
         // Allocate space for the normals (one normal per vertex)
         let vertex_count = vertices.len() / 6; // Assuming 6 floats per vertex (pos + something else)
         let normal_data = vec![0.0f32; vertex_count * 3]; // 3 components per normal
-        normals_buffer.store_f32_data(&normal_data);
-        
+
         // Set up and run compute shader which like TBH should not BE HERE because then it will be remade/compiled multiple times when that does not need to happen
         //TODO fix dis
         let mut comp_shader = ShaderProgram::new_compute("shaders/normals.comp");
@@ -263,28 +163,30 @@ impl Mesh {
                 gl::UnmapBuffer(gl::SHADER_STORAGE_BUFFER);
             }
         }
+
+        Some(normals_buffer)
         
         // Store the normals buffer in the struct
-        self.normals_buffer = Some(normals_buffer);
+        // self.normals_buffer = Some(normals_buffer);
         
-        // Now update your VAO to include normals
-        self.vao.bind();
+        // // Now update your VAO to include normals
+        // self.vao.bind();
 
-        if let Some(buffer) = self.normals_buffer.as_mut() {
-            buffer.bind();
-        }
+        // if let Some(buffer) = self.normals_buffer.as_mut() {
+        //     buffer.bind();
+        // }
         
-        // Set up the normal attribute (assuming it's attribute 1)
-        // VertexAttribute::new(
-        //     1, // attribute index for normals
-        //     3, // 3 components for normals
-        //     gl::FLOAT,
-        //     gl::FALSE,
-        //     3 * std::mem::size_of::<f32>() as i32, // stride (3 floats per normal)
-        //     std::ptr::null()
-        // ).enable();
+        // // Set up the normal attribute (assuming it's attribute 1)
+        // // VertexAttribute::new(
+        // //     1, // attribute index for normals
+        // //     3, // 3 components for normals
+        // //     gl::FLOAT,
+        // //     gl::FALSE,
+        // //     3 * std::mem::size_of::<f32>() as i32, // stride (3 floats per normal)
+        // //     std::ptr::null()
+        // // ).enable();
         
-        self.vao.unbind();
+        // self.vao.unbind();
     }
 
     pub fn get_index_count(&self) -> i32{//is it better to have pointer here or just like clone
