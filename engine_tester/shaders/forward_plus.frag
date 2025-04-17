@@ -91,7 +91,7 @@ void main() {
         //finalColor = vec3(1.0);
     }
 
-    int mode = 3;
+    int mode = 4;
     
     if (location.x % 16 == 0 || location.y % 16 == 0) {
         fragColor = vec4(0.3, 0.3, 0.3, 1.0);

@@ -1003,6 +1003,9 @@ pub struct Light {
     pub intensity: f32,
 }
 
+
+//TODO  I want this to be a little more robust eventully because like... Its only capable of like helping fpr rn tbh
+//fpr should have an option to take in a light manager and not just makes its own if we are being fr
 pub struct LightManager {
     pub lights: Vec<Light>,
     pub depth_texture: Option<Rc<depthTexture>>,

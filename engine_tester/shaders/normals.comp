@@ -2,63 +2,58 @@
 
 layout(local_size_x = 256) in;
 
-// Input: Vertex buffer (position data)
-layout(std430, binding = 0) readonly buffer VertexBuffer {
-    // Assuming vertex format is [x,y,z,r,g,b, x,y,z,r,g,b, ...]
+layout(std430, binding = 0) buffer VertexBuffer {
     float vertices[];
 };
 
-// Input: Index buffer
 layout(std430, binding = 1) readonly buffer IndexBuffer {
     int indices[];
-};
-
-// Output: Normals buffer
-layout(std430, binding = 2) buffer NormalBuffer {
-    vec3 normals[];
 };
 
 uniform int vertex_count;
 uniform int index_count;
 
+//blah blah blah this used to have a normals buffer so i could like get the normals or whatever... and then I realized I didnt like need it
+//it was going to be hella buggy like
+//I would interlace it and rebind the vbo but then I was like do it here
+//but then I was like naaah the utility of having the buffer
+//but then I took it out and its lowkey chillin
 void main() {
     uint id = gl_GlobalInvocationID.x;
-    
-    // We'll use a different approach: each thread processes one triangle
-    // and writes the face normal to all three vertices of that triangle
+
     if (id * 3 + 2 < index_count) {
-        // Get vertex indices for this triangle
         int idx1 = indices[id * 3];
         int idx2 = indices[id * 3 + 1];
         int idx3 = indices[id * 3 + 2];
-        
-        // Get vertex positions
-        // Note: If your vertex format is [x,y,z,r,g,b], then each vertex is 6 floats
-        vec3 v1 = vec3(vertices[idx1 * 6], vertices[idx1 * 6 + 1], vertices[idx1 * 6 + 2]);
-        vec3 v2 = vec3(vertices[idx2 * 6], vertices[idx2 * 6 + 1], vertices[idx2 * 6 + 2]);
-        vec3 v3 = vec3(vertices[idx3 * 6], vertices[idx3 * 6 + 1], vertices[idx3 * 6 + 2]);
-        
-        // Calculate face normal
+
+        vec3 v1 = vec3(vertices[idx1 * 6 + 0], vertices[idx1 * 6 + 1], vertices[idx1 * 6 + 2]);
+        vec3 v2 = vec3(vertices[idx2 * 6 + 0], vertices[idx2 * 6 + 1], vertices[idx2 * 6 + 2]);
+        vec3 v3 = vec3(vertices[idx3 * 6 + 0], vertices[idx3 * 6 + 1], vertices[idx3 * 6 + 2]);
+
         vec3 edge1 = v2 - v1;
         vec3 edge2 = v3 - v1;
         vec3 faceNormal = normalize(cross(edge1, edge2));
-        
-        // Add the face normal to each vertex's normal (no atomic operations)
-        // Since multiple threads may write to the same vertex, we'll get race conditions
-        // but for normal calculation, this approximation is often good enough
-        normals[idx1] += faceNormal;
-        normals[idx2] += faceNormal;
-        normals[idx3] += faceNormal;
+
+        for (int i = 0; i < 3; ++i) {
+            int idx = indices[id * 3 + i];
+            uint base = idx * 6 + 3;
+            vertices[base + 0] += faceNormal.x;
+            vertices[base + 1] += faceNormal.y;
+            vertices[base + 2] += faceNormal.z;
+        }
     }
-    
-    // Wait for all threads to finish writing normals
+
     barrier();
-    memoryBarrierBuffer();
-    
-    // Normalize all normals (each thread normalizes one vertex normal)
+    memoryBarrierBuffer();//ok bascially like the atomic stuff is like tweaking so I did this approach instead
+
     if (id < vertex_count) {
-        if (length(normals[id]) > 0.0001) {  // Avoid normalizing zero vectors
-            normals[id] = normalize(normals[id]);
+        uint base = id * 6 + 3;
+        vec3 norm = vec3(vertices[base + 0], vertices[base + 1], vertices[base + 2]);
+        if (length(norm) > 0.0001) {
+            norm = normalize(norm);
+            vertices[base + 0] = norm.x;
+            vertices[base + 1] = norm.y;
+            vertices[base + 2] = norm.z;
         }
     }
 }

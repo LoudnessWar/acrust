@@ -79,24 +79,24 @@ fn main() {
     ui_shader.create_uniform("color");
     ui_shader.create_uniform("useTexture");
 
-    //ShaderManager::enable_backface_culling();
+    ShaderManager::enable_backface_culling();
     ShaderManager::enable_depth();
 
-    let mut light_manager = LightManager::new();
+    // let mut light_manager = LightManager::new();
 
-    light_manager.lights.push(Light {
-        position: [0.0, -20.0, 0.0],
-        radius: 10.0,
-        color: [1.0, 1.0, 1.0],
-        intensity: 100.0
-    });
+    // light_manager.lights.push(Light {
+    //     position: [0.0, -20.0, 0.0],
+    //     radius: 10.0,
+    //     color: [1.0, 1.0, 1.0],
+    //     intensity: 100.0
+    // });
 
-    light_manager.lights.push(Light {
-        position: [0.0, 15.0, -15.0],
-        radius: 30.0,
-        color: [0.2, 1.0, 1.0],
-        intensity: 100.0
-    });
+    // light_manager.lights.push(Light {
+    //     position: [0.0, 15.0, -15.0],
+    //     radius: 30.0,
+    //     color: [0.2, 0.2, 1.0],
+    //     intensity: 0.1
+    // });
 
     //let mut debug_comp_shader = LightManager::create_debug_display_shader();
 
@@ -182,12 +182,12 @@ fn main() {
 
     fpr.add_light(
         [0.0, 15.0, 0.0],
-        20.0, // Giant radius
+        30.0, // Giant radius
         [0.2, 0.3, 1.0],
         100.0
     );
 
-    fpr.initialize_light_culling(720, 720, &shader_manager);
+    fpr.initialize_light_culling(720, 720, &shader_manager);//this just calls init gpu culling to the created lightmanager that is inside of FPR
 
     let models: Vec<Model> = vec![Model::new(load_obj_new_normals("models/teddy.obj"), WorldCoords::new(0.0, 0.0, 0.0, 0.0), mat_man.get_mat("mat2"))];
 

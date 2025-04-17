@@ -63,6 +63,8 @@ impl Mesh {
 
     //TODO need some mesh optimization for duplicate models
     //especiialy when we calculate the normals by hand like this
+    //basically... we dont want each mesh to have its own VAO's and VBO and EBO IFFF they are the same model. We can do this
+    //and if it is done like this we will only need to get the normals once for that whole model
     pub fn new_normals(vertices: &[f32], indices: &[i32]) -> Self {
         let vao = Vao::new();
         vao.bind();
@@ -88,7 +90,7 @@ impl Mesh {
         //normals too maybe idk
         VertexAttribute::new(1, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<GLfloat>() as i32, (3 * mem::size_of::<GLfloat>()) as *const GLvoid).enable();
 
-        vao.unbind();//just to be safe added unbind
+        vao.unbind();//just to be safe added unbind tbh I should unbind after the thing right im like stupid for having it here? idk its like kinda working
 
        let mut mesh = Self {
             vao,
@@ -107,87 +109,151 @@ impl Mesh {
         &self.vao
     }
 
-    pub fn calculate_normals(&self, vertices: &[f32], indices: &[i32]) -> Option<Vec<f32>>{
-        // Allocate space for the normals (one normal per vertex)
-        let vertex_count = vertices.len() / 6; // Assuming 6 floats per vertex (pos + something else)
-        let normal_data = vec![0.0f32; vertex_count * 3]; // 3 components per normal
+    pub fn calculate_normals(&mut self, vertices: &[f32], indices: &[i32]) {
 
-        // Set up and run compute shader which like TBH should not BE HERE because then it will be remade/compiled multiple times when that does not need to happen
-        //TODO fix dis
+        //bufffer base for ssbo buffers that is not the title of a smash game btw ssb Omega or Odyssy 
+        unsafe {
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, self.vbo.get_id());
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, self.ebo.get_id());
+        }
+    
+        let vertex_count = vertices.len() / 6;
+    
+        let mut cleared_data = vertices.to_vec();
+        for i in 0..vertex_count {
+            cleared_data[i * 6 + 3] = 0.0;
+            cleared_data[i * 6 + 4] = 0.0;
+            cleared_data[i * 6 + 5] = 0.0;
+        }
+        self.vbo.bind();
+        self.vbo.store_f32_data(&cleared_data);
+    
+        // lol look at the TODO this should not be here. Because like I dsont need to recompline
+        //ect ect ect for the compute shader everytime a new model is made. MAYBE I just
+        //need a like mesh Manger I think
+        //I propose/hypothisized over the creation of one previously
         let mut comp_shader = ShaderProgram::new_compute("shaders/normals.comp");
         comp_shader.bind();
         comp_shader.create_uniforms(vec!["vertex_count", "index_count"]);
-        // Bind buffers to the compute shader
-        unsafe {
-            // Bind vertex buffer (read-only)
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, self.vbo.get_id());
-            
-            // Bind index buffer (read-only)
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, self.ebo.get_id());
-            
-            // Bind normals buffer (write)
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, normals_buffer.get_id());
-            
-            // Pass necessary uniform data to the compute shader
-            comp_shader.set_uniform1i("vertex_count", &(vertex_count as i32));//lovely it only takes references really
-            comp_shader.set_uniform1i("index_count", &(indices.len() as i32));
-        }
-        
-        // Dispatch compute shader with appropriate workgroup size
-        // Calculate work group count based on vertex count
-        let work_group_size = 256; // Typical compute shader workgroup size
+        comp_shader.set_uniform1i("vertex_count", &(vertex_count as i32));
+        comp_shader.set_uniform1i("index_count", &(indices.len() as i32));
+    
+        let work_group_size = 256;
         let num_work_groups = (vertex_count + work_group_size - 1) / work_group_size;
         comp_shader.dispatch_compute(num_work_groups as u32, 1, 1);
-        
-        // Make sure the compute shader is done
+    
+        // BOOOORIng dont crash pal
         unsafe {
             gl::MemoryBarrier(gl::SHADER_STORAGE_BARRIER_BIT);
         }
-        
-        // Map the normals buffer to read the results
+    
+        // getting it back with MapBufferRange like tbh not neededanymore but imma keep it
+        //TODO maybe remove later
         unsafe {
-            let size = (vertex_count * 3 * std::mem::size_of::<f32>()) as isize;
+            let size = (vertex_count * 6 * std::mem::size_of::<f32>()) as isize;
             let ptr = gl::MapBufferRange(
-                gl::SHADER_STORAGE_BUFFER, 
+                gl::SHADER_STORAGE_BUFFER,
                 0,
                 size,
                 gl::MAP_READ_BIT
             ) as *const f32;
-            
+    
             if !ptr.is_null() {
-                // Copy data from GPU to CPU
-                let normals_slice = std::slice::from_raw_parts(ptr, vertex_count * 3);
-                self.normals = Some(normals_slice.to_vec());
-                
-                // Unmap the buffer
+                let data = std::slice::from_raw_parts(ptr, vertex_count * 6);
+                let mut normals = Vec::with_capacity(vertex_count * 3);
+                for i in 0..vertex_count {
+                    normals.push(data[i * 6 + 3]);
+                    normals.push(data[i * 6 + 4]);
+                    normals.push(data[i * 6 + 5]);
+                }
+                self.normals = Some(normals);
                 gl::UnmapBuffer(gl::SHADER_STORAGE_BUFFER);
             }
         }
+    } 
+    
 
-        Some(normals_buffer)
-        
-        // Store the normals buffer in the struct
-        // self.normals_buffer = Some(normals_buffer);
-        
-        // // Now update your VAO to include normals
-        // self.vao.bind();
+    // pub fn calculate_normals(&self, vertices: &[f32], indices: &[i32]) -> Option<Vec<f32>>{
+    //     // Allocate space for the normals (one normal per vertex)
+    //     let vertex_count = vertices.len() / 6; // Assuming 6 floats per vertex (pos + something else)
+    //     let normal_data = vec![0.0f32; vertex_count * 3]; // 3 components per normal
 
-        // if let Some(buffer) = self.normals_buffer.as_mut() {
-        //     buffer.bind();
-        // }
+    //     // Set up and run compute shader which like TBH should not BE HERE because then it will be remade/compiled multiple times when that does not need to happen
+    //     //TODO fix dis
+    //     let mut comp_shader = ShaderProgram::new_compute("shaders/normals.comp");
+    //     comp_shader.bind();
+    //     comp_shader.create_uniforms(vec!["vertex_count", "index_count"]);
+    //     // Bind buffers to the compute shader
+    //     unsafe {
+    //         // Bind vertex buffer (read-only)
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, self.vbo.get_id());
+            
+    //         // Bind index buffer (read-only)
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, self.ebo.get_id());
+            
+    //         // Bind normals buffer (write)
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, normals_buffer.get_id());
+            
+    //         // Pass necessary uniform data to the compute shader
+    //         comp_shader.set_uniform1i("vertex_count", &(vertex_count as i32));//lovely it only takes references really
+    //         comp_shader.set_uniform1i("index_count", &(indices.len() as i32));
+    //     }
         
-        // // Set up the normal attribute (assuming it's attribute 1)
-        // // VertexAttribute::new(
-        // //     1, // attribute index for normals
-        // //     3, // 3 components for normals
-        // //     gl::FLOAT,
-        // //     gl::FALSE,
-        // //     3 * std::mem::size_of::<f32>() as i32, // stride (3 floats per normal)
-        // //     std::ptr::null()
-        // // ).enable();
+    //     // Dispatch compute shader with appropriate workgroup size
+    //     // Calculate work group count based on vertex count
+    //     let work_group_size = 256; // Typical compute shader workgroup size
+    //     let num_work_groups = (vertex_count + work_group_size - 1) / work_group_size;
+    //     comp_shader.dispatch_compute(num_work_groups as u32, 1, 1);
         
-        // self.vao.unbind();
-    }
+    //     // Make sure the compute shader is done
+    //     unsafe {
+    //         gl::MemoryBarrier(gl::SHADER_STORAGE_BARRIER_BIT);
+    //     }
+        
+    //     // Map the normals buffer to read the results
+    //     unsafe {
+    //         let size = (vertex_count * 3 * std::mem::size_of::<f32>()) as isize;
+    //         let ptr = gl::MapBufferRange(
+    //             gl::SHADER_STORAGE_BUFFER, 
+    //             0,
+    //             size,
+    //             gl::MAP_READ_BIT
+    //         ) as *const f32;
+            
+    //         if !ptr.is_null() {
+    //             // Copy data from GPU to CPU
+    //             let normals_slice = std::slice::from_raw_parts(ptr, vertex_count * 3);
+    //             self.normals = Some(normals_slice.to_vec());
+                
+    //             // Unmap the buffer
+    //             gl::UnmapBuffer(gl::SHADER_STORAGE_BUFFER);
+    //         }
+    //     }
+
+    //     Some(normals_buffer)
+        
+    //     // Store the normals buffer in the struct
+    //     // self.normals_buffer = Some(normals_buffer);
+        
+    //     // // Now update your VAO to include normals
+    //     // self.vao.bind();
+
+    //     // if let Some(buffer) = self.normals_buffer.as_mut() {
+    //     //     buffer.bind();
+    //     // }
+        
+    //     // // Set up the normal attribute (assuming it's attribute 1)
+    //     // // VertexAttribute::new(
+    //     // //     1, // attribute index for normals
+    //     // //     3, // 3 components for normals
+    //     // //     gl::FLOAT,
+    //     // //     gl::FALSE,
+    //     // //     3 * std::mem::size_of::<f32>() as i32, // stride (3 floats per normal)
+    //     // //     std::ptr::null()
+    //     // // ).enable();
+        
+    //     // self.vao.unbind();
+    // }
 
     pub fn get_index_count(&self) -> i32{//is it better to have pointer here or just like clone
         self.index_count.clone()
