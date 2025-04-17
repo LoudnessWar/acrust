@@ -137,7 +137,7 @@ impl WaterRender {
         self.position.set_position(new_position);
     }
 
-    pub fn get_position(&self) -> Vector3<f32>{
+    pub fn get_position(&self) -> &Vector3<f32>{
         self.position.get_position()
     }
 }

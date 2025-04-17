@@ -174,15 +174,15 @@ fn main() {
     let mut fpr = ForwardPlusRenderer::new(&shader_manager);
 
     fpr.add_light(
-        [0.0, -20.0, 0.0],  // position
-        10.0,             // radius
+        [0.0, -5.0, 20.0],  // position
+        50.0,             // radius
         [1.0, 1.0, 1.0],  // color (white)
         100.0               // intensity
     );
 
     fpr.add_light(
-        [0.0, 15.0, 0.0],
-        30.0, // Giant radius
+        [0.0, 20.0, 0.0],
+        40.0, // Giant radius
         [0.2, 0.3, 1.0],
         100.0
     );
@@ -269,7 +269,8 @@ fn main() {
                     sensitivity = 0.002;
                 }
                 InputEvent::MouseButtonPressed(CLICKS::Left) => {
-                    println!("pewpew");
+                    println!("pewpew: {:#?}", player.get_position());
+                    
                     if (ui_manager.is_element_hovered(3)){//somthing here to pattern match instead of this
                         ui_manager.visit_element(3, &mut visitor);
                     }

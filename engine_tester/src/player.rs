@@ -46,4 +46,14 @@ impl Player {
     pub fn move_down(&mut self) {
         self.transform.position -= Vector3::new(0.0, self.speed, 0.0);
     }
+
+    //gets tuff
+
+    pub fn get_WorldCoords(&self) -> &WorldCoords{
+        &self.transform
+    }
+
+    pub fn get_position(&self) -> &Vector3<f32>{
+        self.transform.get_position()
+    }
 }

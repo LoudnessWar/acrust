@@ -65,7 +65,17 @@ impl WorldCoords {
         self.position = new_position;
     }
 
-    pub fn get_position(&self) -> Vector3<f32>{
-        self.position
+    //this should be a reference, this is because, we have a set position 1 and 2 lets say we have a model or something with world coords
+    //right we then want to get the position of that model somewhere else
+    //ok so we call get position then again from that model we call it again
+    //like &self.worldcoords.get_position() what we have done here
+    //is move position into that model/function temporarily, then we try to make a reference to that changed owner ship
+    //that is not something that is consistantly there, so the reference will not be able to
+    //access that correct point in memory and just
+    //probably pull nonsense
+    //you can also just de refernece the borrow later on if needed but like... I wouldnt do that bruh unless i really needd owener ship but it is a
+    //nice option so this is more flexible in this case
+    pub fn get_position(&self) -> &Vector3<f32>{
+        &self.position
     }
 }
