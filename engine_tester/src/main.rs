@@ -26,6 +26,7 @@ use acrust::model::transform::WorldCoords;
 use acrust::model::objload::GeneralModel;
 use acrust::model::cube::Cube;
 use acrust::model::objload::load_obj;
+use acrust::model::objload::load_obj_new_normals;
 
 use acrust::graphics::gl_wrapper;//going to remove later
 
@@ -133,7 +134,7 @@ fn main() {
     let mut cube = Cube::new(5.0, Vector3::new(0.0, 0.0, 0.0), 1.0, mat_man.get_mat("mat1"));
     let mut cube2 = Cube::new(5.0, Vector3::new(15.0, 15.0, 15.0), 1.0, mat_man.get_mat("mat1"));
 
-    let mut model = GeneralModel::new(load_obj("models/teddy.obj"), WorldCoords::new(0.0, 10.0, 100.0, 1.0), mat_man.get_mat("mat2"));
+    let mut model = GeneralModel::new(load_obj_new_normals("models/teddy.obj"), WorldCoords::new(0.0, 10.0, 100.0, 1.0), mat_man.get_mat("mat2"));
     mat_man.update_uniform("mat2", "lightDir", UniformValue::Vector3(vec3(0.0, 10.0, 0.0)));
     mat_man.update_uniform("mat2", "lightColor", UniformValue::Vector3(vec3(0.0, 1.0, 1.0)));
     mat_man.update_uniform("mat2", "objectColor", UniformValue::Vector3(vec3(1.0, 1.0, 1.0)));
@@ -188,7 +189,7 @@ fn main() {
 
     fpr.initialize_light_culling(720, 720, &shader_manager);
 
-    let models: Vec<Model> = vec![Model::new(load_obj("models/teddy.obj"), WorldCoords::new(0.0, 0.0, 0.0, 0.0), mat_man.get_mat("mat2"))];
+    let models: Vec<Model> = vec![Model::new(load_obj_new_normals("models/teddy.obj"), WorldCoords::new(0.0, 0.0, 0.0, 0.0), mat_man.get_mat("mat2"))];
 
     
     while !window.should_close() {

@@ -75,6 +75,63 @@ pub fn load_obj(file_path: &str) -> Mesh {
     Mesh::new(&vertices, &indices)//thisd is kinda like eeeehhh bc no normals for mesh ig like they aint easy ios what im sayin 
 }
 
+//could I just make this like one line of code in the other one that takes a boolean then either runs new or new_normals...
+//yes TODO add that later if you want. This isnt terrible either
+pub fn load_obj_new_normals(file_path: &str) -> Mesh {
+    let file = File::open(file_path).expect("Failed to open OBJ file");
+    let reader = BufReader::new(file);
+
+    let mut positions = Vec::new();
+    let mut normals = Vec::new();
+    let mut indices = Vec::new();
+    let mut vertices = Vec::new();
+
+    for line in reader.lines() {
+        let line = line.unwrap();
+        let parts: Vec<&str> = line.split_whitespace().collect();
+
+        if parts.is_empty() {
+            continue;
+        }
+
+        match parts[0] {
+            "v" => {//Todo use resultr I mean this would be nice if I grouped them in 3 bud itdk how
+                let x: f32 = parts[1].parse().unwrap();//? better then unwrap sometimes
+                let y: f32 = parts[2].parse().unwrap();
+                let z: f32 = parts[3].parse().unwrap();
+                positions.push(Vector3::new(x, y, z));
+            }
+            // "vn" => { //since no normals just comment out shrug emoji
+            //     let x: f32 = parts[1].parse().unwrap();
+            //     let y: f32 = parts[2].parse().unwrap();
+            //     let z: f32 = parts[3].parse().unwrap();
+            //     normals.push(Vector3::new(x, y, z));
+            // }
+            "f" => {
+                for i in 1..=3 {
+                    let vertex_data: Vec<&str> = parts[i].split('/').collect();
+                    let vertex_idx: usize = vertex_data[0].parse().unwrap();
+
+                    let pos = positions[vertex_idx - 1];
+
+                    let norm = if vertex_data.len() > 2 && !vertex_data[2].is_empty() {
+                        let normal_idx: usize = vertex_data[2].parse().unwrap();
+                        normals[normal_idx - 1]
+                    } else {
+                        Vector3::new(0.0, 0.0, 0.0)
+                    };
+
+                    vertices.extend_from_slice(&[pos.x, pos.y, pos.z, norm.x, norm.y, norm.z]);
+                    indices.push(indices.len() as i32);
+                }
+            }
+            _ => {}
+        }
+    }
+    //pick back up heres
+    Mesh::new_normals(&vertices, &indices)//thisd is kinda like eeeehhh bc no normals for mesh ig like they aint easy ios what im sayin 
+}
+
 //ok now... I should probably... PROBABLY have new be a function in the trait
 //but idk if I need to change later I will
 

@@ -83,15 +83,15 @@ void main() {
 
         float attenuation = 1.0 - distance / light.radius;
         totalInfluence += attenuation;
-        float diff = 1.0;// max(dot(normal, lightDir), 0.0);
-        //float diff = max(dot(normal, lightDir), 0.0);
+        //float diff = 1.0;// max(dot(normal, lightDir), 0.0);
+        float diff = max(dot(normal, lightDir), 0.0);
 
         vec3 lightIntensity = light.color * light.intensity * attenuation;
         finalColor += diff * lightIntensity * u_diffuseColor.rgb;
         //finalColor = vec3(1.0);
     }
 
-    int mode = 4;
+    int mode = 3;
     
     if (location.x % 16 == 0 || location.y % 16 == 0) {
         fragColor = vec4(0.3, 0.3, 0.3, 1.0);
