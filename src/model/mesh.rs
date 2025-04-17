@@ -50,12 +50,12 @@ impl Mesh {
 
         vao.unbind();//just to be safe added unbind
 
-        Self {
+            Self {
             vao,
             vbo,
             ebo,
             index_count: indices.len() as i32,
-            normals: None,//im storing these for now for uuuhhh like debugging purpouses
+            normals: None,
         }
     }
 
@@ -76,6 +76,8 @@ impl Mesh {
         // Set vertex attributes
 
         //this one is like position
+// why 6 why not 3... isn't it groups of 3?
+//I forget maybe it wasn't ie color???
         VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<f32>() as i32, ptr::null()).enable();//this is like the important one
 
         //this is for color... now, a lot of things dont do color like this and use textures so its kinda ... useless ig it can also be for normals
@@ -84,13 +86,16 @@ impl Mesh {
 
         vao.unbind();//just to be safe added unbind
 
-        Self {
+       let mut mesh = Self {
             vao,
             vbo,
             ebo,
             index_count: indices.len() as i32,
-            normals: None,
+            normals: None,//im storing these for now for uuuhhh like debugging purpouses
         }
+
+mesh.calculate_normals(verticies, indicies);
+
     }
 
     pub fn get_vao(&self) -> &Vao{
@@ -108,10 +113,40 @@ impl Mesh {
 
         //ok compute shader is just better for this
 
+//bind buffers idk if i need the like normal one yet I also am not sure if the vba will like
+//mess these up or if they are just in the way
+//also i guess not bc it might be best to do this when the vbo is not bound it doesnt mess with them but
+//the buffer base automatically account for the like the vertex attribute here
+// tbh idrk like TODO will the vbo be read by the compute shader?
+//if so its definitely more beneficial then creating another buffer base to be sent over.
+//wait!!! I definitely need to like bind the compute shader first
+//thinking about it like I only need it to run once when it is first like modeled even like once only ever bc i could add it to the obj file so no need i think.
 
+//0 is empty
+self.normals = vec![0i32; grid_size];
+        
+        // self.light_grid_buffer.bind();//TODO ifeel bad for killing him
+        // self.light_grid_buffer.store_i32_data(&grid_data);
 
+let mut compshader = ShaderProgram::new_compute("shaders/normals.comp");
 
+compshader.bind();
 
+unsafe{
+gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, self.vbo);
+
+gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, self.ebo);
+
+//I should probably make the normals a buffer
+gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, self.vbo);
+
+}
+
+compshader.dispatch_compute(16, 16, 1);
+
+unsafe{
+gl::MapBufferRange(GL::SHADER_STORAGE_BUFFER, 2, (6 * mem::size_of::<GLfloat>()), GL::MAP_READ_BIT)
+}//lol this mapping is definitely wrong TODO fix
         //below is cool and all but would rather use compute shader
         // let (mut edge1, mut edge2): (f32, f32);
         // let mut face_normal;
