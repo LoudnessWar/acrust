@@ -50,7 +50,7 @@ void main() {
 
     vertex_out.fragmentPosition = vec3(model * vec4(position, 1.0));
     mat3 normalMatrix = transpose(inverse(mat3(model)));
-    vertex_out.normalVector = normalize(normalMatrix * normal);
+    vertex_out.normalVector = normalize(normalMatrix * normal);//change normal to position for magic 
     
     // Pass texture coordinates to fragment shader
     vertex_out.textureCoordinates = texCoords;

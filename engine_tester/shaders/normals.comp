@@ -1,3 +1,76 @@
+// #version 450 core
+// layout(local_size_x = 256) in;
+
+// layout(std430, binding = 0) buffer VertexBuffer {
+//     float vertices[];
+// };
+// layout(std430, binding = 1) readonly buffer IndexBuffer {
+//     int indices[];
+// };
+// uniform int vertex_count;
+// uniform int index_count;
+
+// void main() {
+//     uint id = gl_GlobalInvocationID.x;
+
+//     // Phase 1: Reset normals to zero (optional, but safer)
+//     if (id < vertex_count) {
+//         uint base = id * 6 + 3;
+//         vertices[base] = 0.0;
+//         vertices[base + 1] = 0.0;
+//         vertices[base + 2] = 0.0;
+//     }
+
+//     barrier();
+//     memoryBarrierBuffer();
+
+//     // Phase 2: Accumulate face normals (no atomics)
+//     if (id * 3 + 2 < index_count) {
+//         int idx1 = indices[id * 3];
+//         int idx2 = indices[id * 3 + 1];
+//         int idx3 = indices[id * 3 + 2];
+
+//         vec3 v1 = vec3(vertices[idx1 * 6], vertices[idx1 * 6 + 1], vertices[idx1 * 6 + 2]);
+//         vec3 v2 = vec3(vertices[idx2 * 6], vertices[idx2 * 6 + 1], vertices[idx2 * 6 + 2]);
+//         vec3 v3 = vec3(vertices[idx3 * 6], vertices[idx3 * 6 + 1], vertices[idx3 * 6 + 2]);
+
+//         vec3 edge1 = v2 - v1;
+//         vec3 edge2 = v3 - v1;
+//         vec3 faceNormal = cross(edge1, edge2);
+
+//         // Skip degenerate triangles
+//         if (length(faceNormal) > 0.0001) {
+//             faceNormal = normalize(faceNormal);
+
+//             // Manually accumulate normals (no atomics)
+//             for (int i = 0; i < 3; ++i) {
+//                 int idx = indices[id * 3 + i];
+//                 uint base = idx * 6 + 3;
+//                 vertices[base] += faceNormal.x;
+//                 vertices[base + 1] += faceNormal.y;
+//                 vertices[base + 2] += faceNormal.z;
+//             }
+//         }
+//     }
+
+//     barrier();
+//     memoryBarrierBuffer();
+
+//     // Phase 3: Normalize vertex normals
+//     if (id < vertex_count) {
+//         uint base = id * 6 + 3;
+//         vec3 norm = vec3(vertices[base], vertices[base + 1], vertices[base + 2]);
+//         if (length(norm) > 0.0001) {
+//             norm = normalize(norm);
+//         } else {
+//             norm = vec3(0.0, 1.0, 0.0); // Fallback: point up
+//         }
+//         vertices[base] = norm.x;
+//         vertices[base + 1] = norm.y;
+//         vertices[base + 2] = norm.z;
+//     }
+// }
+
 #version 450 core
 
 layout(local_size_x = 256) in;

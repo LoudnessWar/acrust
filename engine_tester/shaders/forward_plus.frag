@@ -105,10 +105,10 @@ void main() {
 
     int mode = 4;
     
-    if (location.x % 16 == 0 || location.y % 16 == 0) {
-        fragColor = vec4(0.3, 0.3, 0.3, 1.0);
-        return;
-    }
+    // if (location.x % 16 == 0 || location.y % 16 == 0) {
+    //     fragColor = vec4(0.3, 0.3, 0.3, 1.0);
+    //     return;
+    // }
 
     // if (length(fragment_in.normalVector) < 0.001) {
     //     fragColor = vec4(1.0, 0.0, 1.0, 1.0); // magenta = BAD normal
