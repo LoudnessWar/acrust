@@ -1,136 +1,106 @@
-// #version 450 core
-// layout(local_size_x = 256) in;
-
-// layout(std430, binding = 0) buffer VertexBuffer {
-//     float vertices[];
-// };
-// layout(std430, binding = 1) readonly buffer IndexBuffer {
-//     int indices[];
-// };
-// uniform int vertex_count;
-// uniform int index_count;
-
-// void main() {
-//     uint id = gl_GlobalInvocationID.x;
-
-//     // Phase 1: Reset normals to zero (optional, but safer)
-//     if (id < vertex_count) {
-//         uint base = id * 6 + 3;
-//         vertices[base] = 0.0;
-//         vertices[base + 1] = 0.0;
-//         vertices[base + 2] = 0.0;
-//     }
-
-//     barrier();
-//     memoryBarrierBuffer();
-
-//     // Phase 2: Accumulate face normals (no atomics)
-//     if (id * 3 + 2 < index_count) {
-//         int idx1 = indices[id * 3];
-//         int idx2 = indices[id * 3 + 1];
-//         int idx3 = indices[id * 3 + 2];
-
-//         vec3 v1 = vec3(vertices[idx1 * 6], vertices[idx1 * 6 + 1], vertices[idx1 * 6 + 2]);
-//         vec3 v2 = vec3(vertices[idx2 * 6], vertices[idx2 * 6 + 1], vertices[idx2 * 6 + 2]);
-//         vec3 v3 = vec3(vertices[idx3 * 6], vertices[idx3 * 6 + 1], vertices[idx3 * 6 + 2]);
-
-//         vec3 edge1 = v2 - v1;
-//         vec3 edge2 = v3 - v1;
-//         vec3 faceNormal = cross(edge1, edge2);
-
-//         // Skip degenerate triangles
-//         if (length(faceNormal) > 0.0001) {
-//             faceNormal = normalize(faceNormal);
-
-//             // Manually accumulate normals (no atomics)
-//             for (int i = 0; i < 3; ++i) {
-//                 int idx = indices[id * 3 + i];
-//                 uint base = idx * 6 + 3;
-//                 vertices[base] += faceNormal.x;
-//                 vertices[base + 1] += faceNormal.y;
-//                 vertices[base + 2] += faceNormal.z;
-//             }
-//         }
-//     }
-
-//     barrier();
-//     memoryBarrierBuffer();
-
-//     // Phase 3: Normalize vertex normals
-//     if (id < vertex_count) {
-//         uint base = id * 6 + 3;
-//         vec3 norm = vec3(vertices[base], vertices[base + 1], vertices[base + 2]);
-//         if (length(norm) > 0.0001) {
-//             norm = normalize(norm);
-//         } else {
-//             norm = vec3(0.0, 1.0, 0.0); // Fallback: point up
-//         }
-//         vertices[base] = norm.x;
-//         vertices[base + 1] = norm.y;
-//         vertices[base + 2] = norm.z;
-//     }
-// }
-
 #version 450 core
 
 layout(local_size_x = 256) in;
 
-layout(std430, binding = 0) buffer VertexBuffer {
-    float vertices[]; // Interleaved: vec3 pos + vec3 normal
+// Input: Vertex buffer (position data)
+layout(std430, binding = 0) readonly buffer VertexBuffer {
+    // Assuming vertex format is [x,y,z,r,g,b, x,y,z,r,g,b, ...]
+    float vertices[];
 };
 
+// Input: Index buffer
 layout(std430, binding = 1) readonly buffer IndexBuffer {
-    int indices[]; // Assumed triangle list
+    int indices[];
+};
+
+// Output: Face normals buffer (temporary storage)
+layout(std430, binding = 2) buffer FaceNormalBuffer {
+    vec3 faceNormals[];  // One normal per triangle
+};
+
+// Output: Final vertex normals buffer
+layout(std430, binding = 3) buffer VertexNormalBuffer {
+    vec3 vertexNormals[];  // One normal per vertex
+};
+
+// Buffer to count how many triangles share each vertex
+layout(std430, binding = 4) buffer VertexCountBuffer {
+    int vertexTriangleCounts[];  // One counter per vertex
 };
 
 uniform int vertex_count;
 uniform int index_count;
+uniform int pass;  // 1, 2, or 3
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
-
-    // Phase 1: accumulate normals
-    if (id * 3 + 2 < uint(index_count)) {
-        int idx1 = indices[id * 3 + 0];
-        int idx2 = indices[id * 3 + 1];
-        int idx3 = indices[id * 3 + 2];
-
-        vec3 v1 = vec3(vertices[idx1 * 6 + 0], vertices[idx1 * 6 + 1], vertices[idx1 * 6 + 2]);
-        vec3 v2 = vec3(vertices[idx2 * 6 + 0], vertices[idx2 * 6 + 1], vertices[idx2 * 6 + 2]);
-        vec3 v3 = vec3(vertices[idx3 * 6 + 0], vertices[idx3 * 6 + 1], vertices[idx3 * 6 + 2]);
-
-        vec3 edge1 = v2 - v1;
-        vec3 edge2 = v3 - v1;
-        vec3 faceNormal = normalize(cross(edge1, edge2));
-
-        // Accumulate normals into each vertex (non-atomic, may have race conditions)
-        vertices[idx1 * 6 + 3] += faceNormal.x;
-        vertices[idx1 * 6 + 4] += faceNormal.y;
-        vertices[idx1 * 6 + 5] += faceNormal.z;
-
-        vertices[idx2 * 6 + 3] += faceNormal.x;
-        vertices[idx2 * 6 + 4] += faceNormal.y;
-        vertices[idx2 * 6 + 5] += faceNormal.z;
-
-        vertices[idx3 * 6 + 3] += faceNormal.x;
-        vertices[idx3 * 6 + 4] += faceNormal.y;
-        vertices[idx3 * 6 + 5] += faceNormal.z;
+    
+    // Pass 1: Calculate face normals
+    if (pass == 1) {
+        if (id * 3 + 2 < index_count) {
+            // Get vertex indices for this triangle
+            int idx1 = indices[id * 3];
+            int idx2 = indices[id * 3 + 1];
+            int idx3 = indices[id * 3 + 2];
+            
+            // Get vertex positions
+            vec3 v1 = vec3(vertices[idx1 * 6], vertices[idx1 * 6 + 1], vertices[idx1 * 6 + 2]);
+            vec3 v2 = vec3(vertices[idx2 * 6], vertices[idx2 * 6 + 1], vertices[idx2 * 6 + 2]);
+            vec3 v3 = vec3(vertices[idx3 * 6], vertices[idx3 * 6 + 1], vertices[idx3 * 6 + 2]);
+            
+            // Calculate face normal
+            vec3 edge1 = v2 - v1;
+            vec3 edge2 = v3 - v1;
+            vec3 faceNormal = normalize(cross(edge1, edge2));
+            
+            // Store the face normal
+            faceNormals[id] = faceNormal;
+        }
     }
-
-    // Ensure all threads complete writes
-    barrier();
-    memoryBarrierBuffer();
-
-    // Phase 2: normalize accumulated normals
-    if (id < uint(vertex_count)) {
-        uint base = id * 6 + 3;
-        vec3 n = vec3(vertices[base + 0], vertices[base + 1], vertices[base + 2]);
-        float len = length(n);
-        if (len > 0.0001) {
-            n = normalize(n);
-            vertices[base + 0] = n.x;
-            vertices[base + 1] = n.y;
-            vertices[base + 2] = n.z;
+    
+    // Pass 2: Initialize vertex normals and counting buffers
+    else if (pass == 2) {
+        if (id < vertex_count) {
+            vertexNormals[id] = vec3(0.0);
+            vertexTriangleCounts[id] = 0;
+        }
+    }
+    
+    // Pass 3: Accumulate face normals to vertex normals
+    else if (pass == 3) {
+        if (id * 3 + 2 < index_count) {
+            // Get vertex indices for this triangle
+            int idx1 = indices[id * 3];
+            int idx2 = indices[id * 3 + 1];
+            int idx3 = indices[id * 3 + 2];
+            
+            // Get the face normal
+            vec3 faceNormal = faceNormals[id];
+            
+            // Add face normal to each vertex's normal
+            vertexNormals[idx1] += faceNormal;
+            vertexTriangleCounts[idx1]++;
+            
+            vertexNormals[idx2] += faceNormal;
+            vertexTriangleCounts[idx2]++;
+            
+            vertexNormals[idx3] += faceNormal;
+            vertexTriangleCounts[idx3]++;
+        }
+    }
+    
+    // Pass 4: Normalize vertex normals
+    else if (pass == 4) {
+        if (id < vertex_count) {
+            if (vertexTriangleCounts[id] > 0) {
+                // Average the accumulated normals
+                vertexNormals[id] /= float(vertexTriangleCounts[id]);
+                
+                // Normalize the result
+                if (length(vertexNormals[id]) > 0.0001) {
+                    vertexNormals[id] = normalize(vertexNormals[id]);
+                }
+            }
         }
     }
 }

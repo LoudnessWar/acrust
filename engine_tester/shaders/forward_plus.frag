@@ -103,7 +103,7 @@ void main() {
 
     color += u_diffuseColor.rgb * 0.08;//I should not HARD CODE THIS!!!! IT SHOULD BE A... LIKE... Interpolation of all the lighst in the scenenenenene TODO
 
-    int mode = 4;
+    int mode = 3;
     
     // if (location.x % 16 == 0 || location.y % 16 == 0) {
     //     fragColor = vec4(0.3, 0.3, 0.3, 1.0);

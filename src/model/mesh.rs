@@ -19,7 +19,8 @@ pub struct Mesh {
     vbo: BufferObject,
     ebo: BufferObject,
     index_count: i32,
-    normals: Option<Vec<f32>>
+    normals_buffer: Option<BufferObject>,
+    normals: Option<Vec<f32>>,
 }
 
 //should all meshes use the same VAO... PROBABLY BRO, especially if all the attributes they hold are the same so yes that means we should make a mesh manager TODO so wholesum im so excited to do that
@@ -56,6 +57,7 @@ impl Mesh {
             vbo,
             ebo,
             index_count: indices.len() as i32,
+            normals_buffer: None,
             normals: None,
         }
     }
@@ -97,11 +99,14 @@ impl Mesh {
             vbo,
             ebo,
             index_count: indices.len() as i32,
+            normals_buffer: None,
             normals: None,//im storing these for now for uuuhhh like debugging purpouses
         };
 
         mesh.calculate_normals(vertices, indices);
         println!("mesh normals: {:?}", mesh.normals.as_ref().unwrap());
+
+        println!("mesh normals:");
         mesh 
     }
 
@@ -110,67 +115,158 @@ impl Mesh {
     }
 
     pub fn calculate_normals(&mut self, vertices: &[f32], indices: &[i32]) {
-
-        //bufffer base for ssbo buffers that is not the title of a smash game btw ssb Omega or Odyssy 
-        unsafe {
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, self.vbo.get_id());
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, self.ebo.get_id());
-        }
-    
-        let vertex_count = vertices.len() / 6;
-    
-        let mut cleared_data = vertices.to_vec();
-        for i in 0..vertex_count {
-            cleared_data[i * 6 + 3] = 0.0;
-            cleared_data[i * 6 + 4] = 0.0;
-            cleared_data[i * 6 + 5] = 0.0;
-        }
-        self.vbo.bind();
-        self.vbo.store_f32_data(&cleared_data);
-    
-        // lol look at the TODO this should not be here. Because like I dsont need to recompline
-        //ect ect ect for the compute shader everytime a new model is made. MAYBE I just
-        //need a like mesh Manger I think
-        //I propose/hypothisized over the creation of one previously
+        let vertex_count = vertices.len() / 6; // Assuming 6 floats per vertex (pos + something else)
+        let triangle_count = indices.len() / 3;
+        
+        // Create buffers for the multi-pass approach
+        
+        // 1. Face normals buffer (temporary)
+        let face_normals_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
+        face_normals_buffer.bind();
+        let face_normal_data = vec![0.0f32; triangle_count * 3]; // 3 components per face normal
+        face_normals_buffer.store_f32_data(&face_normal_data);
+        
+        // 2. Vertex normals buffer (output)
+        let vertex_normals_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
+        vertex_normals_buffer.bind();
+        let vertex_normal_data = vec![0.0f32; vertex_count * 3]; // 3 components per vertex normal
+        vertex_normals_buffer.store_f32_data(&vertex_normal_data);
+        
+        // 3. Vertex triangle counts buffer
+        print!("herhe");
+        let vertex_counts_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
+        vertex_counts_buffer.bind();
+        let vertex_count_data = vec![0i32; vertex_count]; // One int per vertex
+        vertex_counts_buffer.store_i32_data(&vertex_count_data);
+        
+        // Set up and run compute shader
         let mut comp_shader = ShaderProgram::new_compute("shaders/normals.comp");
         comp_shader.bind();
-        comp_shader.create_uniforms(vec!["vertex_count", "index_count"]);
+
+        comp_shader.create_uniforms(vec!["vertex_count", "index_count", "pass"]);
+        
+        // Common uniform setup
         comp_shader.set_uniform1i("vertex_count", &(vertex_count as i32));
         comp_shader.set_uniform1i("index_count", &(indices.len() as i32));
-    
-        let work_group_size = 256;
-        let num_work_groups = (vertex_count + work_group_size - 1) / work_group_size;
-        comp_shader.dispatch_compute(num_work_groups as u32, 1, 1);
-    
-        // BOOOORIng dont crash pal
+        
+        // Calculate work group sizes
+        let work_group_size = 256; // Typical compute shader workgroup size
+        let triangle_work_groups = (triangle_count + work_group_size - 1) / work_group_size;
+        let vertex_work_groups = (vertex_count + work_group_size - 1) / work_group_size;
+        
+        // Pass 1: Calculate face normals
+        print!("Calculate face normals");
+        unsafe {
+            // Bind buffers to the compute shader
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, self.vbo.get_id());
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, self.ebo.get_id());
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, face_normals_buffer.get_id());
+            check_gl_error("poop 2");
+            comp_shader.set_uniform1i("pass", &1);
+        }
+        
+        comp_shader.dispatch_compute(triangle_work_groups as u32, 1, 1);
+        
+        // Ensure Pass 1 is complete
         unsafe {
             gl::MemoryBarrier(gl::SHADER_STORAGE_BARRIER_BIT);
         }
-    
-        // getting it back with MapBufferRange like tbh not neededanymore but imma keep it
-        //TODO maybe remove later
+        
+        // Pass 2: Initialize vertex normals and counting buffers
         unsafe {
-            let size = (vertex_count * 6 * std::mem::size_of::<f32>()) as isize;
+            println!("Initialize vertex normals and counting buffers");
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 3, vertex_normals_buffer.get_id());
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 4, vertex_counts_buffer.get_id());
+            check_gl_error("poop");
+            comp_shader.set_uniform1i("pass", &2);
+        }
+        
+        comp_shader.dispatch_compute(vertex_work_groups as u32, 1, 1);
+        
+        // Ensure Pass 2 is complete
+        unsafe {
+            gl::MemoryBarrier(gl::SHADER_STORAGE_BARRIER_BIT);
+        }
+        
+        // Pass 3: Accumulate face normals to vertex normals
+        unsafe {
+            comp_shader.set_uniform1i("pass", &3);
+        }
+        
+        comp_shader.dispatch_compute(triangle_work_groups as u32, 1, 1);
+        
+        // Ensure Pass 3 is complete
+        unsafe {
+            gl::MemoryBarrier(gl::SHADER_STORAGE_BARRIER_BIT);
+        }
+        check_gl_error("unmapped poop 5");
+        // Pass 4: Normalize vertex normals
+        unsafe {
+            comp_shader.set_uniform1i("pass", &4);
+        }
+        
+        comp_shader.dispatch_compute(vertex_work_groups as u32, 1, 1);
+        
+        // Ensure Pass 4 is complete
+        unsafe {
+            gl::MemoryBarrier(gl::SHADER_STORAGE_BARRIER_BIT);
+        }
+        
+        check_gl_error("unmapped poop 56");
+        println!("Map the normals buffer to read the results");
+        // Map the normals buffer to read the results
+        vertex_normals_buffer.bind();
+        unsafe {
+            let size = (vertex_count * 3 * std::mem::size_of::<f32>()) as isize;
             let ptr = gl::MapBufferRange(
-                gl::SHADER_STORAGE_BUFFER,
+                gl::SHADER_STORAGE_BUFFER, 
                 0,
                 size,
                 gl::MAP_READ_BIT
             ) as *const f32;
-    
+            check_gl_error("unmapped poop 4");
             if !ptr.is_null() {
-                let data = std::slice::from_raw_parts(ptr, vertex_count * 6);
-                let mut normals = Vec::with_capacity(vertex_count * 3);
-                for i in 0..vertex_count {
-                    normals.push(data[i * 6 + 3]);
-                    normals.push(data[i * 6 + 4]);
-                    normals.push(data[i * 6 + 5]);
-                }
-                self.normals = Some(normals);
+                // Copy data from GPU to CPU
+                let normals_slice = std::slice::from_raw_parts(ptr, vertex_count * 3);
+                self.normals = Some(normals_slice.to_vec());
+                
+                // Unmap the buffer
                 gl::UnmapBuffer(gl::SHADER_STORAGE_BUFFER);
+                check_gl_error("unmapped poop");
             }
+
+            
         }
-    } 
+        check_gl_error("unmapped poop 2");
+        // Store the normals buffer in the struct
+        self.normals_buffer = Some(vertex_normals_buffer);
+        check_gl_error("unmapped poop 3");
+        
+        // Clean up temporary buffers
+        // Note: We don't need to explicitly delete face_normals_buffer and vertex_counts_buffer
+        // as they will be automatically cleaned up when they go out of scope
+        
+        // Now update your VAO to include normals
+        self.vao.bind();
+        
+        //check_gl_error("vnormals_buffer");
+        if let Some(buffer) = &self.normals_buffer {
+            buffer.bind();
+            
+            check_gl_error("poop inside");
+            // Set up the normal attribute (assuming it's attribute 1)
+            VertexAttribute::new(
+                1, // attribute index for normals
+                3, // 3 components for normals
+                gl::FLOAT,
+                gl::FALSE,
+                3 * std::mem::size_of::<f32>() as i32, // stride (3 floats per normal)
+                std::ptr::null()
+            ).enable();
+        }
+        
+        self.vao.unbind();
+    }
     
 
     // pub fn calculate_normals(&self, vertices: &[f32], indices: &[i32]) -> Option<Vec<f32>>{
@@ -273,6 +369,14 @@ impl Mesh {
         }
     }
 }
+
+fn check_gl_error(label: &str) {
+    let err = unsafe { gl::GetError() };
+    if err != gl::NO_ERROR {
+        panic!("GL Error after {}: 0x{:X}", label, err);
+    }
+}
+
 
 //i want to add a 3d object trait here with a basic render and like basic funciton ect ect
 
