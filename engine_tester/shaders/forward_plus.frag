@@ -29,6 +29,7 @@ uniform vec4 u_diffuseColor;
 uniform float u_specularPower;
 uniform int u_tileCountX;
 uniform int u_lightCount;
+uniform mat4 view;//todo big bigs
 // uniform vec3 u_cameraPosition; // Not used for now
 
 layout(location = 0) out vec4 fragColor;
@@ -70,6 +71,9 @@ void main() {
     vec3 fragPos = fragment_in.fragmentPosition;
     vec3 viewDir = normalize(-fragPos);//have mercy on me and work... just work dont be wrapping my normals the wrong way or nothing
 
+    // if (dot(normal, viewDir) < 0.0)
+    //     normal = -normal;
+
     vec3 color = vec3(0.0);//final color but not actually bc i be tweaking with it
 
     for (int i = 0; i < u_lightCount; ++i) {
@@ -79,7 +83,8 @@ void main() {
         visibleLightCount++;
 
         Light light = lightBuffer.lights[lightIndex];
-        vec3 lightPos = light.position.xyz;
+        vec3 lightPos = vec3(view * vec4(light.position, 1.0));
+        //vec3 lightPos = light.position.xyz;
         vec3 lightDir = lightPos - fragPos;
         float distance = length(lightDir);
 
@@ -103,17 +108,13 @@ void main() {
 
     color += u_diffuseColor.rgb * 0.08;//I should not HARD CODE THIS!!!! IT SHOULD BE A... LIKE... Interpolation of all the lighst in the scenenenenene TODO
 
-    int mode = 3;
+    int mode = 4;
     
     // if (location.x % 16 == 0 || location.y % 16 == 0) {
     //     fragColor = vec4(0.3, 0.3, 0.3, 1.0);
     //     return;
     // }
 
-    // if (length(fragment_in.normalVector) < 0.001) {
-    //     fragColor = vec4(1.0, 0.0, 1.0, 1.0); // magenta = BAD normal
-    //     return;
-    // }
 
     switch (mode) {
         case 0:
@@ -135,11 +136,16 @@ void main() {
             
         case 3:
             // Normal visualization (helps validate geometry)
-            //fragColor = vec4(normalize(fragment_in.normalVector) * 0.5 + 0.5, 1.0);
-            fragColor = vec4(normal * 0.5 + 0.5, 1.0);
+            fragColor = vec4(normalize(fragment_in.normalVector) * 0.5 + 0.5, 1.0);
+            //fragColor = vec4(normal * 0.5 + 0.5, 1.0);
+            //fragColor = vec4(normalize(normal) * 0.5 + 0.5, 1.0);
             break;
         case 4:
             fragColor = vec4(color, u_diffuseColor.a);
+            if (length(fragment_in.normalVector) < 0.001) {
+                fragColor = vec4(1.0, 0.0, 1.0, 1.0); // magenta = BAD normal
+                return;
+            }
             break;
         case 5:
             fragColor = vec4(color * u_specularPower, u_diffuseColor.a);
@@ -150,6 +156,9 @@ void main() {
         case 7:
             float val = clamp(float(lightCounter) / 50.0, 0.0, 1.0);
             fragColor = vec4(val, val, val, 1.0);
+            break;
+        case 8:
+            fragColor = vec4(sign(normal) * 0.5 + 0.5, 1.0);
             break;
     }
 

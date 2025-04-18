@@ -134,7 +134,7 @@ fn main() {
     let mut cube = Cube::new(5.0, Vector3::new(0.0, 0.0, 0.0), 1.0, mat_man.get_mat("mat1"));
     let mut cube2 = Cube::new(5.0, Vector3::new(15.0, 15.0, 15.0), 1.0, mat_man.get_mat("mat1"));
 
-    let mut model = GeneralModel::new(load_obj_new_normals("models/teddy.obj"), WorldCoords::new(0.0, 10.0, 100.0, 1.0), mat_man.get_mat("mat2"));
+    //let mut model = GeneralModel::new(load_obj_new_normals("models/teddy.obj"), WorldCoords::new(0.0, 10.0, 100.0, 1.0), mat_man.get_mat("mat2"));
     mat_man.update_uniform("mat2", "lightDir", UniformValue::Vector3(vec3(0.0, 10.0, 0.0)));
     mat_man.update_uniform("mat2", "lightColor", UniformValue::Vector3(vec3(0.0, 1.0, 1.0)));
     mat_man.update_uniform("mat2", "objectColor", UniformValue::Vector3(vec3(1.0, 1.0, 1.0)));
@@ -305,7 +305,7 @@ fn main() {
 
         let transform = camera.get_vp_matrix();
 
-        model.set_uniforms(&texture_manager, &camera);
+        //model.set_uniforms(&texture_manager, &camera);
 
         // unsafe {
         //     gl::Enable(gl::DEPTH_TEST);

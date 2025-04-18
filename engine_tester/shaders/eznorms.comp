@@ -1,0 +1,63 @@
+#version 450 core
+
+layout(local_size_x = 256) in;
+
+layout(std430, binding = 0) buffer VertexBuffer {
+    float vertices[]; // Interleaved: vec3 pos + vec3 normal
+};
+
+layout(std430, binding = 1) readonly buffer IndexBuffer {
+    int indices[]; // Assumed triangle list
+};
+
+uniform int vertex_count;
+uniform int index_count;
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+
+    // Phase 1: accumulate normals
+    if (id * 3 + 2 < uint(index_count)) {
+        int idx1 = indices[id * 3 + 0];
+        int idx2 = indices[id * 3 + 1];
+        int idx3 = indices[id * 3 + 2];
+
+        vec3 v1 = vec3(vertices[idx1 * 6 + 0], vertices[idx1 * 6 + 1], vertices[idx1 * 6 + 2]);
+        vec3 v2 = vec3(vertices[idx2 * 6 + 0], vertices[idx2 * 6 + 1], vertices[idx2 * 6 + 2]);
+        vec3 v3 = vec3(vertices[idx3 * 6 + 0], vertices[idx3 * 6 + 1], vertices[idx3 * 6 + 2]);
+
+        vec3 edge1 = v2 - v1;
+        vec3 edge2 = v3 - v1;
+        vec3 faceNormal = normalize(cross(edge1, edge2));
+
+        // Accumulate normals into each vertex (non-atomic, may have race conditions)
+        vertices[idx1 * 6 + 3] += faceNormal.x;
+        vertices[idx1 * 6 + 4] += faceNormal.y;
+        vertices[idx1 * 6 + 5] += faceNormal.z;
+
+        vertices[idx2 * 6 + 3] += faceNormal.x;
+        vertices[idx2 * 6 + 4] += faceNormal.y;
+        vertices[idx2 * 6 + 5] += faceNormal.z;
+
+        vertices[idx3 * 6 + 3] += faceNormal.x;
+        vertices[idx3 * 6 + 4] += faceNormal.y;
+        vertices[idx3 * 6 + 5] += faceNormal.z;
+    }
+
+    // Ensure all threads complete writes
+    barrier();
+    memoryBarrierBuffer();
+
+    // Phase 2: normalize accumulated normals
+    if (id < uint(vertex_count)) {
+        uint base = id * 6 + 3;
+        vec3 n = vec3(vertices[base + 0], vertices[base + 1], vertices[base + 2]);
+        float len = length(n);
+        if (len > 0.0001) {
+            n = normalize(n);
+            vertices[base + 0] = n.x;
+            vertices[base + 1] = n.y;
+            vertices[base + 2] = n.z;
+        }
+    }
+}
