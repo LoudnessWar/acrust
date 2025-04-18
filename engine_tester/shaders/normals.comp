@@ -3,26 +3,22 @@
 layout(local_size_x = 256) in;
 
 layout(std430, binding = 0) buffer VertexBuffer {
-    float vertices[];
+    float vertices[]; // Interleaved: vec3 pos + vec3 normal
 };
 
 layout(std430, binding = 1) readonly buffer IndexBuffer {
-    int indices[];
+    int indices[]; // Assumed triangle list
 };
 
 uniform int vertex_count;
 uniform int index_count;
 
-//blah blah blah this used to have a normals buffer so i could like get the normals or whatever... and then I realized I didnt like need it
-//it was going to be hella buggy like
-//I would interlace it and rebind the vbo but then I was like do it here
-//but then I was like naaah the utility of having the buffer
-//but then I took it out and its lowkey chillin
 void main() {
     uint id = gl_GlobalInvocationID.x;
 
-    if (id * 3 + 2 < index_count) {
-        int idx1 = indices[id * 3];
+    // Phase 1: accumulate normals
+    if (id * 3 + 2 < uint(index_count)) {
+        int idx1 = indices[id * 3 + 0];
         int idx2 = indices[id * 3 + 1];
         int idx3 = indices[id * 3 + 2];
 
@@ -34,26 +30,34 @@ void main() {
         vec3 edge2 = v3 - v1;
         vec3 faceNormal = normalize(cross(edge1, edge2));
 
-        for (int i = 0; i < 3; ++i) {
-            int idx = indices[id * 3 + i];
-            uint base = idx * 6 + 3;
-            vertices[base + 0] += faceNormal.x;
-            vertices[base + 1] += faceNormal.y;
-            vertices[base + 2] += faceNormal.z;
-        }
+        // Accumulate normals into each vertex (non-atomic, may have race conditions)
+        vertices[idx1 * 6 + 3] += faceNormal.x;
+        vertices[idx1 * 6 + 4] += faceNormal.y;
+        vertices[idx1 * 6 + 5] += faceNormal.z;
+
+        vertices[idx2 * 6 + 3] += faceNormal.x;
+        vertices[idx2 * 6 + 4] += faceNormal.y;
+        vertices[idx2 * 6 + 5] += faceNormal.z;
+
+        vertices[idx3 * 6 + 3] += faceNormal.x;
+        vertices[idx3 * 6 + 4] += faceNormal.y;
+        vertices[idx3 * 6 + 5] += faceNormal.z;
     }
 
+    // Ensure all threads complete writes
     barrier();
-    memoryBarrierBuffer();//ok bascially like the atomic stuff is like tweaking so I did this approach instead
+    memoryBarrierBuffer();
 
-    if (id < vertex_count) {
+    // Phase 2: normalize accumulated normals
+    if (id < uint(vertex_count)) {
         uint base = id * 6 + 3;
-        vec3 norm = vec3(vertices[base + 0], vertices[base + 1], vertices[base + 2]);
-        if (length(norm) > 0.0001) {
-            norm = normalize(norm);
-            vertices[base + 0] = norm.x;
-            vertices[base + 1] = norm.y;
-            vertices[base + 2] = norm.z;
+        vec3 n = vec3(vertices[base + 0], vertices[base + 1], vertices[base + 2]);
+        float len = length(n);
+        if (len > 0.0001) {
+            n = normalize(n);
+            vertices[base + 0] = n.x;
+            vertices[base + 1] = n.y;
+            vertices[base + 2] = n.z;
         }
     }
 }

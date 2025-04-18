@@ -413,7 +413,7 @@ impl ShaderProgram {
         unsafe {
             gl::Enable(gl::CULL_FACE);     // Enable face culling
             gl::CullFace(gl::BACK);        // Cull back faces
-            //gl::FrontFace(gl::CCW);        // Use counter-clockwise vertex winding for front faces
+            gl::FrontFace(gl::CCW);        // Use counter-clockwise vertex winding for front faces
         }
     }
 
