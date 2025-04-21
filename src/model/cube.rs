@@ -18,7 +18,7 @@ pub struct Cube {
 impl Cube {
     pub fn new(size: f32, position: Vector3<f32>, rotation: f32, material: Arc<RwLock<Material>>) -> Self {
         let vertices: [f32; 48] = [//ok so thins cube is weird like most things if no back face and depth its inverse but still whatever
-            // Positions         // Normals or color?
+            // Positions         // Normals or color... it depends on the like shaders... Theoretically though these should just be normals
             -size + position.x, -size + position.y, -size + position.z,  1.0,  0.0, 1.0,  
              size + position.x, -size + position.y, -size + position.z,  1.0,  1.0, 1.0,  
              size + position.x,  size + position.y, -size + position.z,  0.0,  0.0, 1.0,  

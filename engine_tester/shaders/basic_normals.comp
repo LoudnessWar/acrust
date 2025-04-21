@@ -1,0 +1,77 @@
+#version 450 core
+
+layout(local_size_x = 256) in;
+
+layout(std430, binding = 0) readonly buffer PositionBuffer {
+    float positions[];
+};
+layout(std430, binding = 1) readonly buffer IndexBuffer {
+    int indices[];
+};
+layout(std430, binding = 2) buffer FaceNormalBuffer {
+    float faceNormals[];
+};
+layout(std430, binding = 3) buffer VertexNormalBuffer {
+    float vertexNormals[];
+};
+layout(std430, binding = 4) buffer VertexCountBuffer {
+    int vertexTriangleCounts[];
+};
+
+uniform int vertex_count;
+uniform int index_count;
+uniform int pass;
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+
+    if (pass == 1) {
+        // Calculate face normals
+        if (id * 3 + 2 < index_count) {
+            int idx1 = indices[id * 3];
+            int idx2 = indices[id * 3 + 1];
+            int idx3 = indices[id * 3 + 2];
+
+            vec3 v1 = vec3(positions[idx1 * 3 + 0], positions[idx1 * 3 + 1], positions[idx1 * 3 + 2]);
+            vec3 v2 = vec3(positions[idx2 * 3 + 0], positions[idx2 * 3 + 1], positions[idx2 * 3 + 2]);
+            vec3 v3 = vec3(positions[idx3 * 3 + 0], positions[idx3 * 3 + 1], positions[idx3 * 3 + 2]);
+
+            vec3 edge1 = v2 - v1;
+            vec3 edge2 = v3 - v1;
+            vec3 faceNormal = cross(edge1, edge2);
+            
+            float len = length(faceNormal);
+            if (len > 0.0001) {
+                faceNormal = faceNormal / len;
+            } else {
+                faceNormal = vec3(0.0, 1.0, 0.0);
+            }
+
+            faceNormals[id * 3 + 0] = faceNormal.x;
+            faceNormals[id * 3 + 1] = faceNormal.y;
+            faceNormals[id * 3 + 2] = faceNormal.z;
+            
+            // dude... i know this is like inefficent but like... it will have to do for now... TODO change this so that the function is more
+            //like ready for the normals
+            vertexNormals[idx1 * 3 + 0] = faceNormal.x;
+            vertexNormals[idx1 * 3 + 1] = faceNormal.y;
+            vertexNormals[idx1 * 3 + 2] = faceNormal.z;
+            
+            vertexNormals[idx2 * 3 + 0] = faceNormal.x;
+            vertexNormals[idx2 * 3 + 1] = faceNormal.y;
+            vertexNormals[idx2 * 3 + 2] = faceNormal.z;
+            
+            vertexNormals[idx3 * 3 + 0] = faceNormal.x;
+            vertexNormals[idx3 * 3 + 1] = faceNormal.y;
+            vertexNormals[idx3 * 3 + 2] = faceNormal.z;
+        }
+    }
+    // For flat shading, we can skip passes 2, 3, and 4 since we directly set the normals in pass 1
+    else if (pass == 2) {
+        // Initialize vertex normals to zero (only needed for smooth shading)
+        if (id < vertex_count) {
+            vertexTriangleCounts[id] = 0;
+        }
+    }
+    // Pass 3 and 4 can be empty, as they're not needed for flat shading
+}

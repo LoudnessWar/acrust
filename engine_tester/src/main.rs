@@ -175,14 +175,14 @@ fn main() {
 
     fpr.add_light(
         [0.0, -5.0, 20.0],  // position
-        50.0,             // radius
+        150.0,             // radius
         [1.0, 1.0, 1.0],  // color (white)
         100.0               // intensity
     );
 
     fpr.add_light(
         [0.0, 20.0, 0.0],
-        40.0, // Giant radius
+        60.0, // Giant radius
         [0.2, 0.3, 1.0],
         100.0
     );

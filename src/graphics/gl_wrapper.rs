@@ -598,7 +598,7 @@ impl ShaderManager {
 
 
         self.add_shader("depth", initialize_depth_shader());
-        self.add_shader("light", initialize_light_shader());
+        self.add_shader("light", initialize_light_shader());//EDIT EDIT EDIT
     }
 
     pub fn init_forward_plus_light_debug(&mut self){
@@ -885,8 +885,6 @@ pub enum UniformValue {//i need one for vec3 but im 2 lazy to add rn literally t
     Texture(u32),
     Empty(),
 }
-
-
 
 //this is like so stupid and useless i know but like yooooooo maybe it will be hype guys
 impl TryFrom<f32> for UniformValue {
@@ -1482,6 +1480,22 @@ fn initialize_light_shader() -> ShaderProgram {//i could make this dynamic but l
     light
 }
 
+fn initialize_light_test_shader() -> ShaderProgram {//i could make this dynamic but like bruh
+    let mut light = ShaderProgram::new("shaders/forward_plus.vert","shaders/fp_new.frag");
+    light.create_uniform("model");
+    light.create_uniform("view");
+    light.create_uniform("projection");
+    light.create_uniform("u_specularPower");
+    light.create_uniform("u_tileCountX");
+    light.create_uniform("u_useNormalSmoothing");
+    light.create_uniform("u_smoothingFactor");
+    //light.create_uniforms(vec!["u_tileCountY", "u_screenWidth", "u_screenHeight"]);
+    //light.create_uniform("u_depthTex");
+    light.create_uniform("u_lightCount");
+    light.create_uniform("u_diffuseColor");//why was this ok that it was like not there
+    light
+}
+
 fn initialize_light_shader_debug() -> ShaderProgram {//i could make this dynamic but like bruh
     let mut light = ShaderProgram::new("shaders/debug_forward.vert","shaders/debug_forward.frag");
     light.create_uniform("model");
@@ -1632,6 +1646,79 @@ impl ForwardPlusRenderer {
         for model in models {
             self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
             //model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
+            model.get_mesh().draw();
+        }
+
+        unsafe{//just a precaution
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
+		    gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, 0);
+        }
+        
+        ShaderProgram::unbind();
+    }
+
+    pub fn render_test<T: ModelTrait>(&mut self, 
+        models: &[T], 
+        camera: &Camera,
+        width: u32, 
+        height: u32,
+        texture_manager: &TextureManager
+    ) {
+        let framebuffer = Framebuffer::new_depth_only(width, height);
+        let meshes: Vec<&Mesh> = models.iter().map(|model| model.get_mesh()).collect();
+        
+        self.depth_shader.lock().expect("failed to bind depth").bind();
+        
+        for model in models {
+            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
+            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", camera.get_view());
+            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", camera.get_p_matrix());
+            // Depth pre-pass
+            run_depth_prepass(
+                &self.depth_shader.lock().expect("failed to get depth Shader during prepass"),
+                &framebuffer,
+                &meshes,
+                &mut self.light_manager,
+                width,
+                height,
+            );
+        }
+
+        if let Some(culling_buffers) = &self.light_manager.culling_buffers {
+            unsafe {
+                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
+                gl_check!(gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id()));
+            }
+        }
+        
+        // Light culling
+        self.light_manager.perform_gpu_light_culling(camera.get_view(),camera.get_p_matrix());//vp should prolly be just done on gpu later
+        
+       
+        
+        self.light_shader.lock().expect("failed bind").bind();//if this was mutable would this work
+        
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", &camera.get_view());
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", &camera.get_p_matrix());
+
+        //print!("heeeeeeeheeeee");
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_useNormalSmoothing", 1.0);
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_smoothingFactor",1.0);
+
+        if let Some(culling_buffers) = &self.light_manager.culling_buffers {//If i get rid of if this doesnt work and I forget why... I think its something like if if we know its there so no need to account for like refstuff
+            let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();//TODO move this and num of tiles to where shader is set up
+            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_tileCountX", &(tile_count_x as i32));
+        }
+        
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_lightCount", &(self.light_manager.lights.len() as i32));
+
+
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 1.0);
+        
+    
+        for model in models {
+            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
             model.get_mesh().draw();
         }
 
