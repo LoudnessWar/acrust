@@ -193,3 +193,201 @@ void main() {
 
     //fragColor = vec4(finalColor * (u_specularPower * 0.1), u_diffuseColor.a);
 }
+
+#version 430 core
+
+in VERTEX_OUT {
+    vec3 fragmentPosition;  // Now in view space
+    vec3 normalVector;      // Now in view space
+    vec2 textureCoordinates;
+} fragment_in;
+
+// Light structure (keep your existing)
+struct Light {
+    vec3 position;
+    float radius;
+    vec3 color;
+    float intensity;
+};
+
+struct VisibleIndex {
+    int index;
+};
+
+// Buffer definitions (keep your existing)
+layout(std430, binding = 0) readonly buffer LightBuffer {
+    Light lights[];
+} lightBuffer;
+
+layout(std430, binding = 2) readonly buffer VisibleLightIndicesBuffer {
+    VisibleIndex data[];
+} visibleLightIndicesBuffer;
+
+// Uniforms
+uniform vec4 u_diffuseColor;
+uniform float u_specularPower;
+uniform int u_tileCountX;
+uniform int u_lightCount;
+uniform mat4 view;
+
+out vec4 fragColor;
+
+// Improved attenuation function
+float attenuate(vec3 lightDirection, float radius) {
+    float distance = length(lightDirection);
+    float normalizedDist = distance / radius;
+    float attenuation = 1.0 / (1.0 + 25.0 * normalizedDist * normalizedDist);
+    return smoothstep(0.0, 1.0, attenuation);
+}
+
+void main() {
+    ivec2 location = ivec2(gl_FragCoord.xy);
+    ivec2 tileID = location / ivec2(16, 16);
+    int tileIndex = tileID.y * u_tileCountX + tileID.x;
+    int tileOffset = tileIndex * 256;
+
+    // Normalize the view-space normal
+    vec3 normal = normalize(fragment_in.normalVector);
+    
+    // View vector points toward the camera (0,0,0 in view space)
+    vec3 viewDir = normalize(-fragment_in.fragmentPosition);
+
+    // if (dot(normal, viewDir) < 0.0) normal = -normal;
+    
+    // Lighting accumulators
+    vec3 diffuse = vec3(0.0);
+    vec3 specular = vec3(0.0);
+
+    for (int i = 0; i < u_lightCount; ++i) {
+        int lightIndex = visibleLightIndicesBuffer.data[tileOffset + i].index;
+        if (lightIndex < 0 || lightIndex >= lightBuffer.lights.length()) break;
+
+        Light light = lightBuffer.lights[lightIndex];
+        
+        // Transform light to view space
+        vec3 lightPos = vec3(view * vec4(light.position, 1.0));
+        vec3 lightDir = lightPos - fragment_in.fragmentPosition;
+        float distance = length(lightDir);
+        
+        if (distance > light.radius) continue;
+        
+        lightDir = normalize(lightDir);
+        float attenuation = attenuate(lightDir, light.radius);
+        
+        // Diffuse
+        float diff = max(dot(normal, lightDir), 0.0);
+        diffuse += light.color * diff * attenuation;
+        
+        // Specular (Blinn-Phong)
+        vec3 halfwayDir = normalize(lightDir + viewDir);
+        float spec = pow(max(dot(normal, halfwayDir), 0.0), u_specularPower);
+        specular += light.color * spec * attenuation;
+    }
+
+    // Combine lighting
+    vec3 result = (diffuse * u_diffuseColor.rgb) + specular;
+    result += u_diffuseColor.rgb * 0.03;  // Ambient
+
+    result = pow(result, vec3(1.0/2.2));
+    
+    fragColor = vec4(result, u_diffuseColor.a);
+}
+
+#version 430 core
+
+in VERTEX_OUT {
+    vec3 fragmentPosition;  // Now in view space
+    vec3 normalVector;      // Now in view space
+    vec2 textureCoordinates;
+} fragment_in;
+
+// Light structure (keep your existing)
+struct Light {
+    vec3 position;
+    float radius;
+    vec3 color;
+    float intensity;
+};
+
+struct VisibleIndex {
+    int index;
+};
+
+// Buffer definitions (keep your existing)
+layout(std430, binding = 0) readonly buffer LightBuffer {
+    Light lights[];
+} lightBuffer;
+
+layout(std430, binding = 2) readonly buffer VisibleLightIndicesBuffer {
+    VisibleIndex data[];
+} visibleLightIndicesBuffer;
+
+// Uniforms
+uniform vec4 u_diffuseColor;
+uniform float u_specularPower;
+uniform int u_tileCountX;
+uniform int u_lightCount;
+uniform mat4 view;
+
+out vec4 fragColor;
+
+// Improved attenuation function
+float attenuate(vec3 lightDirection, float radius) {
+    float distance = length(lightDirection);
+    float normalizedDist = distance / radius;
+    float attenuation = 1.0 / (1.0 + 25.0 * normalizedDist * normalizedDist);
+    return smoothstep(0.0, 1.0, attenuation);
+}
+
+void main() {
+    ivec2 location = ivec2(gl_FragCoord.xy);
+    ivec2 tileID = location / ivec2(16, 16);
+    int tileIndex = tileID.y * u_tileCountX + tileID.x;
+    int tileOffset = tileIndex * 256;
+
+    // Normalize the view-space normal
+    vec3 normal = normalize(fragment_in.normalVector);
+    
+    // View vector points toward the camera (0,0,0 in view space)
+    vec3 viewDir = normalize(-fragment_in.fragmentPosition);
+
+    // if (dot(normal, viewDir) < 0.0) normal = -normal;
+    
+    // Lighting accumulators
+    vec3 diffuse = vec3(0.0);
+    vec3 specular = vec3(0.0);
+
+    for (int i = 0; i < u_lightCount; ++i) {
+        int lightIndex = visibleLightIndicesBuffer.data[tileOffset + i].index;
+        if (lightIndex < 0 || lightIndex >= lightBuffer.lights.length()) break;
+
+        Light light = lightBuffer.lights[lightIndex];
+        
+        // Transform light to view space
+        vec3 lightPos = vec3(view * vec4(light.position, 1.0));
+        vec3 lightDir = lightPos - fragment_in.fragmentPosition;
+        float distance = length(lightDir);
+        
+        if (distance > light.radius) continue;
+        
+        lightDir = normalize(lightDir);
+        float attenuation = attenuate(lightDir, light.radius);
+        
+        // Diffuse
+        float diff = max(dot(normal, lightDir), 0.0);
+        diffuse += light.color * diff * attenuation;
+        
+        // Specular (Blinn-Phong)
+        vec3 halfwayDir = normalize(lightDir + viewDir);
+        float spec = pow(max(dot(normal, halfwayDir), 0.0), u_specularPower);
+        specular += light.color * spec * attenuation;
+    }
+
+    // Combine lighting
+    vec3 result = (diffuse * u_diffuseColor.rgb) + specular;
+    result += u_diffuseColor.rgb * 0.03;  // Ambient
+
+    result = pow(result, vec3(1.0/2.2));
+    
+    fragColor = vec4(result, u_diffuseColor.a);
+}

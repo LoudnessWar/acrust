@@ -174,17 +174,17 @@ fn main() {
     let mut fpr = ForwardPlusRenderer::new(&shader_manager);
 
     fpr.add_light(
-        [0.0, -5.0, 20.0],  // position
-        150.0,             // radius
+        [0.0, -1.0, 20.0],  // position
+        250.0,             // radius
         [1.0, 1.0, 1.0],  // color (white)
-        100.0               // intensity
+        0.1               // this like... doesnt do anything
     );
 
     fpr.add_light(
         [0.0, 20.0, 0.0],
         60.0, // Giant radius
         [0.2, 0.3, 1.0],
-        100.0
+        0.1
     );
 
     fpr.initialize_light_culling(720, 720, &shader_manager);//this just calls init gpu culling to the created lightmanager that is inside of FPR

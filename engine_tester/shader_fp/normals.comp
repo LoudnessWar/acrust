@@ -1,0 +1,204 @@
+#version 450 core
+
+layout(local_size_x = 256) in;
+
+// Existing buffers
+layout(std430, binding = 0) readonly buffer PositionBuffer {
+    float positions[];
+};
+layout(std430, binding = 1) readonly buffer IndexBuffer {
+    int indices[];
+};
+layout(std430, binding = 2) buffer FaceNormalBuffer {
+    float faceNormals[];
+};
+layout(std430, binding = 3) buffer VertexNormalBuffer {
+    float vertexNormals[];
+};
+layout(std430, binding = 4) buffer VertexCountBuffer {
+    int vertexTriangleCounts[];
+};
+
+// New buffers for tangent/bitangent
+layout(std430, binding = 5) buffer VertexTangentBuffer {
+    float vertexTangents[];
+};
+layout(std430, binding = 6) buffer VertexBitangentBuffer {
+    float vertexBitangents[];
+};
+
+uniform int vertex_count;
+uniform int index_count;
+uniform int pass;
+uniform float smoothingFactor;
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+
+    if (pass == 1) {
+        if (id * 3 + 2 < index_count) {
+            // ... existing face normal calculation ...
+            
+            // Store face tangent/bitangent (using dummy UVs)
+            faceNormals[id * 3 + 0] = faceNormal.x;
+            faceNormals[id * 3 + 1] = faceNormal.y;
+            faceNormals[id * 3 + 2] = faceNormal.z;
+        }
+    }
+    else if (pass == 2) {
+        if (id < vertex_count) {
+            vertexNormals[id * 3 + 0] = 0.0;
+            vertexNormals[id * 3 + 1] = 0.0;
+            vertexNormals[id * 3 + 2] = 0.0;
+            
+            vertexTangents[id * 3 + 0] = 0.0;
+            vertexTangents[id * 3 + 1] = 0.0;
+            vertexTangents[id * 3 + 2] = 0.0;
+            
+            vertexBitangents[id * 3 + 0] = 0.0;
+            vertexBitangents[id * 3 + 1] = 0.0;
+            vertexBitangents[id * 3 + 2] = 0.0;
+            
+            vertexTriangleCounts[id] = 0;
+        }
+    }
+    else if (pass == 3) {
+        if (id < vertex_count) {
+            vec3 normalSum = vec3(0.0);
+            vec3 tangentSum = vec3(0.0);
+            vec3 bitangentSum = vec3(0.0);
+            
+            for (uint tri = 0; tri * 3 + 2 < index_count; ++tri) {
+                int i1 = indices[tri * 3 + 0];
+                int i2 = indices[tri * 3 + 1];
+                int i3 = indices[tri * 3 + 2];
+                
+                if (i1 == id || i2 == id || i3 == id) {
+                    // Get triangle vertices
+                    vec3 v1 = vec3(positions[i1 * 3], positions[i1 * 3 + 1], positions[i1 * 3 + 2]);
+                    vec3 v2 = vec3(positions[i2 * 3], positions[i2 * 3 + 1], positions[i2 * 3 + 2]);
+                    vec3 v3 = vec3(positions[i3 * 3], positions[i3 * 3 + 1], positions[i3 * 3 + 2]);
+                    
+                    // Calculate edges
+                    vec3 edge1 = v2 - v1;
+                    vec3 edge2 = v3 - v1;
+                    
+                    // Dummy UV coordinates (since you don't have texture coordinates)
+                    vec2 uv1 = vec2(0.0, 0.0);
+                    vec2 uv2 = vec2(1.0, 0.0);
+                    vec2 uv3 = vec2(0.0, 1.0);
+                    vec2 deltaUV1 = uv2 - uv1;
+                    vec2 deltaUV2 = uv3 - uv1;
+                    
+                    // Calculate tangent/bitangent
+                    float f = 1.0 / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+                    vec3 tangent = f * (deltaUV2.y * edge1 - deltaUV1.y * edge2);
+                    vec3 bitangent = f * (-deltaUV2.x * edge1 + deltaUV1.x * edge2);
+                    
+                    // Get face normal
+                    vec3 fn = cross(edge1, edge2);
+                    
+                    // Calculate weight (angle at vertex)
+                    float weight = 1.0;
+                    vec3 thisPos = vec3(positions[id * 3], positions[id * 3 + 1], positions[id * 3 + 2]);
+                    
+                    if (id == i1) {
+                        vec3 e1 = normalize(v2 - v1);
+                        vec3 e2 = normalize(v3 - v1);
+                        weight = acos(clamp(dot(e1, e2), -1.0, 1.0));
+                    } else if (id == i2) {
+                        vec3 e1 = normalize(v1 - v2);
+                        vec3 e2 = normalize(v3 - v2);
+                        weight = acos(clamp(dot(e1, e2), -1.0, 1.0));
+                    } else if (id == i3) {
+                        vec3 e1 = normalize(v1 - v3);
+                        vec3 e2 = normalize(v2 - v3);
+                        weight = acos(clamp(dot(e1, e2), -1.0, 1.0));
+                    }
+                    
+                    // Accumulate weighted contributions
+                    normalSum += fn * weight;
+                    tangentSum += tangent * weight;
+                    bitangentSum += bitangent * weight;
+                    vertexTriangleCounts[id]++;
+                }
+            }
+            
+            vertexNormals[id * 3 + 0] = normalSum.x;
+            vertexNormals[id * 3 + 1] = normalSum.y;
+            vertexNormals[id * 3 + 2] = normalSum.z;
+            
+            vertexTangents[id * 3 + 0] = tangentSum.x;
+            vertexTangents[id * 3 + 1] = tangentSum.y;
+            vertexTangents[id * 3 + 2] = tangentSum.z;
+            
+            vertexBitangents[id * 3 + 0] = bitangentSum.x;
+            vertexBitangents[id * 3 + 1] = bitangentSum.y;
+            vertexBitangents[id * 3 + 2] = bitangentSum.z;
+        }
+    }
+    else if (pass == 4) {
+        if (id < vertex_count) {
+            int count = vertexTriangleCounts[id];
+            if (count > 0) {
+                // Normalize normal
+                vec3 n = vec3(
+                    vertexNormals[id * 3 + 0],
+                    vertexNormals[id * 3 + 1],
+                    vertexNormals[id * 3 + 2]
+                );
+                n = normalize(n);
+                
+                // Normalize and orthogonalize tangent
+                vec3 t = vec3(
+                    vertexTangents[id * 3 + 0],
+                    vertexTangents[id * 3 + 1],
+                    vertexTangents[id * 3 + 2]
+                );
+                t = normalize(t - n * dot(n, t)); // Gram-Schmidt
+                
+                // Calculate bitangent (could also use the one we calculated)
+                vec3 b = cross(n, t);
+                
+                // Apply smoothing if needed
+                if (smoothingFactor > 0.0) {
+                    vec3 p = vec3(
+                        positions[id * 3 + 0],
+                        positions[id * 3 + 1],
+                        positions[id * 3 + 2]
+                    );
+                    vec3 sphereNormal = normalize(p);
+                    n = normalize(mix(n, sphereNormal, smoothingFactor));
+                    t = normalize(t - n * dot(n, t)); // Re-orthogonalize
+                    b = cross(n, t);
+                }
+                
+                // Store results
+                vertexNormals[id * 3 + 0] = n.x;
+                vertexNormals[id * 3 + 1] = n.y;
+                vertexNormals[id * 3 + 2] = n.z;
+                
+                vertexTangents[id * 3 + 0] = t.x;
+                vertexTangents[id * 3 + 1] = t.y;
+                vertexTangents[id * 3 + 2] = t.z;
+                
+                vertexBitangents[id * 3 + 0] = b.x;
+                vertexBitangents[id * 3 + 1] = b.y;
+                vertexBitangents[id * 3 + 2] = b.z;
+            } else {
+                // Default values if no triangles
+                vertexNormals[id * 3 + 0] = 0.0;
+                vertexNormals[id * 3 + 1] = 1.0;
+                vertexNormals[id * 3 + 2] = 0.0;
+                
+                vertexTangents[id * 3 + 0] = 1.0;
+                vertexTangents[id * 3 + 1] = 0.0;
+                vertexTangents[id * 3 + 2] = 0.0;
+                
+                vertexBitangents[id * 3 + 0] = 0.0;
+                vertexBitangents[id * 3 + 1] = 0.0;
+                vertexBitangents[id * 3 + 2] = 1.0;
+            }
+        }
+    }
+}
