@@ -111,7 +111,7 @@ void main() {
                     }
                     
                     // Add weighted contribution
-                    vertexTriangleCounts[id] += 1;
+                    vertexTriangleCounts[id] += 1; //hmmm I know I need this but its not working rn correctly
                     normalSum += fn * weight;
                 }
             }

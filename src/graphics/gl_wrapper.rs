@@ -601,7 +601,7 @@ impl ShaderManager {
         println!("3:2");
         self.add_shader("depth", initialize_depth_shader());
         println!("3:3");
-        self.add_shader("light", initialize_light_test_shader());//EDIT EDIT EDIT
+        self.add_shader("light", initialize_light_shader());//EDIT EDIT EDIT
 
         println!("3:4");
     }

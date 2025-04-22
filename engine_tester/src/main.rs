@@ -324,7 +324,7 @@ fn main() {
         //     gl::ClipControl(gl::LOWER_LEFT, gl::ZERO_TO_ONE);//this might muck up some other thigns
         // }
 
-        fpr.render_test(
+        fpr.render(
             &models,
             &camera,
             720,

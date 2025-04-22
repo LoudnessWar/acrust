@@ -197,6 +197,7 @@ void main() {
             fragColor = vec4(normalVis, 1.0);
             break;
     }
+    
     // result = pow(result, vec3(1.0/2.2));
 
     // float ndotv = dot(normal, viewDir);
