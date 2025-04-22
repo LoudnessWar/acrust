@@ -129,7 +129,7 @@ pub fn load_obj_new_normals(file_path: &str) -> Mesh {
         }
     }
     //pick back up heres
-    Mesh::new_normals(&mut vertices, &indices)//thisd is kinda like eeeehhh bc no normals for mesh ig like they aint easy ios what im sayin 
+    Mesh::new_normals_test(&mut vertices, &indices)//thisd is kinda like eeeehhh bc no normals for mesh ig like they aint easy ios what im sayin 
 }
 
 //ok now... I should probably... PROBABLY have new be a function in the trait

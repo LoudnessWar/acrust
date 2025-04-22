@@ -232,13 +232,13 @@ impl Mesh {
         vertex_counts_buffer.store_i32_data(&vec![0; vertex_count]);
     
         // Set up compute shader
-        let mut comp_shader = ShaderProgram::new_compute("shaders/normals.comp");
+        let mut comp_shader = ShaderProgram::new_compute("shaders/1nt.comp");
         comp_shader.bind();
         comp_shader.create_uniforms(vec!["vertex_count", "index_count", "pass"]);
-        comp_shader.create_uniform("smoothingFactor");
+        //comp_shader.create_uniform("smoothingFactor");
         comp_shader.set_uniform1i("vertex_count", &(vertex_count as i32));
         comp_shader.set_uniform1i("index_count", &(indices.len() as i32));
-        comp_shader.set_uniform1f("smoothingFactor", 0.5);
+        //comp_shader.set_uniform1f("smoothingFactor", 0.5);
     
         let work_group_size = 256;
         let triangle_work_groups = (triangle_count + work_group_size - 1) / work_group_size;

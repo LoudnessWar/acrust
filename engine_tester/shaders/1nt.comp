@@ -1,0 +1,576 @@
+#version 450 core
+
+layout(local_size_x = 256) in;
+
+layout(std430, binding = 0) readonly buffer PositionBuffer {
+    float positions[];
+};
+layout(std430, binding = 1) readonly buffer IndexBuffer {
+    int indices[];
+};
+layout(std430, binding = 2) buffer FaceNormalBuffer {
+    float faceNormals[];
+};
+layout(std430, binding = 3) buffer VertexNormalBuffer {
+    float vertexNormals[];
+};
+layout(std430, binding = 4) buffer VertexCountBuffer {
+    int vertexTriangleCounts[];
+};
+
+uniform int vertex_count;
+uniform int index_count;
+uniform int pass;
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+
+    if (pass == 1) {
+        if (id * 3 + 2 < index_count) {
+            int idx1 = indices[id * 3];
+            int idx2 = indices[id * 3 + 1];
+            int idx3 = indices[id * 3 + 2];
+
+            if (idx1 < 0 || idx1 >= vertex_count || 
+                idx2 < 0 || idx2 >= vertex_count || 
+                idx3 < 0 || idx3 >= vertex_count) {
+                faceNormals[id * 3 + 0] = 1.0;
+                faceNormals[id * 3 + 1] = 0.0;
+                faceNormals[id * 3 + 2] = 0.0;
+                return;
+            }
+
+            vec3 v1 = vec3(positions[idx1 * 3 + 0], positions[idx1 * 3 + 1], positions[idx1 * 3 + 2]);
+            vec3 v2 = vec3(positions[idx2 * 3 + 0], positions[idx2 * 3 + 1], positions[idx2 * 3 + 2]);
+            vec3 v3 = vec3(positions[idx3 * 3 + 0], positions[idx3 * 3 + 1], positions[idx3 * 3 + 2]);
+
+            vec3 edge1 = v2 - v1;
+            vec3 edge2 = v3 - v1;
+            vec3 faceNormal = normalize(cross(edge1, edge2));
+
+            if (length(faceNormal) < 0.0001) {
+                faceNormal = normalize(cross(edge2, v1 - v3));
+                if (length(faceNormal) < 0.0001) faceNormal = vec3(0.0, 1.0, 0.0);
+            }
+
+            faceNormals[id * 3 + 0] = faceNormal.x;
+            faceNormals[id * 3 + 1] = faceNormal.y;
+            faceNormals[id * 3 + 2] = faceNormal.z;
+        }
+    }
+    else if (pass == 2) {
+        if (id < vertex_count) {
+            vertexNormals[id * 3 + 0] = 0.0;
+            vertexNormals[id * 3 + 1] = 0.0;
+            vertexNormals[id * 3 + 2] = 0.0;
+            vertexTriangleCounts[id] = 0;
+        }
+    }
+    else if (pass == 3) {
+        if (id < vertex_count) {
+            vec3 normalSum = vec3(0.0);
+            int count = 0;
+
+            for (uint tri = 0; tri * 3 + 2 < index_count; ++tri) {
+                int i1 = indices[tri * 3 + 0];
+                int i2 = indices[tri * 3 + 1];
+                int i3 = indices[tri * 3 + 2];
+
+                if (i1 == id || i2 == id || i3 == id) {
+                    vec3 fn = vec3(
+                        faceNormals[tri * 3 + 0],
+                        faceNormals[tri * 3 + 1],
+                        faceNormals[tri * 3 + 2]
+                    );
+
+                    vec3 p0 = vec3(positions[i1 * 3], positions[i1 * 3 + 1], positions[i1 * 3 + 2]);
+                    vec3 p1 = vec3(positions[i2 * 3], positions[i2 * 3 + 1], positions[i2 * 3 + 2]);
+                    vec3 p2 = vec3(positions[i3 * 3], positions[i3 * 3 + 1], positions[i3 * 3 + 2]);
+
+                    float weight = 1.0;
+                    if (id == i1) {
+                        vec3 e1 = normalize(p1 - p0);
+                        vec3 e2 = normalize(p2 - p0);
+                        weight = acos(clamp(dot(e1, e2), -1.0, 1.0));
+                    } else if (id == i2) {
+                        vec3 e1 = normalize(p0 - p1);
+                        vec3 e2 = normalize(p2 - p1);
+                        weight = acos(clamp(dot(e1, e2), -1.0, 1.0));
+                    } else if (id == i3) {
+                        vec3 e1 = normalize(p0 - p2);
+                        vec3 e2 = normalize(p1 - p2);
+                        weight = acos(clamp(dot(e1, e2), -1.0, 1.0));
+                    }
+
+                    normalSum += fn * weight;
+                    count++;
+                }
+            }
+
+            vertexNormals[id * 3 + 0] = normalSum.x;
+            vertexNormals[id * 3 + 1] = normalSum.y;
+            vertexNormals[id * 3 + 2] = normalSum.z;
+            vertexTriangleCounts[id] = count;
+        }
+    }
+    else if (pass == 4) {
+        if (id < vertex_count) {
+            int count = vertexTriangleCounts[id];
+            if (count > 0) {
+                vec3 n = vec3(
+                    vertexNormals[id * 3 + 0],
+                    vertexNormals[id * 3 + 1],
+                    vertexNormals[id * 3 + 2]
+                ) / float(count);
+
+                float len = length(n);
+                if (len > 0.0001) {
+                    n = normalize(n);
+                } else {
+                    n = vec3(0.0, 1.0, 0.0);
+                }
+
+                vertexNormals[id * 3 + 0] = n.x;
+                vertexNormals[id * 3 + 1] = n.y;
+                vertexNormals[id * 3 + 2] = n.z;
+            } else {
+                vertexNormals[id * 3 + 0] = 0.0;
+                vertexNormals[id * 3 + 1] = 1.0;
+                vertexNormals[id * 3 + 2] = 0.0;
+            }
+        }
+    }
+}
+
+
+//eeeh not the best
+// #version 450 core
+
+// layout(local_size_x = 256) in;
+
+// layout(std430, binding = 0) readonly buffer PositionBuffer {
+//     float positions[];
+// };
+// layout(std430, binding = 1) readonly buffer IndexBuffer {
+//     int indices[];
+// };
+// layout(std430, binding = 2) buffer FaceNormalBuffer {
+//     float faceNormals[];
+// };
+// layout(std430, binding = 3) buffer VertexNormalBuffer {
+//     float vertexNormals[];
+// };
+// layout(std430, binding = 4) buffer VertexCountBuffer {
+//     int vertexTriangleCounts[];
+// };
+
+// uniform int vertex_count;
+// uniform int index_count;
+// uniform int pass;
+
+// void main() {
+//     uint id = gl_GlobalInvocationID.x;
+
+//     if (pass == 1) {
+//         if (id * 3 + 2 < index_count) {
+//             int idx1 = indices[id * 3];
+//             int idx2 = indices[id * 3 + 1];
+//             int idx3 = indices[id * 3 + 2];
+
+//             if (idx1 < 0 || idx1 >= vertex_count || 
+//                 idx2 < 0 || idx2 >= vertex_count || 
+//                 idx3 < 0 || idx3 >= vertex_count) {
+//                 faceNormals[id * 3 + 0] = 1.0;
+//                 faceNormals[id * 3 + 1] = 0.0;
+//                 faceNormals[id * 3 + 2] = 0.0;
+//                 return;
+//             }
+
+//             vec3 v1 = vec3(positions[idx1 * 3 + 0], positions[idx1 * 3 + 1], positions[idx1 * 3 + 2]);
+//             vec3 v2 = vec3(positions[idx2 * 3 + 0], positions[idx2 * 3 + 1], positions[idx2 * 3 + 2]);
+//             vec3 v3 = vec3(positions[idx3 * 3 + 0], positions[idx3 * 3 + 1], positions[idx3 * 3 + 2]);
+
+//             vec3 edge1 = v2 - v1;
+//             vec3 edge2 = v3 - v1;
+//             vec3 faceNormal = normalize(cross(edge1, edge2));
+
+//             if (length(faceNormal) < 0.0001) {
+//                 faceNormal = normalize(cross(edge2, v1 - v3));
+//                 if (length(faceNormal) < 0.0001) faceNormal = vec3(0.0, 1.0, 0.0);
+//             }
+
+//             faceNormals[id * 3 + 0] = faceNormal.x;
+//             faceNormals[id * 3 + 1] = faceNormal.y;
+//             faceNormals[id * 3 + 2] = faceNormal.z;
+//         }
+//     }
+//     else if (pass == 2) {
+//         if (id < vertex_count) {
+//             vertexNormals[id * 3 + 0] = 0.0;
+//             vertexNormals[id * 3 + 1] = 0.0;
+//             vertexNormals[id * 3 + 2] = 0.0;
+//             vertexTriangleCounts[id] = 0;
+//         }
+//     }
+//     else if (pass == 3) {
+//         if (id < vertex_count) {
+//             vec3 normalSum = vec3(0.0);
+//             int count = 0;
+
+//             for (uint tri = 0; tri * 3 + 2 < index_count; ++tri) {
+//                 int i1 = indices[tri * 3 + 0];
+//                 int i2 = indices[tri * 3 + 1];
+//                 int i3 = indices[tri * 3 + 2];
+
+//                 if (i1 == id || i2 == id || i3 == id) {
+//                     vec3 fn = vec3(
+//                         faceNormals[tri * 3 + 0],
+//                         faceNormals[tri * 3 + 1],
+//                         faceNormals[tri * 3 + 2]
+//                     );
+
+//                     vec3 p0 = vec3(positions[i1 * 3], positions[i1 * 3 + 1], positions[i1 * 3 + 2]);
+//                     vec3 p1 = vec3(positions[i2 * 3], positions[i2 * 3 + 1], positions[i2 * 3 + 2]);
+//                     vec3 p2 = vec3(positions[i3 * 3], positions[i3 * 3 + 1], positions[i3 * 3 + 2]);
+
+//                     float weight = 1.0;
+//                     if (id == i1) {
+//                         vec3 e1 = normalize(p1 - p0);
+//                         vec3 e2 = normalize(p2 - p0);
+//                         weight = acos(clamp(dot(e1, e2), -1.0, 1.0));
+//                     } else if (id == i2) {
+//                         vec3 e1 = normalize(p0 - p1);
+//                         vec3 e2 = normalize(p2 - p1);
+//                         weight = acos(clamp(dot(e1, e2), -1.0, 1.0));
+//                     } else if (id == i3) {
+//                         vec3 e1 = normalize(p0 - p2);
+//                         vec3 e2 = normalize(p1 - p2);
+//                         weight = acos(clamp(dot(e1, e2), -1.0, 1.0));
+//                     }
+
+//                     normalSum += fn * weight;
+//                     count++;
+//                 }
+//             }
+
+//             vertexNormals[id * 3 + 0] = normalSum.x;
+//             vertexNormals[id * 3 + 1] = normalSum.y;
+//             vertexNormals[id * 3 + 2] = normalSum.z;
+//             vertexTriangleCounts[id] = count;
+//         }
+//     }
+//     else if (pass == 4) {
+//         if (id < vertex_count) {
+//             int count = vertexTriangleCounts[id];
+//             if (count > 0) {
+//                 vec3 n = vec3(
+//                     vertexNormals[id * 3 + 0],
+//                     vertexNormals[id * 3 + 1],
+//                     vertexNormals[id * 3 + 2]
+//                 ) / float(count);
+
+//                 float len = length(n);
+//                 if (len > 0.0001) {
+//                     n = normalize(n);
+//                 } else {
+//                     n = vec3(0.0, 1.0, 0.0);
+//                 }
+
+//                 vertexNormals[id * 3 + 0] = n.x;
+//                 vertexNormals[id * 3 + 1] = n.y;
+//                 vertexNormals[id * 3 + 2] = n.z;
+//             } else {
+//                 vertexNormals[id * 3 + 0] = 0.0;
+//                 vertexNormals[id * 3 + 1] = 1.0;
+//                 vertexNormals[id * 3 + 2] = 0.0;
+//             }
+//         }
+//     }
+// }
+
+
+
+
+//normals of all 0 1 0 but smooth
+// #version 450 core
+
+// layout(local_size_x = 256) in;
+
+// layout(std430, binding = 0) readonly buffer PositionBuffer {
+//     float positions[];
+// };
+// layout(std430, binding = 1) readonly buffer IndexBuffer {
+//     int indices[];
+// };
+// layout(std430, binding = 2) buffer FaceNormalBuffer {
+//     float faceNormals[];
+// };
+// layout(std430, binding = 3) buffer VertexNormalBuffer {
+//     float vertexNormals[];
+// };
+// layout(std430, binding = 4) buffer VertexCountBuffer {
+//     int vertexTriangleCounts[];
+// };
+
+// uniform int vertex_count;
+// uniform int index_count;
+// uniform int pass;
+// uniform float smoothingFactor;
+
+// void main() {
+//     uint id = gl_GlobalInvocationID.x;
+
+//     if (pass == 1) {
+//         if (id * 3 + 2 < index_count) {
+//             int idx1 = indices[id * 3];
+//             int idx2 = indices[id * 3 + 1];
+//             int idx3 = indices[id * 3 + 2];
+
+//             if (idx1 < 0 || idx1 >= vertex_count || 
+//                 idx2 < 0 || idx2 >= vertex_count || 
+//                 idx3 < 0 || idx3 >= vertex_count) {
+//                 faceNormals[id * 3 + 0] = 1.0;
+//                 faceNormals[id * 3 + 1] = 0.0;
+//                 faceNormals[id * 3 + 2] = 0.0;
+//                 return;
+//             }
+
+//             vec3 v1 = vec3(positions[idx1 * 3 + 0], positions[idx1 * 3 + 1], positions[idx1 * 3 + 2]);
+//             vec3 v2 = vec3(positions[idx2 * 3 + 0], positions[idx2 * 3 + 1], positions[idx2 * 3 + 2]);
+//             vec3 v3 = vec3(positions[idx3 * 3 + 0], positions[idx3 * 3 + 1], positions[idx3 * 3 + 2]);
+
+//             vec3 edge1 = v2 - v1;
+//             vec3 edge2 = v3 - v1;
+//             vec3 faceNormal = normalize(cross(edge1, edge2));
+//             //if (faceNormal.z < 0.0) faceNormal = -faceNormal;
+
+//             //if (length(faceNormal) < 0.0001) faceNormal = vec3(0.0, 1.0, 0.0);
+
+//             if (length(faceNormal) < 0.0001) {
+//                 faceNormal = normalize(cross(edge2, v1 - v3));
+//                 if (length(faceNormal) < 0.0001) faceNormal = vec3(0.0, 1.0, 0.0);
+//             }
+
+//             faceNormals[id * 3 + 0] = faceNormal.x;
+//             faceNormals[id * 3 + 1] = faceNormal.y;
+//             faceNormals[id * 3 + 2] = faceNormal.z;
+//         }
+//     }
+//     else if (pass == 2) {
+//         if (id < vertex_count) {
+//             vertexNormals[id * 3 + 0] = 0.0;
+//             vertexNormals[id * 3 + 1] = 0.0;
+//             vertexNormals[id * 3 + 2] = 0.0;
+//             vertexTriangleCounts[id] = 0;
+//         }
+//     }
+//     else if (pass == 3) {//TODO Just add this pass to the cpu in the mesh bruh
+//         if (id < vertex_count) {
+//             vec3 normalSum = vec3(0.0);
+            
+//             for (uint tri = 0; tri * 3 + 2 < index_count; ++tri) {
+//                 int i1 = indices[tri * 3 + 0];
+//                 int i2 = indices[tri * 3 + 1];
+//                 int i3 = indices[tri * 3 + 2];
+                
+//                 if (i1 == id || i2 == id || i3 == id) {
+//                     // Get the face normal
+//                     vec3 fn = vec3(
+//                         faceNormals[tri * 3 + 0],
+//                         faceNormals[tri * 3 + 1],
+//                         faceNormals[tri * 3 + 2]
+//                     );
+                    
+//                     // Get all vertices of the triangle
+//                     vec3 v1 = vec3(positions[i1 * 3], positions[i1 * 3 + 1], positions[i1 * 3 + 2]);
+//                     vec3 v2 = vec3(positions[i2 * 3], positions[i2 * 3 + 1], positions[i2 * 3 + 2]);
+//                     vec3 v3 = vec3(positions[i3 * 3], positions[i3 * 3 + 1], positions[i3 * 3 + 2]);
+                    
+//                     // Calculate angle at this vertex
+//                     float weight = 1.0;
+//                     vec3 thisPos = vec3(positions[id * 3], positions[id * 3 + 1], positions[id * 3 + 2]);
+                    
+//                     if (id == i1) {
+//                         vec3 e1 = normalize(v2 - v1);
+//                         vec3 e2 = normalize(v3 - v1);
+//                         weight = acos(clamp(dot(e1, e2), -1.0, 1.0));
+//                     } else if (id == i2) {
+//                         vec3 e1 = normalize(v1 - v2);
+//                         vec3 e2 = normalize(v3 - v2);
+//                         weight = acos(clamp(dot(e1, e2), -1.0, 1.0));
+//                     } else if (id == i3) {
+//                         vec3 e1 = normalize(v1 - v3);
+//                         vec3 e2 = normalize(v2 - v3);
+//                         weight = acos(clamp(dot(e1, e2), -1.0, 1.0));
+//                     }
+                    
+//                     // Add weighted contribution
+//                     normalSum += fn * weight;
+//                 }
+//             }
+            
+//             vertexNormals[id * 3 + 0] = normalSum.x;
+//             vertexNormals[id * 3 + 1] = normalSum.y;
+//             vertexNormals[id * 3 + 2] = normalSum.z;
+//         }
+//     }
+//     else if (pass == 4) {
+//         if (id < vertex_count) {
+//             int count = vertexTriangleCounts[id];
+//             if (count > 0) {
+//                 // Get the accumulated normal
+//                 vec3 n = vec3(
+//                     vertexNormals[id * 3 + 0],
+//                     vertexNormals[id * 3 + 1],
+//                     vertexNormals[id * 3 + 2]
+//                 ) / float(count);
+                
+//                 // Calculate a sharper normal (less smoothed)
+//                 vec3 sharpNormal = vec3(0.0, 1.0, 0.0);
+//                 float len = length(n);
+//                 if (len > 0.0001) {
+//                     sharpNormal = n / len;
+//                 }
+                
+//                 // Calculate a more smoothed normal
+//                 // For example, blend with neighboring normals or use a sphere normal
+//                 vec3 p = vec3(
+//                     positions[id * 3 + 0],
+//                     positions[id * 3 + 1],
+//                     positions[id * 3 + 2]
+//                 );
+//                 vec3 sphereNormal = normalize(p); // Simple sphere normal
+                
+//                 // Apply smoothing factor to blend between sharp and smooth
+//                 vec3 finalNormal = normalize(mix(sharpNormal, sphereNormal, smoothingFactor));
+                
+//                 // Store the result
+//                 vertexNormals[id * 3 + 0] = finalNormal.x;
+//                 vertexNormals[id * 3 + 1] = finalNormal.y;
+//                 vertexNormals[id * 3 + 2] = finalNormal.z;
+//             } else {
+//                 vertexNormals[id * 3 + 0] = 0.0;
+//                 vertexNormals[id * 3 + 1] = 1.0;
+//                 vertexNormals[id * 3 + 2] = 0.0;
+//             }
+//         }
+//     }
+// }
+
+//looks like a diamond
+// #version 450 core
+
+// layout(local_size_x = 256) in;
+
+// layout(std430, binding = 0) readonly buffer PositionBuffer {
+//     float positions[];
+// };
+// layout(std430, binding = 1) readonly buffer IndexBuffer {
+//     int indices[];
+// };
+// layout(std430, binding = 2) buffer FaceNormalBuffer {
+//     float faceNormals[];
+// };
+// layout(std430, binding = 3) buffer VertexNormalBuffer {
+//     float vertexNormals[];
+// };
+// layout(std430, binding = 4) buffer VertexCountBuffer {
+//     int vertexTriangleCounts[];
+// };
+
+// uniform int vertex_count;
+// uniform int index_count;
+// uniform int pass;
+
+// void main() {
+//     uint id = gl_GlobalInvocationID.x;
+
+//     if (pass == 1) {
+//         if (id * 3 + 2 < index_count) {
+//             int idx1 = indices[id * 3];
+//             int idx2 = indices[id * 3 + 1];
+//             int idx3 = indices[id * 3 + 2];
+
+//             if (idx1 < 0 || idx1 >= vertex_count || 
+//                 idx2 < 0 || idx2 >= vertex_count || 
+//                 idx3 < 0 || idx3 >= vertex_count) {
+//                 faceNormals[id * 3 + 0] = 1.0;
+//                 faceNormals[id * 3 + 1] = 0.0;
+//                 faceNormals[id * 3 + 2] = 0.0;
+//                 return;
+//             }
+
+//             vec3 v1 = vec3(positions[idx1 * 3 + 0], positions[idx1 * 3 + 1], positions[idx1 * 3 + 2]);
+//             vec3 v2 = vec3(positions[idx2 * 3 + 0], positions[idx2 * 3 + 1], positions[idx2 * 3 + 2]);
+//             vec3 v3 = vec3(positions[idx3 * 3 + 0], positions[idx3 * 3 + 1], positions[idx3 * 3 + 2]);
+
+//             vec3 edge1 = v2 - v1;
+//             vec3 edge2 = v3 - v1;
+//             vec3 faceNormal = normalize(cross(edge1, edge2));
+//             if (faceNormal.z < 0.0) faceNormal = -faceNormal;
+
+//             if (length(faceNormal) < 0.0001) faceNormal = vec3(0.0, 1.0, 0.0);
+
+//             faceNormals[id * 3 + 0] = faceNormal.x;
+//             faceNormals[id * 3 + 1] = faceNormal.y;
+//             faceNormals[id * 3 + 2] = faceNormal.z;
+//         }
+//     }
+//     else if (pass == 2) {
+//         if (id < vertex_count) {
+//             vertexNormals[id * 3 + 0] = 0.0;
+//             vertexNormals[id * 3 + 1] = 0.0;
+//             vertexNormals[id * 3 + 2] = 0.0;
+//             vertexTriangleCounts[id] = 0;
+//         }
+//     }
+//     else if (pass == 3) {
+//         if (id < vertex_count) {
+//             vec3 normalSum = vec3(0.0);
+//             int count = 0;
+//             for (uint tri = 0; tri * 3 + 2 < index_count; ++tri) {
+//                 int i1 = indices[tri * 3 + 0];
+//                 int i2 = indices[tri * 3 + 1];
+//                 int i3 = indices[tri * 3 + 2];
+
+//                 if (i1 == id || i2 == id || i3 == id) {
+//                     vec3 fn = vec3(
+//                         faceNormals[tri * 3 + 0],
+//                         faceNormals[tri * 3 + 1],
+//                         faceNormals[tri * 3 + 2]
+//                     );
+//                     normalSum += fn;
+//                     count++;
+//                 }
+//             }
+//             vertexNormals[id * 3 + 0] = normalSum.x;
+//             vertexNormals[id * 3 + 1] = normalSum.y;
+//             vertexNormals[id * 3 + 2] = normalSum.z;
+//             vertexTriangleCounts[id] = count;
+//         }
+//     }
+//     else if (pass == 4) {
+//         if (id < vertex_count) {
+//             int count = vertexTriangleCounts[id];
+//             if (count > 0) {
+//                 vec3 n = vec3(
+//                     vertexNormals[id * 3 + 0],
+//                     vertexNormals[id * 3 + 1],
+//                     vertexNormals[id * 3 + 2]
+//                 ) / float(count);
+
+//                 float len = length(n);
+//                 if (len > 0.0001) n /= len;
+//                 else n = vec3(0.0, 1.0, 0.0);
+
+//                 vertexNormals[id * 3 + 0] = n.x;
+//                 vertexNormals[id * 3 + 1] = n.y;
+//                 vertexNormals[id * 3 + 2] = n.z;
+//             } else {
+//                 vertexNormals[id * 3 + 0] = 0.0;
+//                 vertexNormals[id * 3 + 1] = 1.0;
+//                 vertexNormals[id * 3 + 2] = 0.0;
+//             }
+//         }
+//     }
+// }

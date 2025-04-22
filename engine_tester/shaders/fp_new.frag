@@ -94,7 +94,7 @@ void main() {
     }
 
     vec3 fragPos = fragment_in.fragmentPosition;
-    vec3 viewDir = normalize(fragPos);
+    vec3 viewDir = normalize(-fragPos);
 
     vec3 color = vec3(0.0);
 
