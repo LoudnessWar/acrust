@@ -499,7 +499,7 @@ impl Mesh {
         let bitangents_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
     
         // Set up compute shader
-        let mut comp_shader = ShaderProgram::new_compute("shaders_fp/normals.comp");
+        let mut comp_shader = ShaderProgram::new_compute("shaderfp/normals.comp");
         comp_shader.bind();
         comp_shader.create_uniforms(vec!["vertex_count", "index_count", "pass"]);
         comp_shader.create_uniform("smoothingFactor");
@@ -589,6 +589,16 @@ impl Mesh {
             
             // Bitangent (3 floats) - could be calculated in shader instead
             new_vertices.extend_from_slice(&bitangents[i*3..i*3+3]);
+        }
+
+        println!("First 10 normals:");
+        for i in 0..10.min(vertex_count) {
+            println!("Vertex {}: ({:.3}, {:.3}, {:.3})", 
+                i, 
+                new_vertices[i*3], 
+                new_vertices[i*3+1], 
+                new_vertices[i*3+2]
+            );
         }
     
         // Update VBO with new vertex format

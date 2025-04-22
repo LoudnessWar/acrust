@@ -572,7 +572,7 @@ impl ShaderManager {
 
     pub fn init_forward_plus(&mut self){
 
-
+        
     //this is all like initializing debug stuff
         unsafe {
             gl::Enable(gl::DEBUG_OUTPUT);
@@ -580,6 +580,8 @@ impl ShaderManager {
             gl::DebugMessageCallback(Some(debug_callback), std::ptr::null());
         }
         
+        println!("3:1");
+
         extern "system" fn debug_callback(
             source: GLenum,
             type_: GLenum,
@@ -596,9 +598,12 @@ impl ShaderManager {
             }
         }
 
-
+        println!("3:2");
         self.add_shader("depth", initialize_depth_shader());
+        println!("3:3");
         self.add_shader("light", initialize_light_shader());//EDIT EDIT EDIT
+
+        println!("3:4");
     }
 
     pub fn init_forward_plus_light_debug(&mut self){
@@ -1479,6 +1484,23 @@ fn initialize_light_shader() -> ShaderProgram {//i could make this dynamic but l
     light.create_uniform("u_diffuseColor");//why was this ok that it was like not there
     light
 }
+
+fn initialize_light_shader_plus() -> ShaderProgram {//i could make this dynamic but like bruh
+    println!(":1");
+    let mut light = ShaderProgram::new("shaderfp/plus.vert","shaderfp/plus.frag");
+    light.create_uniform("model");
+    light.create_uniform("view");
+    light.create_uniform("projection");
+    light.create_uniform("u_specularPower");
+    light.create_uniform("u_tileCountX");
+    //light.create_uniforms(vec!["u_tileCountY", "u_screenWidth", "u_screenHeight"]);
+    //light.create_uniform("u_depthTex");
+    light.create_uniform("u_lightCount");
+    light.create_uniform("u_diffuseColor");//why was this ok that it was like not there
+    print!(":2");
+    light
+}
+
 
 fn initialize_light_test_shader() -> ShaderProgram {//i could make this dynamic but like bruh
     let mut light = ShaderProgram::new("shaders/forward_plus.vert","shaders/fp_new.frag");

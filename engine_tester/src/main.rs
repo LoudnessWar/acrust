@@ -58,6 +58,8 @@ mod wave_generator;
 mod midi;
 
 fn main() {
+
+    println!("1:");
     let mut window = Window::new(720, 720, "CUBE!", 60);
     window.init_gl();
 
@@ -69,10 +71,16 @@ fn main() {
 
     //shader_manager.init_forward_plus_light_debug();
 
+    println!("2:");
+
     shader_manager.init_forward_plus();
+
+    println!("3:");
 
     let depth_shader = shader_manager.get_shader("depth").unwrap();
     let light_shader = shader_manager.get_shader("light").unwrap();
+
+    println!("4:");
 
     let mut ui_shader = ShaderProgram::new("shaders/ui_vertex.glsl", "shaders/ui_fragment.glsl");
     ui_shader.create_uniform("projection");
@@ -171,6 +179,8 @@ fn main() {
 
     let mut ds = DragState::new();
 
+    
+
     let mut fpr = ForwardPlusRenderer::new(&shader_manager);
 
     fpr.add_light(
@@ -188,10 +198,10 @@ fn main() {
     );
 
     fpr.initialize_light_culling(720, 720, &shader_manager);//this just calls init gpu culling to the created lightmanager that is inside of FPR
-
+    println!("1:");
     let models: Vec<Model> = vec![Model::new(load_obj_new_normals("models/teddy.obj"), WorldCoords::new(0.0, 0.0, 0.0, 0.0), mat_man.get_mat("mat2"))];
 
-    
+    println!("2:");
     while !window.should_close() {
         unsafe {
             gl::ClearColor(0.3, 0.3, 0.3, 1.0);

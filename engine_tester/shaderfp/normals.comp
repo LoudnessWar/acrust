@@ -37,7 +37,34 @@ void main() {
 
     if (pass == 1) {
         if (id * 3 + 2 < index_count) {
-            // ... existing face normal calculation ...
+            int idx1 = indices[id * 3];
+            int idx2 = indices[id * 3 + 1];
+            int idx3 = indices[id * 3 + 2];
+
+            if (idx1 < 0 || idx1 >= vertex_count || 
+                idx2 < 0 || idx2 >= vertex_count || 
+                idx3 < 0 || idx3 >= vertex_count) {
+                faceNormals[id * 3 + 0] = 1.0;
+                faceNormals[id * 3 + 1] = 0.0;
+                faceNormals[id * 3 + 2] = 0.0;
+                return;
+            }
+
+            vec3 v1 = vec3(positions[idx1 * 3 + 0], positions[idx1 * 3 + 1], positions[idx1 * 3 + 2]);
+            vec3 v2 = vec3(positions[idx2 * 3 + 0], positions[idx2 * 3 + 1], positions[idx2 * 3 + 2]);
+            vec3 v3 = vec3(positions[idx3 * 3 + 0], positions[idx3 * 3 + 1], positions[idx3 * 3 + 2]);
+
+            vec3 edge1 = v2 - v1;
+            vec3 edge2 = v3 - v1;
+            vec3 faceNormal = normalize(cross(edge1, edge2));
+            //if (faceNormal.z < 0.0) faceNormal = -faceNormal;
+
+            //if (length(faceNormal) < 0.0001) faceNormal = vec3(0.0, 1.0, 0.0);
+
+            if (length(faceNormal) < 0.0001) {
+                faceNormal = normalize(cross(edge2, v1 - v3));
+                if (length(faceNormal) < 0.0001) faceNormal = vec3(0.0, 1.0, 0.0);
+            }
             
             // Store face tangent/bitangent (using dummy UVs)
             faceNormals[id * 3 + 0] = faceNormal.x;
