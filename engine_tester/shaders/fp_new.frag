@@ -132,7 +132,7 @@ void main() {
         color *= vec3(1.2, 1.0, 1.0);
     }
 
-    int mode = 4; // Default visual mode
+    int mode = 9; // Default visual mode
     
     switch (mode) {
         case 0:

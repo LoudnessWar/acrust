@@ -200,7 +200,7 @@ impl Mesh {
         let vertex_count = vertices.len() / stride;
         let triangle_count = indices.len() / 3;
         
-        //unsafe { gl::Disable(gl::CULL_FACE); }
+        unsafe { gl::Disable(gl::CULL_FACE); }
     
         // 1. Create position buffer (xyz only)
         let positions_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::STATIC_DRAW);
@@ -308,6 +308,8 @@ impl Mesh {
         // Update VBO
         self.vbo.bind();
         self.vbo.store_f32_data(vertices);
+
+        unsafe { gl::Enable(gl::CULL_FACE); }
     }
 
     pub fn new_normals_test(vertices: &mut [f32], indices: &[i32]) -> Self {

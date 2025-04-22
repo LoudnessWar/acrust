@@ -37,12 +37,27 @@ uniform mat4 view;
 out vec4 fragColor;
 
 // Improved attenuation function
+// float attenuate(vec3 lightDirection, float radius) {
+//     float distance = length(lightDirection);
+//     float normalizedDist = distance / radius;
+//     float attenuation = 1.0 / (1.0 + 25.0 * normalizedDist * normalizedDist);
+//     return smoothstep(0.0, 1.0, attenuation);
+// }
+
+// float attenuate(vec3 lightDir, float radius) {
+//     float d = length(lightDir);
+//     float norm = d / radius;
+//     float att = pow(1.0 - clamp(norm, 0.0, 1.0), 2.0); // quadratic smooth fade
+//     return att;
+// }
+
 float attenuate(vec3 lightDirection, float radius) {
     float distance = length(lightDirection);
-    float normalizedDist = distance / radius;
-    float attenuation = 1.0 / (1.0 + 25.0 * normalizedDist * normalizedDist);
-    return smoothstep(0.0, 1.0, attenuation);
+    float normDist = distance / radius;
+    float falloff = clamp(1.0 - normDist, 0.0, 1.0);
+    return falloff * falloff;
 }
+
 
 void main() {
     ivec2 location = ivec2(gl_FragCoord.xy);
@@ -73,11 +88,11 @@ void main() {
         vec3 lightDir = lightPos - fragment_in.fragmentPosition;
         float distance = length(lightDir);
         
-        if (distance > light.radius) continue;
+        if (distance >= light.radius) continue;
         
         lightDir = normalize(lightDir);
         float attenuation = attenuate(lightDir, light.radius);
-        
+
         // Diffuse
         float diff = max(dot(normal, lightDir), 0.0);
         diffuse += light.color * diff * attenuation;
@@ -90,11 +105,14 @@ void main() {
 
     // Combine lighting
     vec3 result = (diffuse * u_diffuseColor.rgb) + specular;
-    result += u_diffuseColor.rgb * 0.03;  // Ambient
+    result += u_diffuseColor.rgb * 0.03;
 
     result = pow(result, vec3(1.0/2.2));
+
+    float ndotv = dot(normal, viewDir);
+    vec3 debugColor = vec3(ndotv > 0 ? ndotv : 0, 0, ndotv < 0 ? -ndotv : 0);
     
-    fragColor = vec4(result, u_diffuseColor.a);
+    fragColor = vec4(debugColor, u_diffuseColor.a);
 }
 
 // #version 430 core

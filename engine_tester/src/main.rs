@@ -185,16 +185,16 @@ fn main() {
 
     fpr.add_light(
         [0.0, -1.0, 20.0],  // position
-        250.0,             // radius
+        50.0,             // radius
         [1.0, 1.0, 1.0],  // color (white)
-        0.1               // this like... doesnt do anything
+        10.1               // this like... doesnt do anything
     );
 
     fpr.add_light(
         [0.0, 20.0, 0.0],
-        60.0, // Giant radius
+        20.0, // Giant radius
         [0.2, 0.3, 1.0],
-        0.1
+        10.1
     );
 
     fpr.initialize_light_culling(720, 720, &shader_manager);//this just calls init gpu culling to the created lightmanager that is inside of FPR
@@ -324,7 +324,7 @@ fn main() {
         //     gl::ClipControl(gl::LOWER_LEFT, gl::ZERO_TO_ONE);//this might muck up some other thigns
         // }
 
-        fpr.render(
+        fpr.render_test(
             &models,
             &camera,
             720,
