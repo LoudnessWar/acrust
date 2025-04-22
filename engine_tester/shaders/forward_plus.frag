@@ -51,19 +51,19 @@ out vec4 fragColor;
 //     return att;
 // }
 
-float attenuate(vec3 lightDirection, float radius) {
-    float distance = length(lightDirection);
-    float normDist = distance / radius;
-    float falloff = clamp(1.0 - normDist, 0.0, 1.0);
-    return falloff * falloff;
-}
-
 // float attenuate(vec3 lightDirection, float radius) {
 //     float distance = length(lightDirection);
-//     float normalizedDist = distance / radius;
-//     float attenuation = 1.0 / (1.0 + 25.0 * normalizedDist * normalizedDist);
-//     return smoothstep(0.0, 1.0, attenuation);
+//     float normDist = distance / radius;
+//     float falloff = clamp(1.0 - normDist, 0.0, 1.0);
+//     return falloff * falloff;
 // }
+
+float attenuate(vec3 lightDirection, float radius) {
+    float distance = length(lightDirection);
+    float normalizedDist = distance / radius;
+    float attenuation = 1.0 / (1.0 + 25.0 * normalizedDist * normalizedDist);
+    return smoothstep(0.0, 1.0, attenuation);
+}
 
 vec3 heatMapColor(float value) {
     const vec3 c1 = vec3(0.0, 0.0, 1.0);
@@ -91,20 +91,17 @@ void main() {
     int tileIndex = tileID.y * u_tileCountX + tileID.x;
     int tileOffset = tileIndex * 256;
 
-    //funny ones
     uint visibleLightCount = 0;
     float totalInfluence = 0.0;
     int lightCounter = 0;
 
-    // Normalize the view-space normal
     vec3 normal = normalize(fragment_in.normalVector);
-    
-    // View vector points toward the camera (0,0,0 in view space)
-    vec3 viewDir = normalize(-fragment_in.fragmentPosition);
+    vec3 fragPos = fragment_in.fragmentPosition;
+    vec3 viewDir = normalize(-fragPos);
 
-    // if (dot(normal, viewDir) < 0.0) normal = -normal;
-    
-    // Lighting accumulators
+    if (dot(normal, viewDir) < 0.0)
+        normal = -normal;
+
     vec3 diffuse = vec3(0.0);
     vec3 specular = vec3(0.0);
 
@@ -115,65 +112,61 @@ void main() {
         visibleLightCount++;
 
         Light light = lightBuffer.lights[lightIndex];
-        
-        // Transform light to view space
         vec3 lightPos = vec3(view * vec4(light.position, 1.0));
-        vec3 lightDir = lightPos - fragment_in.fragmentPosition;
-        float distance = length(lightDir);
-        
+        vec3 lightVec = lightPos - fragPos;
+        float distance = length(lightVec);
+
         if (distance >= light.radius) continue;
-        
-        
-        float attenuation = attenuate(lightDir, light.radius);
+
+        float attenuation = attenuate(lightVec, light.radius);
         totalInfluence += attenuation;
 
-        lightDir = normalize(lightDir);//why did moving this behind make it so much better
-        // Diffuse
+        vec3 lightDir = normalize(lightVec);
+
         float diff = max(dot(normal, lightDir), 0.0);
         diffuse += light.color * diff * attenuation;
-        
-        // Specular (Blinn-Phong)
-        vec3 halfwayDir = normalize(lightDir + viewDir);
-        float spec = pow(max(dot(normal, halfwayDir), 0.0), u_specularPower);
+
+        vec3 reflectDir = reflect(-lightDir, normal);
+        float shininess = clamp(u_specularPower, 1.0, 64.0);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
+
+        // Apply energy conservation scaling
+        spec *= (1.0 - diff);
+
+        // Optional: Fresnel term
+        float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 5.0);
+        fresnel = mix(0.1, 1.0, fresnel);
+        spec *= fresnel;
+
         specular += light.color * spec * attenuation;
 
         lightCounter++;
     }
 
-    // Combine lighting
     vec3 result = (diffuse * u_diffuseColor.rgb) + specular;
     result += u_diffuseColor.rgb * 0.03;
 
     int mode = 4;
 
-        switch (mode) {
+    switch (mode) {
         case 0:
-            // Raw count of visible lights (grayscale)
             float ratio = float(visibleLightCount) / max(float(u_lightCount), 1.0);
             fragColor = vec4(vec3(ratio), 1.0);
             break;
-            
         case 1:
-            // Heatmap visualization of light count
-            float normalizedCount = float(visibleLightCount) / 3.0; // Adjust based on expected max lights per tile
+            float normalizedCount = float(visibleLightCount) / 3.0;
             fragColor = vec4(heatMapColor(normalizedCount), 1.0);
             break;
-            
         case 2:
-            // Light influence visualization
             fragColor = vec4(heatMapColor(min(totalInfluence / 3.0, 1.0)), 1.0);
             break;
-            
         case 3:
-            // Normal visualization (helps validate geometry)
             fragColor = vec4(normalize(fragment_in.normalVector) * 0.5 + 0.5, 1.0);
-            //fragColor = vec4(normal * 0.5 + 0.5, 1.0);
-            //fragColor = vec4(normalize(normal) * 0.5 + 0.5, 1.0);
             break;
         case 4:
             fragColor = vec4(result, u_diffuseColor.a);
             if (length(fragment_in.normalVector) < 0.001) {
-                fragColor = vec4(1.0, 0.0, 1.0, 1.0); // magenta = BAD normal
+                fragColor = vec4(1.0, 0.0, 1.0, 1.0);
                 return;
             }
             break;
@@ -187,16 +180,17 @@ void main() {
             float val = clamp(float(lightCounter) / 50.0, 0.0, 1.0);
             fragColor = vec4(val, val, val, 1.0);
             break;
-        case 8://jesus that finna give me a seizures
+        case 8:
             fragColor = vec4(sign(normal) * 0.5 + 0.5, 1.0);
             break;
-         case 9: // Added new visualization mode to compare normals
-            // Red = Flat normal, Green = Smooth normal, Yellow = Mix
+        case 9:
             vec3 flatNormal = calculateFlatNormal();
             vec3 normalVis = mix(flatNormal * 0.5 + 0.5, normal * 0.5 + 0.5, 0.5);
             fragColor = vec4(normalVis, 1.0);
             break;
     }
+}
+
     
     // result = pow(result, vec3(1.0/2.2));
 
@@ -204,7 +198,7 @@ void main() {
     // vec3 debugColor = vec3(ndotv > 0 ? ndotv : 0, 0, ndotv < 0 ? -ndotv : 0);
     
     //fragColor = vec4(result, u_diffuseColor.a);
-}
+
 
 // #version 430 core
 
