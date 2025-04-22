@@ -601,7 +601,7 @@ impl ShaderManager {
         println!("3:2");
         self.add_shader("depth", initialize_depth_shader());
         println!("3:3");
-        self.add_shader("light", initialize_light_test_shader());//EDIT EDIT EDIT
+        self.add_shader("light", initialize_light_shader());//EDIT EDIT EDIT
 
         println!("3:4");
     }
@@ -1661,7 +1661,7 @@ impl ForwardPlusRenderer {
         //so what I should do is have a materials trait that has like 2 sub catagories wich is like shader material and forward plus material and they both have like material properties
         //one just had a shader and some other stuff. This would probably greatly simplify it and prevent it from needing to use arc and stuff making it like smaller or whatever
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 1.0);
+        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 0.7);
         
         //self.light_shader.lock().expect("temp_light_shader failed to set uniform").debug_print_uniforms();
         // Render each model with its material

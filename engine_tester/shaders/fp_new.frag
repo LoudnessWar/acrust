@@ -94,7 +94,7 @@ void main() {
     }
 
     vec3 fragPos = fragment_in.fragmentPosition;
-    vec3 viewDir = normalize(-fragPos);
+    vec3 viewDir = normalize(fragPos);
 
     vec3 color = vec3(0.0);
 
@@ -132,7 +132,7 @@ void main() {
         color *= vec3(1.2, 1.0, 1.0);
     }
 
-    int mode = 9; // Default visual mode
+    int mode = 4; // Default visual mode
     
     switch (mode) {
         case 0:

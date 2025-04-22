@@ -82,10 +82,10 @@ impl Mesh {
         ebo.store_i32_data(indices);//why is this not u 32?... maybe useful in some weird situation
 
         // After loading indices, add this check:
-        let max_index = *indices.iter().max().unwrap() as usize;
-        if max_index >= vertices.len() {
-            panic!("Index out of bounds: max_index={}, vertex_count={}", max_index, vertices.len());
-        }
+        // let max_index = *indices.iter().max().unwrap() as usize;
+        // if max_index >= vertices.len() {
+        //     panic!("Index out of bounds: max_index={}, vertex_count={}", max_index, vertices.len());
+        // }
         // Set vertex attributes
 
         //this one is like position
@@ -122,54 +122,54 @@ impl Mesh {
         mesh 
     }
 
-    pub fn new_normals_and_tangents(vertices: &mut [f32], indices: &[i32]) -> Self {
-        let vao = Vao::new();
-        vao.bind();
+    // pub fn new_normals_and_tangents(vertices: &mut [f32], indices: &[i32]) -> Self {
+    //     let vao = Vao::new();
+    //     vao.bind();
 
-        //verticies buffer object
-        let vbo = BufferObject::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW);
-        vbo.bind();
-        vbo.store_f32_data(vertices);
+    //     //verticies buffer object
+    //     let vbo = BufferObject::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW);
+    //     vbo.bind();
+    //     vbo.store_f32_data(vertices);
 
-        //like the incicides buffer object
-        let ebo = BufferObject::new(gl::ELEMENT_ARRAY_BUFFER, gl::STATIC_DRAW);
-        ebo.bind();
-        ebo.store_i32_data(indices);//why is this not u 32?... maybe useful in some weird situation
+    //     //like the incicides buffer object
+    //     let ebo = BufferObject::new(gl::ELEMENT_ARRAY_BUFFER, gl::STATIC_DRAW);
+    //     ebo.bind();
+    //     ebo.store_i32_data(indices);//why is this not u 32?... maybe useful in some weird situation
 
-        // After loading indices, add this check:
-        let max_index = *indices.iter().max().unwrap() as usize;
-        if max_index >= vertices.len() {
-            panic!("Index out of bounds: max_index={}, vertex_count={}", max_index, vertices.len());
-        }
-        // Set vertex attributes
+    //     // After loading indices, add this check:
+    //     let max_index = *indices.iter().max().unwrap() as usize;
+    //     if max_index >= vertices.len() {
+    //         panic!("Index out of bounds: max_index={}, vertex_count={}", max_index, vertices.len());
+    //     }
+    //     // Set vertex attributes
 
-        //this one is like position
-        // why 6 why not 3... isn't it groups of 3?
-        //I forget maybe it wasn't ie color???
-        VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<f32>() as i32, ptr::null()).enable();//this is like the important one
+    //     //this one is like position
+    //     // why 6 why not 3... isn't it groups of 3?
+    //     //I forget maybe it wasn't ie color???
+    //     VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<f32>() as i32, ptr::null()).enable();//this is like the important one
 
-        //this is for color... now, a lot of things dont do color like this and use textures so its kinda ... useless ig it can also be for normals
-        //normals too maybe idk
-        VertexAttribute::new(1, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<GLfloat>() as i32, (3 * mem::size_of::<GLfloat>()) as *const GLvoid).enable();
+    //     //this is for color... now, a lot of things dont do color like this and use textures so its kinda ... useless ig it can also be for normals
+    //     //normals too maybe idk
+    //     VertexAttribute::new(1, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<GLfloat>() as i32, (3 * mem::size_of::<GLfloat>()) as *const GLvoid).enable();
 
-        VertexAttribute::new(3, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<GLfloat>() as i32, (3 * mem::size_of::<GLfloat>()) as *const GLvoid).enable();
+    //     VertexAttribute::new(3, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<GLfloat>() as i32, (3 * mem::size_of::<GLfloat>()) as *const GLvoid).enable();
         
-        VertexAttribute::new(4, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<GLfloat>() as i32, (3 * mem::size_of::<GLfloat>()) as *const GLvoid).enable();
-        vao.unbind();//just to be safe added unbind tbh I should unbind after the thing right im like stupid for having it here? idk its like kinda working
+    //     VertexAttribute::new(4, 3, gl::FLOAT, gl::FALSE, 6 * mem::size_of::<GLfloat>() as i32, (3 * mem::size_of::<GLfloat>()) as *const GLvoid).enable();
+    //     vao.unbind();//just to be safe added unbind tbh I should unbind after the thing right im like stupid for having it here? idk its like kinda working
 
-       let mut mesh = Self {
-            vao,
-            vbo,
-            ebo,
-            index_count: indices.len() as i32,
-            normals_buffer: None,
-            normals: None,//im storing these for now for uuuhhh like debugging purpouses
-        };
+    //    let mut mesh = Self {
+    //         vao,
+    //         vbo,
+    //         ebo,
+    //         index_count: indices.len() as i32,
+    //         normals_buffer: None,
+    //         normals: None,//im storing these for now for uuuhhh like debugging purpouses
+    //     };
 
-        mesh.calculate_normals_and_tangents(vertices, indices);
+    //     mesh.calculate_normals_and_tangents(vertices, indices);
 
-        mesh 
-    }
+    //     mesh 
+    // }
 
     pub fn get_vao(&self) -> &Vao{
         &self.vao
@@ -194,13 +194,14 @@ impl Mesh {
     }
 
     pub fn calculate_normals(&mut self, vertices: &mut [f32], indices: &[i32]) {
+        print!("ye");
         let stride = 6; // Position (3) + Normal (3)
         let normal_offset = 3; // Normal starts after position
         
         let vertex_count = vertices.len() / stride;
         let triangle_count = indices.len() / 3;
         
-        unsafe { gl::Disable(gl::CULL_FACE); }
+        //unsafe { gl::Disable(gl::CULL_FACE); }
     
         // 1. Create position buffer (xyz only)
         let positions_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::STATIC_DRAW);
@@ -287,16 +288,9 @@ impl Mesh {
                 calculated_normals.as_mut_ptr() as *mut _
             );
         }
-    
-        // Update vertex data with new normals
-        for i in 0..vertex_count {
-            let base = i * stride + normal_offset;
-            vertices[base..base+3].copy_from_slice(&calculated_normals[i*3..i*3+3]);
-        }
-    
-        // Debug output
+
         println!("First 10 normals:");
-        for i in 0..10.min(vertex_count) {
+        for i in 0..15.min(vertex_count) {
             println!("Vertex {}: ({:.3}, {:.3}, {:.3})", 
                 i, 
                 calculated_normals[i*3], 
@@ -305,11 +299,20 @@ impl Mesh {
             );
         }
     
+        // Update vertex data with new normals
+        for i in 0..vertex_count {
+            let base = i * stride + normal_offset;
+            vertices[base..base+3].copy_from_slice(&calculated_normals[i*3..i*3+3]);
+        }
+    
+        // Debug output
+        
+    
         // Update VBO
         self.vbo.bind();
         self.vbo.store_f32_data(vertices);
 
-        unsafe { gl::Enable(gl::CULL_FACE); }
+        //unsafe { gl::Enable(gl::CULL_FACE); }
     }
 
     pub fn new_normals_test(vertices: &mut [f32], indices: &[i32]) -> Self {
@@ -462,173 +465,173 @@ impl Mesh {
         self.vbo.store_f32_data(vertices);
     }
 
-    pub fn calculate_normals_and_tangents(&mut self, vertices: &mut [f32], indices: &[i32]) {
-        let stride = 6; // Position (3) + Normal (3)
-        let normal_offset = 3;
+    // pub fn calculate_normals_and_tangents(&mut self, vertices: &mut [f32], indices: &[i32]) {
+    //     let stride = 6; // Position (3) + Normal (3)
+    //     let normal_offset = 3;
         
-        let vertex_count = vertices.len() / stride; // Assuming 6 floats per vertex (position + normal)
-        let triangle_count = indices.len() / 3;
+    //     let vertex_count = vertices.len() / stride; // Assuming 6 floats per vertex (position + normal)
+    //     let triangle_count = indices.len() / 3;
     
-        // Create buffers (reusing your existing buffer creation code)
-        let positions_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::STATIC_DRAW);
-        positions_buffer.bind();
-        let mut positions = Vec::with_capacity(vertex_count * 3);
-        for i in 0..vertex_count {
-            positions.extend_from_slice(&[
-                vertices[i * stride],
-                vertices[i * stride + 1],
-                vertices[i * stride + 2]
-            ]);
-        }
-        positions_buffer.store_f32_data(&positions);
+    //     // Create buffers (reusing your existing buffer creation code)
+    //     let positions_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::STATIC_DRAW);
+    //     positions_buffer.bind();
+    //     let mut positions = Vec::with_capacity(vertex_count * 3);
+    //     for i in 0..vertex_count {
+    //         positions.extend_from_slice(&[
+    //             vertices[i * stride],
+    //             vertices[i * stride + 1],
+    //             vertices[i * stride + 2]
+    //         ]);
+    //     }
+    //     positions_buffer.store_f32_data(&positions);
 
-        let face_normals_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
-        face_normals_buffer.bind();
-        face_normals_buffer.store_f32_data(&vec![0.0; triangle_count * 3]);
+    //     let face_normals_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
+    //     face_normals_buffer.bind();
+    //     face_normals_buffer.store_f32_data(&vec![0.0; triangle_count * 3]);
     
-        // 3. Create vertex normals buffer
-        let vertex_normals_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
-        vertex_normals_buffer.bind();
-        vertex_normals_buffer.store_f32_data(&vec![0.0; vertex_count * 3]);
+    //     // 3. Create vertex normals buffer
+    //     let vertex_normals_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
+    //     vertex_normals_buffer.bind();
+    //     vertex_normals_buffer.store_f32_data(&vec![0.0; vertex_count * 3]);
     
-        // 4. Create vertex counts buffer (with atomic support)
-        let vertex_counts_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_COPY);
-        vertex_counts_buffer.bind();
-        vertex_counts_buffer.store_i32_data(&vec![0; vertex_count]);
+    //     // 4. Create vertex counts buffer (with atomic support)
+    //     let vertex_counts_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_COPY);
+    //     vertex_counts_buffer.bind();
+    //     vertex_counts_buffer.store_i32_data(&vec![0; vertex_count]);
     
-        // Create new buffers for tangents/bitangents
-        let tangents_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
-        let bitangents_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
+    //     // Create new buffers for tangents/bitangents
+    //     let tangents_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
+    //     let bitangents_buffer = BufferObject::new(gl::SHADER_STORAGE_BUFFER, gl::DYNAMIC_DRAW);
     
-        // Set up compute shader
-        let mut comp_shader = ShaderProgram::new_compute("shaderfp/normals.comp");
-        comp_shader.bind();
-        comp_shader.create_uniforms(vec!["vertex_count", "index_count", "pass"]);
-        comp_shader.create_uniform("smoothingFactor");
-        comp_shader.set_uniform1i("vertex_count", &(vertex_count as i32));
-        comp_shader.set_uniform1i("index_count", &(indices.len() as i32));
-        comp_shader.set_uniform1f("smoothingFactor", 0.5);
+    //     // Set up compute shader
+    //     let mut comp_shader = ShaderProgram::new_compute("shaderfp/normals.comp");
+    //     comp_shader.bind();
+    //     comp_shader.create_uniforms(vec!["vertex_count", "index_count", "pass"]);
+    //     comp_shader.create_uniform("smoothingFactor");
+    //     comp_shader.set_uniform1i("vertex_count", &(vertex_count as i32));
+    //     comp_shader.set_uniform1i("index_count", &(indices.len() as i32));
+    //     comp_shader.set_uniform1f("smoothingFactor", 0.5);
 
-        let work_group_size = 256;
-        let triangle_work_groups = (triangle_count + work_group_size - 1) / work_group_size;
-        let vertex_work_groups = (vertex_count + work_group_size - 1) / work_group_size;
+    //     let work_group_size = 256;
+    //     let triangle_work_groups = (triangle_count + work_group_size - 1) / work_group_size;
+    //     let vertex_work_groups = (vertex_count + work_group_size - 1) / work_group_size;
         
-        // Bind all buffers (add the new ones)
-        unsafe {
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, positions_buffer.get_id());
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, self.ebo.get_id());
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, face_normals_buffer.get_id());
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 3, vertex_normals_buffer.get_id());
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 4, vertex_counts_buffer.get_id());
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 5, tangents_buffer.get_id());
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 6, bitangents_buffer.get_id());
-        }
+    //     // Bind all buffers (add the new ones)
+    //     unsafe {
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, positions_buffer.get_id());
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, self.ebo.get_id());
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, face_normals_buffer.get_id());
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 3, vertex_normals_buffer.get_id());
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 4, vertex_counts_buffer.get_id());
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 5, tangents_buffer.get_id());
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 6, bitangents_buffer.get_id());
+    //     }
     
-        comp_shader.dispatch_compute(triangle_work_groups as u32, 1, 1);
-        unsafe { gl::MemoryBarrier(gl::ALL_BARRIER_BITS); }
+    //     comp_shader.dispatch_compute(triangle_work_groups as u32, 1, 1);
+    //     unsafe { gl::MemoryBarrier(gl::ALL_BARRIER_BITS); }
     
-        // Pass 2: Initialize vertex buffers
-        unsafe {
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 3, vertex_normals_buffer.get_id());
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 4, vertex_counts_buffer.get_id());
-            comp_shader.set_uniform1i("pass", &2);
-        }
-        comp_shader.dispatch_compute(vertex_work_groups as u32, 1, 1);
-        unsafe { gl::MemoryBarrier(gl::ALL_BARRIER_BITS); }
+    //     // Pass 2: Initialize vertex buffers
+    //     unsafe {
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 3, vertex_normals_buffer.get_id());
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 4, vertex_counts_buffer.get_id());
+    //         comp_shader.set_uniform1i("pass", &2);
+    //     }
+    //     comp_shader.dispatch_compute(vertex_work_groups as u32, 1, 1);
+    //     unsafe { gl::MemoryBarrier(gl::ALL_BARRIER_BITS); }
     
-        // Pass 3: Accumulate normals
-        unsafe {
-            comp_shader.set_uniform1i("pass", &3);
-        }
-        comp_shader.dispatch_compute(triangle_work_groups as u32, 1, 1);
-        unsafe { gl::MemoryBarrier(gl::ALL_BARRIER_BITS); }
+    //     // Pass 3: Accumulate normals
+    //     unsafe {
+    //         comp_shader.set_uniform1i("pass", &3);
+    //     }
+    //     comp_shader.dispatch_compute(triangle_work_groups as u32, 1, 1);
+    //     unsafe { gl::MemoryBarrier(gl::ALL_BARRIER_BITS); }
     
-        // Pass 4: Normalize vertex normals
-        unsafe {
-            comp_shader.set_uniform1i("pass", &4);
-        }
-        comp_shader.dispatch_compute(vertex_work_groups as u32, 1, 1);
-        unsafe { gl::MemoryBarrier(gl::ALL_BARRIER_BITS); }
+    //     // Pass 4: Normalize vertex normals
+    //     unsafe {
+    //         comp_shader.set_uniform1i("pass", &4);
+    //     }
+    //     comp_shader.dispatch_compute(vertex_work_groups as u32, 1, 1);
+    //     unsafe { gl::MemoryBarrier(gl::ALL_BARRIER_BITS); }
     
-        // After compute shader completes, read back the results
-        let mut new_vertices = Vec::with_capacity(vertex_count * 12); // 12 floats per vertex
+    //     // After compute shader completes, read back the results
+    //     let mut new_vertices = Vec::with_capacity(vertex_count * 12); // 12 floats per vertex
         
-        // Read normals, tangents, bitangents from buffers
-        let mut normals = vec![0.0; vertex_count * 3];
-        let mut tangents = vec![0.0; vertex_count * 3];
-        let mut bitangents = vec![0.0; vertex_count * 3];
+    //     // Read normals, tangents, bitangents from buffers
+    //     let mut normals = vec![0.0; vertex_count * 3];
+    //     let mut tangents = vec![0.0; vertex_count * 3];
+    //     let mut bitangents = vec![0.0; vertex_count * 3];
         
-        vertex_normals_buffer.bind();
-        unsafe {
-            gl::GetBufferSubData(
-                gl::SHADER_STORAGE_BUFFER,
-                0,
-                (vertex_count * 3 * std::mem::size_of::<f32>()) as isize,
-                normals.as_mut_ptr() as *mut _
-            );
-        }
+    //     vertex_normals_buffer.bind();
+    //     unsafe {
+    //         gl::GetBufferSubData(
+    //             gl::SHADER_STORAGE_BUFFER,
+    //             0,
+    //             (vertex_count * 3 * std::mem::size_of::<f32>()) as isize,
+    //             normals.as_mut_ptr() as *mut _
+    //         );
+    //     }
         
-        tangents_buffer.bind();
-        unsafe {
-            gl::GetBufferSubData(
-                gl::SHADER_STORAGE_BUFFER,
-                0,
-                (vertex_count * 3 * std::mem::size_of::<f32>()) as isize,
-                tangents.as_mut_ptr() as *mut _
-            );
-        }
+    //     tangents_buffer.bind();
+    //     unsafe {
+    //         gl::GetBufferSubData(
+    //             gl::SHADER_STORAGE_BUFFER,
+    //             0,
+    //             (vertex_count * 3 * std::mem::size_of::<f32>()) as isize,
+    //             tangents.as_mut_ptr() as *mut _
+    //         );
+    //     }
     
-        // Create new interleaved vertex data
-        for i in 0..vertex_count {
-            // Position (3 floats)
-            new_vertices.extend_from_slice(&vertices[i*6..i*6+3]);
+    //     // Create new interleaved vertex data
+    //     for i in 0..vertex_count {
+    //         // Position (3 floats)
+    //         new_vertices.extend_from_slice(&vertices[i*6..i*6+3]);
             
-            // Normal (3 floats)
-            new_vertices.extend_from_slice(&normals[i*3..i*3+3]);
+    //         // Normal (3 floats)
+    //         new_vertices.extend_from_slice(&normals[i*3..i*3+3]);
             
-            // Tangent (3 floats)
-            new_vertices.extend_from_slice(&tangents[i*3..i*3+3]);
+    //         // Tangent (3 floats)
+    //         new_vertices.extend_from_slice(&tangents[i*3..i*3+3]);
             
-            // Bitangent (3 floats) - could be calculated in shader instead
-            new_vertices.extend_from_slice(&bitangents[i*3..i*3+3]);
-        }
+    //         // Bitangent (3 floats) - could be calculated in shader instead
+    //         new_vertices.extend_from_slice(&bitangents[i*3..i*3+3]);
+    //     }
 
-        println!("First 10 normals:");
-        for i in 0..10.min(vertex_count) {
-            println!("Vertex {}: ({:.3}, {:.3}, {:.3})", 
-                i, 
-                new_vertices[i*3], 
-                new_vertices[i*3+1], 
-                new_vertices[i*3+2]
-            );
-        }
+    //     println!("First 10 normals:");
+    //     for i in 0..10.min(vertex_count) {
+    //         println!("Vertex {}: ({:.3}, {:.3}, {:.3})", 
+    //             i, 
+    //             new_vertices[i*3], 
+    //             new_vertices[i*3+1], 
+    //             new_vertices[i*3+2]
+    //         );
+    //     }
     
-        // Update VBO with new vertex format
-        self.vbo.bind();
-        self.vbo.store_f32_data(&new_vertices);
+    //     // Update VBO with new vertex format
+    //     self.vbo.bind();
+    //     self.vbo.store_f32_data(&new_vertices);
     
-        // Update VAO attributes
-        // self.vao.bind();
-        // let float_size = std::mem::size_of::<f32>() as i32;
+    //     // Update VAO attributes
+    //     // self.vao.bind();
+    //     // let float_size = std::mem::size_of::<f32>() as i32;
     
-        // // Position (location = 0)
-        // VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, 12 * float_size, ptr::null())
-        //     .enable();
+    //     // // Position (location = 0)
+    //     // VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, 12 * float_size, ptr::null())
+    //     //     .enable();
     
-        // // Normal (location = 1)
-        // VertexAttribute::new(1, 3, gl::FLOAT, gl::FALSE, 12 * float_size, (3 * float_size) as *const _)
-        //     .enable();
+    //     // // Normal (location = 1)
+    //     // VertexAttribute::new(1, 3, gl::FLOAT, gl::FALSE, 12 * float_size, (3 * float_size) as *const _)
+    //     //     .enable();
     
-        // // Tangent (location = 2)
-        // VertexAttribute::new(2, 3, gl::FLOAT, gl::FALSE, 12 * float_size, (6 * float_size) as *const _)
-        //     .enable();
+    //     // // Tangent (location = 2)
+    //     // VertexAttribute::new(2, 3, gl::FLOAT, gl::FALSE, 12 * float_size, (6 * float_size) as *const _)
+    //     //     .enable();
     
-        // // Bitangent (location = 3) - Optional, can be calculated in shader
-        // VertexAttribute::new(3, 3, gl::FLOAT, gl::FALSE, 12 * float_size, (9 * float_size) as *const _)
-        //     .enable();
+    //     // // Bitangent (location = 3) - Optional, can be calculated in shader
+    //     // VertexAttribute::new(3, 3, gl::FLOAT, gl::FALSE, 12 * float_size, (9 * float_size) as *const _)
+    //     //     .enable();
     
-        self.vao.unbind();
-    }
+    //     self.vao.unbind();
+    // }
 
     /////////////EXZZZZ
 
