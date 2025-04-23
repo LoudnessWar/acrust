@@ -22,9 +22,11 @@ use acrust::user_interface::ui_manager::DragState;
 
 
 use acrust::model::objload::Model;
+use acrust::model::objload::ModelTrait;
 use acrust::model::transform::WorldCoords;
 use acrust::model::objload::GeneralModel;
 use acrust::model::cube::Cube;
+use acrust::model::triangle::Triangle;
 use acrust::model::objload::load_obj;
 use acrust::model::objload::load_obj_new_normals;
 
@@ -73,7 +75,7 @@ fn main() {
 
     println!("2:");
 
-    shader_manager.init_forward_plus();
+    shader_manager.init_forward_plus();//TODO remove this
 
     println!("3:");
 
@@ -179,29 +181,27 @@ fn main() {
 
     let mut ds = DragState::new();
 
-    
-
     let mut fpr = ForwardPlusRenderer::new(&shader_manager);
 
     fpr.add_light(
         [0.0, -1.0, 20.0],  // position
-        150.0,             // radius
+        50.0,             // radius
         [1.0, 1.0, 1.0],  // color (white)
         10.1               // this like... doesnt do anything
     );
 
     fpr.add_light(
-        [0.0, 20.0, 0.0],
-        120.0, // Giant radius
+        [0.0, 20.0, 5.0],
+        30.0, // Giant radius
         [0.2, 0.3, 1.0],
         10.1
     );
 
     fpr.initialize_light_culling(720, 720, &shader_manager);//this just calls init gpu culling to the created lightmanager that is inside of FPR
-    println!("1:");
-    let models: Vec<Model> = vec![Model::new(load_obj_new_normals("models/teddy.obj"), WorldCoords::new(0.0, 0.0, 0.0, 0.0), mat_man.get_mat("mat2"))];
+    let models: Vec<Box<dyn ModelTrait>> = vec![Box::new(Model::new(load_obj_new_normals("models/teddy.obj"), WorldCoords::new(0.0, 0.0, 0.0, 0.0), mat_man.get_mat("mat2"))),
+    Box::new(Triangle::new(2.0, 2.0, Vector3::new(0.0, 15.0, 0.0), 0.0,  mat_man.get_mat("mat2")))
+    ];
 
-    println!("2:");
     while !window.should_close() {
         unsafe {
             gl::ClearColor(0.3, 0.3, 0.3, 1.0);

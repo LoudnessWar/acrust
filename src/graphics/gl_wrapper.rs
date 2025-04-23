@@ -325,14 +325,18 @@ impl ShaderProgram {
 
     //intrestng things these are they are not mut
     pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {
-        //println!("{}", uniform_name);
+        println!("{}", uniform_name);
         unsafe {
             gl::UniformMatrix4fv(
                 self.uniform_ids[uniform_name],
                 1,
                 gl::FALSE,
                 matrix.as_ptr(),
-            )
+            );
+            let err: u32 = gl::GetError();
+            if err != gl::NO_ERROR {
+                panic!("GL ERROR in BufferData: 0x{:X} for Name: {} with Value: {:?}", err, uniform_name, matrix);
+            }
         }
     }
 
@@ -781,8 +785,7 @@ pub fn run_depth_prepass(
         mesh.draw();//like this is better it might be a little diff thought we will see
     }
 
-    ShaderProgram::unbind();
-    Framebuffer::unbind();
+
 
     light_manager.set_depth_texture(framebuffer.get_depth_texture());
 }
@@ -1573,25 +1576,29 @@ impl ForwardPlusRenderer {
         }
     }
     
-    pub fn render<T: ModelTrait>(&mut self, 
-        models: &[T], 
+    pub fn render<'a>(&mut self, 
+        models: impl IntoIterator<Item = &'a Box<dyn ModelTrait>>,
         camera: &Camera,
         width: u32, 
         height: u32,
         texture_manager: &TextureManager
     ) {
+        let models_iter = models.into_iter().collect::<Vec<_>>();//TODO feel like this adds overhead
+
         let framebuffer = Framebuffer::new_depth_only(width, height);
-        let meshes: Vec<&Mesh> = models.iter().map(|model| model.get_mesh()).collect();
+        let meshes: Vec<&Mesh> = models_iter.iter().map(|model| model.get_mesh()).collect();
         
-        self.depth_shader.lock().expect("failed to bind depth").bind();
-        
-        for model in models {
-            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
-            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", camera.get_view());
-            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", camera.get_p_matrix());
-            // Depth pre-pass
+        let depth_shader_guard = self.depth_shader.lock().expect("failed to bind depth shader");
+        depth_shader_guard.bind();
+        //self.depth_shader.lock().expect("failed to bind depth").bind();//hmm its werid enabling this it just stops it from running the expect doesnt hit
+        depth_shader_guard.set_matrix4fv_uniform("view", camera.get_view());
+        depth_shader_guard.set_matrix4fv_uniform("projection", camera.get_p_matrix());
+        println!("here");
+        for model in &models_iter {
+            depth_shader_guard.set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
+
             run_depth_prepass(
-                &self.depth_shader.lock().expect("failed to get depth Shader during prepass"),
+                &depth_shader_guard,
                 &framebuffer,
                 &meshes,
                 &mut self.light_manager,
@@ -1599,6 +1606,9 @@ impl ForwardPlusRenderer {
                 height,
             );
         }
+
+        ShaderProgram::unbind();
+        Framebuffer::unbind();
 
         if let Some(culling_buffers) = &self.light_manager.culling_buffers {
             unsafe {
@@ -1665,7 +1675,7 @@ impl ForwardPlusRenderer {
         
         //self.light_shader.lock().expect("temp_light_shader failed to set uniform").debug_print_uniforms();
         // Render each model with its material
-        for model in models {
+        for model in &models_iter {
             self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
             //model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
             model.get_mesh().draw();
