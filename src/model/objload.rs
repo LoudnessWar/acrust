@@ -135,14 +135,21 @@ pub fn load_obj_new_normals(file_path: &str) -> Mesh {
 //ok now... I should probably... PROBABLY have new be a function in the trait
 //but idk if I need to change later I will
 
-pub trait ModelTrait {
+// pub trait ModelTrait {
+//     fn get_mesh(&self) -> &Mesh;
+//     fn get_world_coords(&self) -> &WorldCoords;
+//     fn get_material(&self) -> Arc<RwLock<Material>>;
+//     fn attach_to(&mut self, parent: &WorldCoords);
+//     fn detach(&mut self);
+//     //maybe render func the only thing is that some need texture manager some dont 
+//     //fn render(&self);
+// }
+
+pub trait ModelTrait: Send + Sync {
     fn get_mesh(&self) -> &Mesh;
-    fn get_world_coords(&self) -> &WorldCoords;
-    fn get_material(&self) -> Arc<RwLock<Material>>;
-    fn attach_to(&mut self, parent: &WorldCoords);
-    fn detach(&mut self);
-    //maybe render func the only thing is that some need texture manager some dont 
-    //fn render(&self);
+    fn get_world_coords(&self) -> &WorldCoords;  // Maybe later return by value to avoid lifetime issues
+    fn get_material(&self) -> Arc<RwLock<Material>>;    // I mean we have RwLock but like do we need it
+    fn set_position(&mut self, position: Vector3<f32>);
 }
 
 //I need to add something like a model id or something
@@ -199,90 +206,97 @@ impl ModelTrait for Model {
         self.material.clone()//so I can pass a ref here but I think since ARC is already ref just pass another arc
     }
 
+    fn set_position(&mut self, position: Vector3<f32>){//ok so not everything needs to move but it just will make life easier if its here... I think?
+        //we can have a seperate thing for moving camera ig
+        self.world_coords.set_position(position);
+    }
+
+
     //some might not want parents so just over ride the base to have parent
     //in cases which you want to have them
-    fn attach_to(&mut self, _parent: &WorldCoords) {
-        //self.parent = Some(parent as *const WorldCoords);
-    }
+    // fn attach_to(&mut self, _parent: &WorldCoords) {
+    //     //self.parent = Some(parent as *const WorldCoords);
+    // }
 
-    fn detach(&mut self) {
-        //self.parent = None;
-    }
+    // fn detach(&mut self) {
+    //     //self.parent = None;
+    // }
 }
 
-pub struct GeneralModel{
-    base: Model,
-    pub parent: Option<*const WorldCoords>,
-}
+//yeah this is pretty useless now but TODO add back later maybe
+// pub struct GeneralModel{
+//     base: Model,
+//     pub parent: Option<*const WorldCoords>,
+// }
 
-impl GeneralModel{
-    pub fn new(mesh: Mesh, coords: WorldCoords, material: Arc<RwLock<Material>>) -> GeneralModel{//this is useless
-        // material.write().expect("cannot create new model due to issue when writing to material").init_uniform("model");//i should make something to mass do this
-        // material.write().expect("cannot create new model due to issue when writing to material").init_uniform("view");
-        // material.write().expect("cannot create new model due to when writing to material").init_uniform("projection");
-        // material.write().expect("cannot create new model due to when writing to material").init_uniform("lightDir");
-        // material.write().expect("cannot create new model due to when writing to material").init_uniform("lightColor");
-        // material.write().expect("cannot create new model due to when writing to material").init_uniform("objectColor");
+// impl GeneralModel{
+//     pub fn new(mesh: Mesh, coords: WorldCoords, material: Arc<RwLock<Material>>) -> GeneralModel{//this is useless
+//         // material.write().expect("cannot create new model due to issue when writing to material").init_uniform("model");//i should make something to mass do this
+//         // material.write().expect("cannot create new model due to issue when writing to material").init_uniform("view");
+//         // material.write().expect("cannot create new model due to when writing to material").init_uniform("projection");
+//         // material.write().expect("cannot create new model due to when writing to material").init_uniform("lightDir");
+//         // material.write().expect("cannot create new model due to when writing to material").init_uniform("lightColor");
+//         // material.write().expect("cannot create new model due to when writing to material").init_uniform("objectColor");
 
-        //if they are already there is that what is causing issue?
-        material.write().expect("cannot create new model due to issue when writing to material").init_uniforms(vec!["model", "view", "projection", "lightDir", "lightColor", "objectColor"]); 
-        GeneralModel {
-            base: Model::new(mesh,  coords, material),
-            parent: None,
-        }
-    }
+//         //if they are already there is that what is causing issue?
+//         material.write().expect("cannot create new model due to issue when writing to material").init_uniforms(vec!["model", "view", "projection", "lightDir", "lightColor", "objectColor"]); 
+//         GeneralModel {
+//             base: Model::new(mesh,  coords, material),
+//             parent: None,
+//         }
+//     }
 
-    pub fn new_no_coords(mesh: Mesh, material: Arc<RwLock<Material>>) -> GeneralModel{//this one is way more useful
-        material.write().expect("cannot create new model due to issue when writing to material").init_uniforms(vec!["model", "view", "projection", "lightDir", "lightColor", "objectColor"]); 
-        GeneralModel {
-            base: Model::new(mesh,  WorldCoords::new_empty(), material),
-            parent: None,
-        }
-    }
+//     pub fn new_no_coords(mesh: Mesh, material: Arc<RwLock<Material>>) -> GeneralModel{//this one is way more useful
+//         material.write().expect("cannot create new model due to issue when writing to material").init_uniforms(vec!["model", "view", "projection", "lightDir", "lightColor", "objectColor"]); 
+//         GeneralModel {
+//             base: Model::new(mesh,  WorldCoords::new_empty(), material),
+//             parent: None,
+//         }
+//     }
 
-    //maybe add this to trait
-    //this ok like I could pass camera here but then idk like idk ok bro!!! nah the issue with that is that it is kinda restrictive... I think
-    pub fn render(&self, texture_manager: &TextureManager, view: &Matrix4<f32>, projection: &Matrix4<f32>) {
-        self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("view", view);
-        self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("projection", projection);
-        self.get_material().write().expect("Cannot Render Model due to issue while righting to material").apply(texture_manager, &self.get_world_coords().get_model_matrix());
-        self.get_mesh().draw();
-    }
+//     //maybe add this to trait
+//     //this ok like I could pass camera here but then idk like idk ok bro!!! nah the issue with that is that it is kinda restrictive... I think
+//     pub fn render(&self, texture_manager: &TextureManager, view: &Matrix4<f32>, projection: &Matrix4<f32>) {
+//         self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("view", view);
+//         self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("projection", projection);
+//         self.get_material().write().expect("Cannot Render Model due to issue while righting to material").apply(texture_manager, &self.get_world_coords().get_model_matrix());
+//         self.get_mesh().draw();
+//     }
 
 
-    //my guess rn as to why no color is becaause it is parsinbg for it but model doesnt provide it i thing 
-    pub fn simple_render(&self, texture_manager: &TextureManager, camera: &Camera) {
-        self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("view", camera.get_view());
-        self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("projection", camera.get_p_matrix());
-        self.get_material().write().expect("Cannot Render Model due").apply(texture_manager, &self.get_world_coords().get_model_matrix());
-        self.get_mesh().draw();
-    }
+//     //my guess rn as to why no color is becaause it is parsinbg for it but model doesnt provide it i thing 
+//     pub fn simple_render(&self, texture_manager: &TextureManager, camera: &Camera) {
+//         self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("view", camera.get_view());
+//         self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("projection", camera.get_p_matrix());
+//         self.get_material().write().expect("Cannot Render Model due").apply(texture_manager, &self.get_world_coords().get_model_matrix());
+//         self.get_mesh().draw();
+//     }
 
-    pub fn set_uniforms(&self, texture_manager: &TextureManager, camera: &Camera) {
-        self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("view", camera.get_view());
-        self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("projection", camera.get_p_matrix());
-        self.get_material().write().expect("Cannot Render Model due").apply(texture_manager, &self.get_world_coords().get_model_matrix());
-    }
-}
+//     pub fn set_uniforms(&self, texture_manager: &TextureManager, camera: &Camera) {
+//         self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("view", camera.get_view());
+//         self.get_material().write().expect("Cannot Render Model due to issue while righting to material").set_matrix4fv_uniform("projection", camera.get_p_matrix());
+//         self.get_material().write().expect("Cannot Render Model due").apply(texture_manager, &self.get_world_coords().get_model_matrix());
+//     }
+// }
 
-impl ModelTrait for GeneralModel{
-    fn get_mesh(&self) -> &Mesh{
-        self.base.get_mesh()
-    }
+// impl ModelTrait for GeneralModel{
+//     fn get_mesh(&self) -> &Mesh{
+//         self.base.get_mesh()
+//     }
 
-    fn get_world_coords(&self) -> &WorldCoords{//need to add parental consideration to world cords look at update_view in camera for example
-        self.base.get_world_coords()
-    }
+//     fn get_world_coords(&self) -> &WorldCoords{//need to add parental consideration to world cords look at update_view in camera for example
+//         self.base.get_world_coords()
+//     }
 
-    fn get_material(&self) -> Arc<RwLock<Material>>{
-        self.base.get_material()
-    }
+//     fn get_material(&self) -> Arc<RwLock<Material>>{
+//         self.base.get_material()
+//     }
 
-    fn attach_to(&mut self, parent: &WorldCoords) {
-        self.parent = Some(parent as *const WorldCoords);
-    }
+//     fn attach_to(&mut self, parent: &WorldCoords) {
+//         self.parent = Some(parent as *const WorldCoords);
+//     }
 
-    fn detach(&mut self) {
-        self.parent = None;
-    }
-}
+//     fn detach(&mut self) {
+//         self.parent = None;
+//     }
+// }

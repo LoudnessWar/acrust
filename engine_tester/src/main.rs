@@ -30,6 +30,8 @@ use acrust::model::triangle::Triangle;
 use acrust::model::objload::load_obj;
 use acrust::model::objload::load_obj_new_normals;
 
+use acrust::ecs::player::Player;
+
 use acrust::graphics::gl_wrapper;//going to remove later
 
 
@@ -44,7 +46,6 @@ use crate::chunk_generator::*;
 use crate::chunk_manager::ChunkManager;
 use crate::wave_generator::WaterRender;
 use crate::midi::MidiHandler;
-use crate::player::Player;
 
 use cgmath::Vector3;
 use std::time::Instant;
@@ -52,7 +53,6 @@ use cgmath::*;
 
 
 mod voxel_render;
-mod player;
 mod chunk_generator;
 mod chunk_manager;
 mod octo;
@@ -199,7 +199,7 @@ fn main() {
 
     fpr.initialize_light_culling(720, 720, &shader_manager);//this just calls init gpu culling to the created lightmanager that is inside of FPR
     let models: Vec<Box<dyn ModelTrait>> = vec![Box::new(Model::new(load_obj_new_normals("models/teddy.obj"), WorldCoords::new(0.0, 0.0, 0.0, 0.0), mat_man.get_mat("mat2"))),
-    Box::new(Triangle::new(2.0, 2.0, Vector3::new(0.0, 15.0, 0.0), 0.0,  mat_man.get_mat("mat2")))
+    Box::new(Triangle::new(2.0, 4.0, Vector3::new(0.0, 0.0, 0.0), 0.0,  mat_man.get_mat("mat2")))
     ];
 
     while !window.should_close() {
@@ -351,6 +351,29 @@ fn main() {
         window.update();//frame_buffer here
         time += 0.1;
         //panic!("end");
+    }
+}
+
+pub struct Scene {
+    pub coords: Vec<Box<dyn Coords>>,
+}
+
+impl Scene{
+    pub fn new() -> Self{
+        Self {
+            coords: Vec::new()
+        }
+    }
+
+    pub fn add_coords(&mut self, element: Box<dyn Coords>) {
+        // let id = element.get_id(); LOL they should have ids
+        self.coords.push(element);
+    }
+
+    pub fn update_position_listener(&mut self){
+        if let Some(element) = self.elements.iter_mut().find(|e| e.get_id() == id) {
+            element.accept(visitor);
+        }
     }
 }
 

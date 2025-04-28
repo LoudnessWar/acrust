@@ -325,7 +325,7 @@ impl ShaderProgram {
 
     //intrestng things these are they are not mut
     pub fn set_matrix4fv_uniform(&self, uniform_name: &str, matrix: &Matrix4<f32>) {
-        println!("{}", uniform_name);
+        //println!("{}", uniform_name);
         unsafe {
             gl::UniformMatrix4fv(
                 self.uniform_ids[uniform_name],

@@ -20,3 +20,4 @@ pub mod input;
 pub mod user_interface; 
 pub mod model;
 pub mod sound;
+pub mod ecs;

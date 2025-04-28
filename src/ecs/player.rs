@@ -1,4 +1,4 @@
-use acrust::model::transform::WorldCoords;
+use crate::model::transform::WorldCoords;
 use cgmath::Vector3;
 
 
@@ -12,6 +12,13 @@ impl Player {
     pub fn new(x: f32, y: f32, z:f32, rotation: f32) -> Self {
         Player {
             transform: WorldCoords::new(x, y ,z , rotation),
+            speed: 0.1,
+        }
+    }
+    
+    pub fn new_coords(coords: WorldCoords) -> Self {
+        Player {
+            transform: coords,
             speed: 0.1,
         }
     }

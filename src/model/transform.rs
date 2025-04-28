@@ -1,6 +1,6 @@
 use cgmath::{Matrix4, Vector3, Quaternion, Rad, Rotation3, Transform, InnerSpace};
 
-pub struct WorldCoords {
+pub struct WorldCoords {//Im realizing that this needs to be a trait. Then I can attach lists of world coords or something like that to an object
     pub position: Vector3<f32>,
     pub rotation: Quaternion<f32>, // More flexible than Euler angles aparently idk
     pub scale: Vector3<f32>,
@@ -78,4 +78,21 @@ impl WorldCoords {
     pub fn get_position(&self) -> &Vector3<f32>{
         &self.position
     }
+}
+
+//ok so this is like a really dumb but also simple like 
+//way to make it so that I can store a list of objects
+//that are attachable to other objects
+//and that is... keep world coords as its own thing
+//but then also have this coords thing
+//all it needs it set position
+//get position
+//and maybe update children
+//i think ill add that but most of the time it will be empty
+//the reason being
+//I want it to not be too complicated for the user but I will add that later bc im still contimplating it so TODO
+//also make worldcoords impliment coords trait... probably
+//idk it needs to be something that the objects themselves inherit so maybe not actaully
+pub trait Coords {
+    fn update_position(&mut self);//rn does not take in , new_position: Vector3<f32> maybe add back later
 }
