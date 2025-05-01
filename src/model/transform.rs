@@ -32,7 +32,7 @@ impl WorldCoords {
     //vectors for the object just normals and shit idk not really 
     pub fn get_forward_vector(&self) -> Vector3<f32> {
         let rotation_matrix = Matrix4::from(self.rotation);
-        let forward = rotation_matrix.transform_vector(Vector3::new(0.0, 0.0, -1.0));
+        let forward = rotation_matrix.transform_vector(Vector3::new(0.0, 0.0, -1.0));//TODO check if this vector stuff is correct
         forward.normalize()
     }
     

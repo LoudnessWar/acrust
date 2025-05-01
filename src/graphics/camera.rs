@@ -69,11 +69,11 @@ impl Camera {
                 if let Some(parent) = self.parent {
                     let parent_transform = unsafe { &*parent };
                     let position = parent_transform.position;
-                    // Use the camera's rotation for first-person view direction
-                    let forward = self.transform.get_forward_vector();
+                    let forward = self.transform.get_forward_vector();//maybe this needs inverse?
                     let target = position + forward;
                     (position, target)
                 } else {
+                    // Standalone first-person camera
                     let forward = self.get_forward_vector();
                     let position = self.transform.position;
                     let target = position + forward;
@@ -83,12 +83,24 @@ impl Camera {
             CameraMode::ThirdPerson => {
                 if let Some(parent) = self.parent {
                     let parent_transform = unsafe { &*parent };
-                    let offset = self.follow_offset.unwrap_or(Vector3::new(0.0, 0.0, 0.0));
-                    let rotated_offset = (parent_transform.rotation * self.third_person_rotation).rotate_vector(offset);
+                    
+                    // Get the offset (default to a position behind and above if none specified)
+                    let offset = self.follow_offset.unwrap_or(Vector3::new(0.0, 1.5, 5.0));
+                    
+                    // Calculate the orbital position using the third_person_rotation
+                    // This rotation is relative to the default behind position
+                    let rotated_offset = self.third_person_rotation.rotate_vector(offset);
+                    
+                    // Camera position is parent position plus the rotated offset
                     let position = parent_transform.position + rotated_offset;
-                    let target = parent_transform.position;
+                    
+                    // Look at the parent's position (or slightly above it for better view)
+                    let target = parent_transform.position + Vector3::new(0.0, 1.0, 0.0);
+                    
                     (position, target)
                 } else {
+                    // Standalone third-person camera (no parent)
+                    // Just use ordinary camera position and forward vector
                     (self.transform.position, self.transform.position + self.get_forward_vector())
                 }
             },
@@ -106,6 +118,7 @@ impl Camera {
             }
         };
     
+        // Calculate the view matrix
         let forward = (target - global_position).normalize();
         let right = forward.cross(Vector3::new(0.0, 1.0, 0.0)).normalize();
         let corrected_up = right.cross(forward).normalize();
@@ -164,15 +177,12 @@ impl Camera {
         let pitch_rotation = Quaternion::from_angle_x(Rad(delta_pitch));
 
         match self.mode {
-            CameraMode::ThirdPerson => {
-                // For third-person, orbit around the target
+            CameraMode::ThirdPerson => {//dude yaw and pitch is this guy crazy!!!
                 self.third_person_rotation = yaw_rotation * self.third_person_rotation * pitch_rotation;
                 
-                // Apply pitch limits for third-person camera
                 let forward = self.third_person_rotation.rotate_vector(Vector3::new(0.0, 0.0, -1.0));
                 let pitch = forward.y.asin();
                 
-                // Limit the pitch angle in third-person too
                 let pitch_limit = std::f32::consts::FRAC_PI_2 - 0.1;
                 if pitch.abs() > pitch_limit {
                     let adjustment = if pitch > 0.0 {
@@ -181,13 +191,12 @@ impl Camera {
                         pitch + pitch_limit
                     };
                     
-                    // Apply correction rotation around X axis
                     let correction = Quaternion::from_angle_x(Rad(-adjustment));
                     self.third_person_rotation = self.third_person_rotation * correction;
                 }
             },
             _ => {
-                // For first-person and other modes, use the original rotation logic
+
                 let combined_rotation = yaw_rotation * self.transform.rotation * pitch_rotation;
                 self.transform.rotation = combined_rotation;
 
@@ -227,7 +236,7 @@ impl Camera {
             },
             _ => {
                 let left = self.get_left_vector();
-                Vector3::new(left.x, 0.0, left.z).normalize()
+                Vector3::new(-left.x, 0.0, -left.z).normalize()//TODO this is a cheap trick of a fix why is this flipped
             }
         }
     }
