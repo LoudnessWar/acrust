@@ -271,13 +271,13 @@ fn main() {
                 coords.position = *player.get_position();
             }
         }
-        if input_system.is_key_pressed(&Key::D) {
+        if input_system.is_key_pressed(&Key::A) {
             player.move_left_with_camera(&camera);
             if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
                 coords.position = *player.get_position();
             }
         }
-        if input_system.is_key_pressed(&Key::A) {
+        if input_system.is_key_pressed(&Key::D) {
             player.move_right_with_camera(&camera);
             if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
                 coords.position = *player.get_position();

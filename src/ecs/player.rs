@@ -66,66 +66,89 @@ impl Player {
 
     //moving with camera... idk if I like this tbh
     pub fn move_forward_with_camera(&mut self, camera: &Camera) {
-        let direction = match camera.mode {
-            CameraMode::FirstPerson => camera.get_forward_vector(),
-            CameraMode::ThirdPerson => {
-                // In third person, we want to move in the direction the camera is looking horizontally
-                let forward = camera.get_forward_vector();
-                // Project the forward vector onto the horizontal plane
-                Vector3::new(forward.x, 0.0, forward.z).normalize()
-            },
-            _ => camera.get_forward_vector(),
-        };
-        
-        self.transform.position.x += direction.x * self.speed;
-        self.transform.position.z += direction.z * self.speed;
+        let dir = camera.get_move_forward_vector();
+        self.transform.position.x += dir.x * self.speed;
+        self.transform.position.z += dir.z * self.speed;
     }
     
     pub fn move_backward_with_camera(&mut self, camera: &Camera) {
-        let direction = match camera.mode {
-            CameraMode::FirstPerson => camera.get_forward_vector(),
-            CameraMode::ThirdPerson => {
-                // In third person, we want to move in the direction the camera is looking horizontally
-                let forward = camera.get_forward_vector();
-                // Project the forward vector onto the horizontal plane
-                Vector3::new(forward.x, 0.0, forward.z).normalize()
-            },
-            _ => camera.get_forward_vector(),
-        };
-        
-        self.transform.position.x -= direction.x * self.speed;
-        self.transform.position.z -= direction.z * self.speed;
-    }
-    
-    pub fn move_right_with_camera(&mut self, camera: &Camera) {
-        let direction = match camera.mode {
-            CameraMode::FirstPerson => camera.get_left_vector(),
-            CameraMode::ThirdPerson => {
-                // In third person, we want to strafe relative to the camera's orientation
-                let left = camera.get_left_vector();
-                // Project the left vector onto the horizontal plane
-                Vector3::new(left.x, 0.0, left.z).normalize()//is this like slow TODO look into
-            },
-            _ => camera.get_left_vector(),
-        };
-        
-        self.transform.position.x -= direction.x * self.speed;
-        self.transform.position.z -= direction.z * self.speed;
+        let dir = camera.get_move_forward_vector();
+        self.transform.position.x -= dir.x * self.speed;
+        self.transform.position.z -= dir.z * self.speed;
     }
     
     pub fn move_left_with_camera(&mut self, camera: &Camera) {
-        let direction = match camera.mode {
-            CameraMode::FirstPerson => camera.get_left_vector(),
-            CameraMode::ThirdPerson => {
-                // In third person, we want to strafe relative to the camera's orientation
-                let left = camera.get_left_vector();
-                // Project the left vector onto the horizontal plane
-                Vector3::new(left.x, 0.0, left.z).normalize()
-            },
-            _ => camera.get_left_vector(),
-        };
-        
-        self.transform.position.x += direction.x * self.speed;
-        self.transform.position.z += direction.z * self.speed;
+        let dir = camera.get_move_left_vector();
+        self.transform.position.x += dir.x * self.speed;
+        self.transform.position.z += dir.z * self.speed;
     }
+    
+    pub fn move_right_with_camera(&mut self, camera: &Camera) {
+        let dir = camera.get_move_left_vector();
+        self.transform.position.x -= dir.x * self.speed;
+        self.transform.position.z -= dir.z * self.speed;
+    }
+    // pub fn move_forward_with_camera(&mut self, camera: &Camera) {
+    //     let direction = match camera.mode {
+    //         CameraMode::FirstPerson => camera.get_forward_vector(),
+    //         CameraMode::ThirdPerson => {
+    //             // In third person, we want to move in the direction the camera is looking horizontally
+    //             let forward = camera.get_forward_vector();
+    //             // Project the forward vector onto the horizontal plane
+    //             Vector3::new(forward.x, 0.0, forward.z).normalize()
+    //         },
+    //         _ => camera.get_forward_vector(),
+    //     };
+        
+    //     self.transform.position.x += direction.x * self.speed;
+    //     self.transform.position.z += direction.z * self.speed;
+    // }
+    
+    // pub fn move_backward_with_camera(&mut self, camera: &Camera) {
+    //     let direction = match camera.mode {
+    //         CameraMode::FirstPerson => camera.get_forward_vector(),
+    //         CameraMode::ThirdPerson => {
+    //             // In third person, we want to move in the direction the camera is looking horizontally
+    //             let forward = camera.get_forward_vector();
+    //             // Project the forward vector onto the horizontal plane
+    //             Vector3::new(forward.x, 0.0, forward.z).normalize()
+    //         },
+    //         _ => camera.get_forward_vector(),
+    //     };
+        
+    //     self.transform.position.x -= direction.x * self.speed;
+    //     self.transform.position.z -= direction.z * self.speed;
+    // }
+    
+    // pub fn move_right_with_camera(&mut self, camera: &Camera) {
+    //     let direction = match camera.mode {
+    //         CameraMode::FirstPerson => camera.get_left_vector(),
+    //         CameraMode::ThirdPerson => {
+    //             // In third person, we want to strafe relative to the camera's orientation
+    //             let left = camera.get_left_vector();
+    //             // Project the left vector onto the horizontal plane
+    //             Vector3::new(left.x, 0.0, left.z).normalize()//is this like slow TODO look into
+    //         },
+    //         _ => camera.get_left_vector(),
+    //     };
+        
+    //     self.transform.position.x -= direction.x * self.speed;
+    //     self.transform.position.z -= direction.z * self.speed;
+    // }
+    
+    // pub fn move_left_with_camera(&mut self, camera: &Camera) {
+    //     let direction = match camera.mode {
+    //         CameraMode::FirstPerson => camera.get_left_vector(),
+    //         CameraMode::ThirdPerson => {
+    //             // In third person, we want to strafe relative to the camera's orientation
+    //             let left = camera.get_left_vector();
+    //             // Project the left vector onto the horizontal plane
+    //             Vector3::new(left.x, 0.0, left.z).normalize()
+    //         },
+    //         _ => camera.get_left_vector(),
+    //     };
+        
+    //     self.transform.position.x += direction.x * self.speed;
+    //     self.transform.position.z += direction.z * self.speed;
+    // }
 }

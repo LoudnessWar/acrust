@@ -206,6 +206,32 @@ impl Camera {
         }
     }
 
+    pub fn get_move_forward_vector(&self) -> Vector3<f32> {
+        match self.mode {
+            CameraMode::ThirdPerson => {
+                let forward = self.third_person_rotation.rotate_vector(Vector3::new(0.0, 0.0, -1.0));
+                Vector3::new(forward.x, 0.0, forward.z).normalize()
+            },
+            _ => {
+                let forward = self.get_forward_vector();
+                Vector3::new(forward.x, 0.0, forward.z).normalize()//TODO add a toggel for this maybe want to beable to look down to move down
+            }
+        }
+    }
+
+    pub fn get_move_left_vector(&self) -> Vector3<f32> {
+        match self.mode {
+            CameraMode::ThirdPerson => {
+                let left = self.third_person_rotation.rotate_vector(Vector3::new(-1.0, 0.0, 0.0));
+                Vector3::new(left.x, 0.0, left.z).normalize()
+            },
+            _ => {
+                let left = self.get_left_vector();
+                Vector3::new(left.x, 0.0, left.z).normalize()
+            }
+        }
+    }
+
     // pub fn rotate(&mut self, delta_yaw: f32, delta_pitch: f32) {
     //     let yaw_rotation = Quaternion::from_angle_y(Rad(delta_yaw));
     //     let pitch_rotation = Quaternion::from_angle_x(Rad(delta_pitch));
