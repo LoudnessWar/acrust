@@ -340,7 +340,22 @@ fn main() {
                 camera.adjust_third_person_distance(-y_offset as f32);
             }
         }
+    
+
+
+        camera.update_view();
+
+        // ecs update who gaf
+        world.update(delta_time);
         
+        // This is like 3 funcitons deep at this point world -> render -> fpr -> five different fucntions
+        world.render(&mut fpr, &camera, 720, 720, &texture_manager);
+        //OOOOKKKKAAAYYYYYYY SOOOOOOOO... IF IT DOESNT HAPPEN AFTER HERE IT DONT HAPPEN LOOKING AT YOU UI NEED TO FIX
+
+        let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
+        let projection_matrix = camera.get_p_matrix();
+        skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
+
         // UI handling
         if input_system.is_key_pressed(&Key::Tab) {
             ui_manager.update(current_mouse_position);
@@ -355,8 +370,23 @@ fn main() {
                 ui_manager.end_drag();
             }
         }
-    
-        // Process input events
+
+        // OMG HAAIIIII Process UI events the event system to be ony used with the ui because i was lazy HAAIIIIII
+        while let Some(event) = ui_manager.poll_event() {
+            match event {
+                UIEvent::Hover(id) => {},
+                UIEvent::Click(id) => {},
+                UIEvent::MouseEnter(id) => {
+                    println!("Mouse entered element {}", id);
+                },
+                UIEvent::MouseExit(id) => {
+                    println!("Mouse exited element {}", id);
+                },
+                _ => {}
+            }
+        }
+
+        // This here really demonstates the issue with this because like this should not go after the rendering
         while let Some(event) = input_system.get_event_queue().pop_front() {
             match event {
                 InputEvent::KeyPressed(Key::Lctrl) => {
@@ -397,37 +427,6 @@ fn main() {
                 _ => {}
             }
         }
-
-        camera.update_view();
-
-        // Process UI events
-        while let Some(event) = ui_manager.poll_event() {
-            match event {
-                UIEvent::Hover(id) => {},
-                UIEvent::Click(id) => {},
-                UIEvent::MouseEnter(id) => {
-                    println!("Mouse entered element {}", id);
-                },
-                UIEvent::MouseExit(id) => {
-                    println!("Mouse exited element {}", id);
-                },
-                _ => {}
-            }
-        }
-
-
-
-
-        // ecs update who gaf
-        world.update(delta_time);
-        
-        // This is like 3 funcitons deep at this point world -> render -> fpr -> five different fucntions
-        world.render(&mut fpr, &camera, 720, 720, &texture_manager);
-        //OOOOKKKKAAAYYYYYYY SOOOOOOOO... IF IT DOESNT HAPPEN AFTER HERE IT DONT HAPPEN LOOKING AT YOU UI NEED TO FIX
-
-        let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
-        let projection_matrix = camera.get_p_matrix();
-        skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
         
         // Add a test motion to the teddy bear
         // if let Some(coords) = world.movement.get_coords_mut(teddy_entity.id) {
