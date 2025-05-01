@@ -38,7 +38,9 @@ impl Window {
         window.set_framebuffer_size_polling(true);
         window.set_key_polling(true);
         window.set_mouse_button_polling(true);//this me thinks is a big slower downers
-        
+        window.set_scroll_polling(true);//this as well but it is what it is i mean all games need this so I shouldnt be afreaid of them
+        //this one should be toggleable so TODO make the polling of stuff toggleable
+
         let target_frame_duration = Duration::from_secs_f32(1.0 / target_fps as f32);
 
         Window {
@@ -102,7 +104,7 @@ impl Window {
 
     //get mouse position
     pub fn get_mouse_position(&self) -> (f64, f64) {
-        let (x, y) = self.window_handle.get_cursor_pos();
+        let (x, y) = self.window_handle.get_cursor_pos();//hmmmmmmmmmmmmm
         (x, y)
     }
 
@@ -128,7 +130,7 @@ impl Window {
     pub fn process_input_events(&mut self, input_system: &mut InputSystem) {
         for (_, event) in glfw::flush_messages(&self.events) {
             match event {
-                glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {//TODO take this out later just add it to rest of inputs
+                glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {//TODO take this out later just add it to rest of inputs also where the hell is cursor position like idrecall 
                     self.window_handle.set_should_close(true)
                 }
                 glfw::WindowEvent::Key(glfw_key, _, action, _) => {
@@ -149,6 +151,9 @@ impl Window {
                         }
                     }
                 }
+                glfw::WindowEvent::Scroll(x_offset, y_offset) => {
+                    input_system.queue_event(InputEvent::ScrollWheel(x_offset, y_offset));
+                },
                 _ => {}
             }
         }

@@ -23,6 +23,9 @@ use acrust::model::objload::Model;
 use acrust::model::objload::ModelTrait;
 use acrust::model::transform::WorldCoords;
 //use acrust::model::objload::GeneralModel;
+
+use acrust::graphics::camera::CameraMode;//this can be not in here if I do it correct
+
 use acrust::model::cube::Cube;
 use acrust::model::triangle::Triangle;
 use acrust::model::objload::load_obj;
@@ -98,7 +101,10 @@ fn main() {
     };
 
     let mut camera = Camera::new(perspective);
-    camera.attach_to(&player.transform, Vector3::new(10.0, 0.0, 0.0));//this system is scuffed camera and player should be in ecs to avoid attach detech but for now eeh. TODO
+    camera.attach_to(&player.transform, Vector3::new(0.0, 5.0, 10.0));
+    camera.tp();
+    camera.update_view();//not really needed here but good to have
+    //camera.attach_to(&player.transform, Vector3::new(10.0, 0.0, 0.0));//this system is scuffed camera and player should be in ecs to avoid attach detech but for now eeh. TODO
 
     // Initialize materials
     mat_man.update_uniform("mat2", "lightDir", UniformValue::Vector3(vec3(0.0, 10.0, 0.0)));
@@ -225,30 +231,64 @@ fn main() {
         window.process_input_events(&mut input_system);
         
         // THIS IS GENIENLY SUPER SCUFFED TODO FIX THIS HOW THIS IS DONE
+        // if input_system.is_key_pressed(&Key::W) {
+        //     player.move_forward(camera.get_forward_vector());
+        //     // Also update the ECS player position for synchronization if needed
+        //     //this like also needs to be like a function of something like... omglob
+        //     //man I love the way if let be though like feel funcitonal yk
+        //     if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
+        //         coords.position = *player.get_position();
+        //     }
+        // }
+        // if input_system.is_key_pressed(&Key::S) {
+        //     player.move_backward(camera.get_forward_vector());
+        //     if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
+        //         coords.position = *player.get_position();
+        //     }
+        // }
+        // if input_system.is_key_pressed(&Key::A) {
+        //     player.move_left(camera.get_left_vector());
+        //     if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
+        //         coords.position = *player.get_position();
+        //     }
+        // }
+        // if input_system.is_key_pressed(&Key::D) {
+        //     player.move_right(camera.get_left_vector());
+        //     if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
+        //         coords.position = *player.get_position();
+        //     }
+        // }
+
         if input_system.is_key_pressed(&Key::W) {
-            player.move_forward(camera.get_forward_vector());
-            // Also update the ECS player position for synchronization if needed
+            player.move_forward_with_camera(&camera);//eehhhhhhhhhhhh meehehheheheh hidk if I like this yo TODOs
             if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
                 coords.position = *player.get_position();
             }
         }
         if input_system.is_key_pressed(&Key::S) {
-            player.move_backward(camera.get_forward_vector());
-            if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
-                coords.position = *player.get_position();
-            }
-        }
-        if input_system.is_key_pressed(&Key::A) {
-            player.move_left(camera.get_left_vector());
+            player.move_backward_with_camera(&camera);
             if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
                 coords.position = *player.get_position();
             }
         }
         if input_system.is_key_pressed(&Key::D) {
-            player.move_right(camera.get_left_vector());
+            player.move_left_with_camera(&camera);
             if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
                 coords.position = *player.get_position();
             }
+        }
+        if input_system.is_key_pressed(&Key::A) {
+            player.move_right_with_camera(&camera);
+            if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
+                coords.position = *player.get_position();
+            }
+        }
+        
+        if input_system.is_key_pressed(&Key::Q) {
+            // println!("Time: {}", time);
+            // if time % 2.0 == 1.0 { lol floating point precision error anyway
+            //     camera.cycle_mode();
+            // }
         }
         if input_system.is_key_pressed(&Key::Space) {
             player.move_up();
@@ -275,6 +315,14 @@ fn main() {
         }
         if input_system.is_key_pressed(&Key::Down) {
             camera.rotate(0.0, -10.0 as f32 * sensitivity);
+        }
+
+        if input_system.has_scrolled() {
+            let (x_offset, y_offset) = input_system.get_scroll_offset();
+            println!("Scroll offsets: X={}, Y={}", x_offset, y_offset);
+            if matches!(camera.mode, CameraMode::ThirdPerson) {
+                camera.adjust_third_person_distance(-y_offset as f32);
+            }
         }
         
         // UI handling - kept separate from ECS
@@ -308,6 +356,12 @@ fn main() {
                 InputEvent::KeyReleased(Key::Tab) => {
                     window.lock_cursor();
                     sensitivity = 0.002;
+                }
+                InputEvent::KeyPressed(Key::Q) => {
+                    camera.cycle_mode();
+                }
+                InputEvent::KeyReleased(Key::Q) => {
+
                 }
                 InputEvent::MouseButtonPressed(CLICKS::Left) => {
                     println!("pewpew: {:#?}", player.get_position());
