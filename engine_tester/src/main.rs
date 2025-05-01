@@ -202,8 +202,24 @@ fn main() {
         model: Box::new(triangle_model)
     });
     
-    // Create a player entity in the ECS
+    // AYYY fuck this guy
     let player_entity = world.spawn_player("MainPlayer", 0.0, 0.0, -10.0, 0.0);
+
+    //skybox
+    let skybox_faces = [
+        "textures/right.jpg",
+        "textures/left.jpg",
+        "textures/top.png",
+        "textures/bottom.png",
+        "textures/front.jpg",
+        "textures/back.jpg",
+    ];
+
+    let skybox = Skybox::new(&skybox_faces);
+    let skybox_shader = ShaderProgram::new("shaders/skybox_vertex_shader.glsl", "shaders/skybox_fragment_shader.glsl");
+    let mut skybox_material = Material::new_unlocked(skybox_shader);
+    skybox_material.init_uniform("view");
+    skybox_material.init_uniform("projection");
     
     // Time tracking for delta time calculation
     let mut last_frame_time = Instant::now();
@@ -215,7 +231,7 @@ fn main() {
         last_frame_time = current_time;
         
         unsafe {
-            gl::ClearColor(0.3, 0.3, 0.3, 1.0);
+            gl::ClearColor(0.5, 0.3, 0.6, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             let ctx_err = gl::GetError();
             if ctx_err != gl::NO_ERROR {
@@ -325,7 +341,7 @@ fn main() {
             }
         }
         
-        // UI handling - kept separate from ECS
+        // UI handling
         if input_system.is_key_pressed(&Key::Tab) {
             ui_manager.update(current_mouse_position);
             ui_manager.render(&ui_shader);
@@ -399,11 +415,19 @@ fn main() {
             }
         }
 
-        // Update the ECS world
+
+
+
+        // ecs update who gaf
         world.update(delta_time);
         
-        // Render the ECS world using the ForwardPlusRenderer
+        // This is like 3 funcitons deep at this point world -> render -> fpr -> five different fucntions
         world.render(&mut fpr, &camera, 720, 720, &texture_manager);
+        //OOOOKKKKAAAYYYYYYY SOOOOOOOO... IF IT DOESNT HAPPEN AFTER HERE IT DONT HAPPEN LOOKING AT YOU UI NEED TO FIX
+
+        let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
+        let projection_matrix = camera.get_p_matrix();
+        skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
         
         // Add a test motion to the teddy bear
         // if let Some(coords) = world.movement.get_coords_mut(teddy_entity.id) {
