@@ -1593,7 +1593,7 @@ impl ForwardPlusRenderer {
         //self.depth_shader.lock().expect("failed to bind depth").bind();//hmm its werid enabling this it just stops it from running the expect doesnt hit
         depth_shader_guard.set_matrix4fv_uniform("view", camera.get_view());
         depth_shader_guard.set_matrix4fv_uniform("projection", camera.get_p_matrix());
-        println!("here");
+        //println!("here");
         for model in &models_iter {
             depth_shader_guard.set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
 

@@ -1,4 +1,3 @@
-//use acrust::custom_errors::Errors;
 #![allow(warnings)]
 use acrust::graphics::window::Window;
 use acrust::graphics::camera::Camera;
@@ -20,25 +19,23 @@ use acrust::user_interface::ui_element::UIElementVisitor;
 use acrust::user_interface::ui_element::*;
 use acrust::user_interface::ui_manager::DragState;
 
-
 use acrust::model::objload::Model;
 use acrust::model::objload::ModelTrait;
 use acrust::model::transform::WorldCoords;
-use acrust::model::objload::GeneralModel;
+//use acrust::model::objload::GeneralModel;
 use acrust::model::cube::Cube;
 use acrust::model::triangle::Triangle;
 use acrust::model::objload::load_obj;
 use acrust::model::objload::load_obj_new_normals;
 
 use acrust::ecs::player::Player;
+use acrust::ecs::world::{World, Entity};
+use acrust::ecs::components::{Renderable, Velocity};
 
-use acrust::graphics::gl_wrapper;//going to remove later
-
+use acrust::graphics::gl_wrapper;
 
 use acrust::sound::sound::*;
 use std::{sync::mpsc, thread, time::Duration};
-
-
 
 use crate::octo::OctreeNode;
 use crate::voxel_render::VoxelRenderer;
@@ -51,7 +48,6 @@ use cgmath::Vector3;
 use std::time::Instant;
 use cgmath::*;
 
-
 mod voxel_render;
 mod chunk_generator;
 mod chunk_manager;
@@ -60,8 +56,6 @@ mod wave_generator;
 mod midi;
 
 fn main() {
-
-    println!("1:");
     let mut window = Window::new(720, 720, "CUBE!", 60);
     window.init_gl();
 
@@ -71,18 +65,10 @@ fn main() {
     shader_manager.load_shader("Basic", "shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
     shader_manager.load_shader("generic", "shaders/generic_vertex.glsl", "shaders/generic_fragment.glsl");
 
-    //shader_manager.init_forward_plus_light_debug();
-
-    println!("2:");
-
-    shader_manager.init_forward_plus();//TODO remove this
-
-    println!("3:");
+    shader_manager.init_forward_plus();
 
     let depth_shader = shader_manager.get_shader("depth").unwrap();
     let light_shader = shader_manager.get_shader("light").unwrap();
-
-    println!("4:");
 
     let mut ui_shader = ShaderProgram::new("shaders/ui_vertex.glsl", "shaders/ui_fragment.glsl");
     ui_shader.create_uniform("projection");
@@ -92,41 +78,17 @@ fn main() {
     ShaderManager::enable_backface_culling();
     ShaderManager::enable_depth();
 
-    // let mut light_manager = LightManager::new();
-
-    // light_manager.lights.push(Light {
-    //     position: [0.0, -20.0, 0.0],
-    //     radius: 10.0,
-    //     color: [1.0, 1.0, 1.0],
-    //     intensity: 100.0
-    // });
-
-    // light_manager.lights.push(Light {
-    //     position: [0.0, 15.0, -15.0],
-    //     radius: 30.0,
-    //     color: [0.2, 0.2, 1.0],
-    //     intensity: 0.1
-    // });
-
-    //let mut debug_comp_shader = LightManager::create_debug_display_shader();
-
-    //light_manager.initialize_gpu_culling(720, 720, &shader_manager);
-
-    let mat_man = MaterialManager::new();//ok I am going to give a like reasoning here as to why this isn't like a global variable
-    //or something and there are so many hoops jumped through with this and MaterialManager... ok the simple reason is
-    //its safer and uuh down the line will work out better because we arn't using this for read only. IE we are editing stuff even in the
-    //functions that dont we are just getting around decalairing it as such because of unsafe. SO basically. this is safer.
-
+    let mat_man = MaterialManager::new();
     let material = mat_man.load_material("mat1", &shader_manager, "Basic");
     let material = mat_man.load_material("mat2", &shader_manager, "generic");
     
     mat_man.init_uniform("mat2", "model");
     mat_man.init_uniform("mat2", "view");
     mat_man.init_uniform("mat2", "projection");
-
     mat_man.init_uniform("mat1", "transform");
 
-    let mut player = Player::new(0.0, 0.0, -10.0 , 100.0);
+    // I should probably add player to the ecs
+    let mut player = Player::new(0.0, 0.0, -10.0, 100.0);
 
     let perspective = PerspectiveFov {
         fovy: Rad(1.0),
@@ -136,24 +98,18 @@ fn main() {
     };
 
     let mut camera = Camera::new(perspective);
+    camera.attach_to(&player.transform, Vector3::new(10.0, 0.0, 0.0));//this system is scuffed camera and player should be in ecs to avoid attach detech but for now eeh. TODO
 
-    // let mut camera = Camera::new_reversed_z(1.0, 1.0, 4.0, 1000.0);
-
-    camera.attach_to(&player.transform);
-
-    let mut cube = Cube::new(5.0, Vector3::new(0.0, 0.0, 0.0), 1.0, mat_man.get_mat("mat1"));
-    let mut cube2 = Cube::new(5.0, Vector3::new(15.0, 15.0, 15.0), 1.0, mat_man.get_mat("mat1"));
-
-    //let mut model = GeneralModel::new(load_obj_new_normals("models/teddy.obj"), WorldCoords::new(0.0, 10.0, 100.0, 1.0), mat_man.get_mat("mat2"));
+    // Initialize materials
     mat_man.update_uniform("mat2", "lightDir", UniformValue::Vector3(vec3(0.0, 10.0, 0.0)));
     mat_man.update_uniform("mat2", "lightColor", UniformValue::Vector3(vec3(0.0, 1.0, 1.0)));
     mat_man.update_uniform("mat2", "objectColor", UniformValue::Vector3(vec3(1.0, 1.0, 1.0)));
 
     let mut texture_manager = TextureManager::new();
-
     let texture_id = texture_manager.load_texture("textures/right.jpg")
                 .expect("Failed to load texture");
 
+    // UI setup - kept separate from ECS
     let mut ui_manager = UIManager::new(720.0, 720.0);
 
     let mut ui_element = UIElement::new(1, Vector2::new(50.0, 50.0), Vector2::new(200.0, 100.0));
@@ -165,7 +121,7 @@ fn main() {
     let mut ui_draggable = UIDraggable::new(4, Vector2::new(120.0,120.0), Vector2::new(200.0, 200.0));    
     ui_draggable.set_color(Vector4::new(0.0, 1.0, 1.0, 1.0));
 
-    let mut ui_button = Button::new(3, Vector2::new(400.0,90.0), Vector2::new(200.0, 100.0)); //button is a bad fucking name 
+    let mut ui_button = Button::new(3, Vector2::new(400.0,90.0), Vector2::new(200.0, 100.0));  
     ui_element2.set_color(Vector4::new(1.0, 1.0, 0.0, 1.0));
     
     ui_manager.add_element(Box::new(ui_element));
@@ -181,28 +137,77 @@ fn main() {
 
     let mut ds = DragState::new();
 
+    // Initialize ForwardPlusRenderer
     let mut fpr = ForwardPlusRenderer::new(&shader_manager);
 
     fpr.add_light(
         [0.0, -1.0, 20.0],  // position
         50.0,             // radius
         [1.0, 1.0, 1.0],  // color (white)
-        10.1               // this like... doesnt do anything
+        10.1               // intensity
     );
 
     fpr.add_light(
         [0.0, 20.0, 5.0],
-        30.0, // Giant radius
+        30.0, 
         [0.2, 0.3, 1.0],
         10.1
     );
 
-    fpr.initialize_light_culling(720, 720, &shader_manager);//this just calls init gpu culling to the created lightmanager that is inside of FPR
-    let models: Vec<Box<dyn ModelTrait>> = vec![Box::new(Model::new(load_obj_new_normals("models/teddy.obj"), WorldCoords::new(0.0, 0.0, 0.0, 0.0), mat_man.get_mat("mat2"))),
-    Box::new(Triangle::new(2.0, 4.0, Vector3::new(0.0, 0.0, 0.0), 0.0,  mat_man.get_mat("mat2")))
-    ];
+    fpr.initialize_light_culling(720, 720, &shader_manager);
+
+    // Initialize the ECS World
+    let mut world = World::new();
+    
+    // Create entities in the ECS
+    let teddy_entity = world.create_entity("Teddy");
+    let teddy_model = Model::new(
+        load_obj_new_normals("models/teddy.obj"), 
+        WorldCoords::new(0.0, 0.0, 0.0, 0.0), 
+        mat_man.get_mat("mat2")
+    );
+    
+    // Add components to entities
+    world.movement.add_coords(teddy_entity.id, WorldCoords::new(0.0, 0.0, 0.0, 0.0));
+    world.movement.add_velocity(teddy_entity.id, Velocity {
+        direction: Vector3::new(0.0, 0.0, 0.0),
+        speed: 0.0
+    });
+    world.render.add_renderable(teddy_entity.id, Renderable {
+        model: Box::new(teddy_model)
+    });
+    
+    // Create a triangle entity
+    let triangle_entity = world.create_entity("Triangle");
+    let triangle_model = Triangle::new(
+        2.0, 4.0, 
+        Vector3::new(0.0, 0.0, 0.0), 
+        0.0, 
+        mat_man.get_mat("mat2")
+    );
+    
+    world.movement.add_coords(triangle_entity.id, WorldCoords::new(10.0, 20.0, 20.0, 0.0));
+    println!("triangle coords: {:#?}", world.movement.get_coords(triangle_entity.id).unwrap().get_position());
+    world.movement.add_velocity(triangle_entity.id, Velocity {
+        direction: Vector3::new(0.0, 0.0, 0.0),
+        speed: 0.0
+    });
+    world.render.add_renderable(triangle_entity.id, Renderable {
+        model: Box::new(triangle_model)
+    });
+    
+    // Create a player entity in the ECS
+    let player_entity = world.spawn_player("MainPlayer", 0.0, 0.0, -10.0, 0.0);
+    
+    // Time tracking for delta time calculation
+    let mut last_frame_time = Instant::now();
 
     while !window.should_close() {
+        // Calculate delta time
+        let current_time = Instant::now();
+        let delta_time = current_time.duration_since(last_frame_time).as_secs_f32();
+        last_frame_time = current_time;
+        
         unsafe {
             gl::ClearColor(0.3, 0.3, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
@@ -218,18 +223,47 @@ fn main() {
         camera.rotate(-delta_x as f32 * sensitivity, -delta_y as f32 * sensitivity);
 
         window.process_input_events(&mut input_system);
+        
+        // THIS IS GENIENLY SUPER SCUFFED TODO FIX THIS HOW THIS IS DONE
         if input_system.is_key_pressed(&Key::W) {
             player.move_forward(camera.get_forward_vector());
+            // Also update the ECS player position for synchronization if needed
+            if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
+                coords.position = *player.get_position();
+            }
         }
         if input_system.is_key_pressed(&Key::S) {
             player.move_backward(camera.get_forward_vector());
+            if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
+                coords.position = *player.get_position();
+            }
         }
         if input_system.is_key_pressed(&Key::A) {
             player.move_left(camera.get_left_vector());
+            if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
+                coords.position = *player.get_position();
+            }
         }
         if input_system.is_key_pressed(&Key::D) {
             player.move_right(camera.get_left_vector());
+            if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
+                coords.position = *player.get_position();
+            }
         }
+        if input_system.is_key_pressed(&Key::Space) {
+            player.move_up();
+            if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
+                coords.position = *player.get_position();
+            }
+        }
+        if input_system.is_key_pressed(&Key::LShift) {
+            player.move_down();
+            if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
+                coords.position = *player.get_position();
+            }
+        }
+        
+        // Handle camera rotation keys
         if input_system.is_key_pressed(&Key::Left) {
             camera.rotate(10.0 as f32 * sensitivity, 0.0);
         }
@@ -242,12 +276,8 @@ fn main() {
         if input_system.is_key_pressed(&Key::Down) {
             camera.rotate(0.0, -10.0 as f32 * sensitivity);
         }
-        if input_system.is_key_pressed(&Key::Space) {
-            player.move_up();
-        }
-        if input_system.is_key_pressed(&Key::LShift) {
-            player.move_down();
-        }
+        
+        // UI handling - kept separate from ECS
         if input_system.is_key_pressed(&Key::Tab) {
             ui_manager.update(current_mouse_position);
             ui_manager.render(&ui_shader);
@@ -262,6 +292,7 @@ fn main() {
             }
         }
     
+        // Process input events
         while let Some(event) = input_system.get_event_queue().pop_front() {
             match event {
                 InputEvent::KeyPressed(Key::Lctrl) => {
@@ -270,7 +301,7 @@ fn main() {
                 InputEvent::KeyReleased(Key::Lctrl) => {
                     player.speed = 0.1;
                 }
-                InputEvent::KeyPressed(Key::Tab) => {//Ok need a function to lock other inputs from coming in so like you dont interact with outside world when ja
+                InputEvent::KeyPressed(Key::Tab) => {
                     window.unlock_cursor();
                     sensitivity = 0.000;
                 }
@@ -281,7 +312,7 @@ fn main() {
                 InputEvent::MouseButtonPressed(CLICKS::Left) => {
                     println!("pewpew: {:#?}", player.get_position());
                     
-                    if (ui_manager.is_element_hovered(3)){//somthing here to pattern match instead of this
+                    if ui_manager.is_element_hovered(3) {
                         ui_manager.visit_element(3, &mut visitor);
                     }
                     ds.end_drag();
@@ -299,6 +330,7 @@ fn main() {
 
         camera.update_view();
 
+        // Process UI events
         while let Some(event) = ui_manager.poll_event() {
             match event {
                 UIEvent::Hover(id) => {},
@@ -313,97 +345,42 @@ fn main() {
             }
         }
 
-        let transform = camera.get_vp_matrix();
-
-        //model.set_uniforms(&texture_manager, &camera);
-
-        // unsafe {
-        //     gl::Enable(gl::DEPTH_TEST);
-        //     gl::DepthFunc(gl::GEQUAL);  // For reverse Z
-        //     gl::ClearDepth(0.0);         // Clear to far plane (0.0 in reverse Z)
-        //     gl::ClipControl(gl::LOWER_LEFT, gl::ZERO_TO_ONE);//this might muck up some other thigns
+        // Update the ECS world
+        world.update(delta_time);
+        
+        // Render the ECS world using the ForwardPlusRenderer
+        world.render(&mut fpr, &camera, 720, 720, &texture_manager);
+        
+        // Add a test motion to the teddy bear
+        // if let Some(coords) = world.movement.get_coords_mut(teddy_entity.id) {
+        //     coords.position.y = 5.0 * f32::sin(time);
         // }
 
-        fpr.render(
-            &models,
-            &camera,
-            720,
-            720,
-            &texture_manager
-        );
+        if let Some(coords) = world.movement.get_coords_mut(triangle_entity.id) {
+            coords.position = *player.get_position();
+        }
 
-        // fpr.render_debug(
-        //     &models,
-        //     &camera,
-        //     720,
-        //     720,
-        //     &texture_manager,
-        //     &mut debug_comp_shader
-        // );
-
-
-
-        // mat_man.update_uniform("mat1", "transform", &transform);
-        // cube.render(&texture_manager);
-        // cube2.render(&texture_manager);
-        //model.simple_render(&texture_manager, &camera);
-
-        window.update();//frame_buffer here
+        window.update();
         time += 0.1;
-        //panic!("end");
     }
 }
 
-pub struct Scene {
-    pub coords: Vec<Box<dyn Coords>>,
-}
-
-impl Scene{
-    pub fn new() -> Self{
-        Self {
-            coords: Vec::new()
-        }
-    }
-
-    pub fn add_coords(&mut self, element: Box<dyn Coords>) {
-        // let id = element.get_id(); LOL they should have ids
-        self.coords.push(element);
-    }
-
-    pub fn update_position_listener(&mut self){
-        if let Some(element) = self.elements.iter_mut().find(|e| e.get_id() == id) {
-            element.accept(visitor);
-        }
-    }
-}
-
-
-
-//:big todo give everything a model matrix rn things are just at origin with verticies deciding their location, and not like a proper model scheme, everyobject should from now on
-//get a transformation matrix(not everyhing only the things that are using the transormation matrix so after this push, literally only the voxels), for its like where it is relative to the camera, but they should also all get a model matrix
-
-//THIS IS JUST GOING DOWN HERE BC IM LAZY, A BASIC ALIEN LIKE THIS SHOULD JUST AUTOMATICALLY BE IMPLIMENTED INTO THE UI
+// ClickVisitor implementation remains unchanged
 pub struct ClickVisitor {
     pub button_clicked: bool,
-    //pub input_system: &InputSystem,//eeeeehhhhhhh I think there can be better solutions
 }
-//ill just talk about it here
-//we have this que and this visit system ok whatever its not the end of the world
-//its clunky I want is clicked to be in the thing not a class you have to write yourself
-//yk i want it built into button
 
 impl ClickVisitor {
     pub fn new() -> Self {
         Self {
             button_clicked: false,
-            //input_system: false,
         }
     }
 }
 
 impl UIElementVisitor for ClickVisitor {
     fn visit_button(&mut self, button: &mut Button, is_clicked: bool) {
-        if is_clicked{
+        if is_clicked {
             self.button_clicked = true;
             println!("Button clicked: ID {}", button.get_id());
             button.set_position(button.get_position() + Vector2::new(10.0, 0.0));
@@ -414,4 +391,3 @@ impl UIElementVisitor for ClickVisitor {
         println!("Slider value: {}", slider.get_value());
     }
 }
-

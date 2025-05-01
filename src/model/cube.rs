@@ -66,13 +66,18 @@ impl ModelTrait for Cube{
         self.base.get_material()
     }
 
-    fn attach_to(&mut self, parent: &WorldCoords) {
-        //self.parent = Some(parent as *const WorldCoords);
+    fn set_position(&mut self, position: Vector3<f32>){//ok so not everything needs to move but it just will make life easier if its here... I think?
+        //we can have a seperate thing for moving camera ig
+        self.base.set_position(position);
     }
 
-    fn detach(&mut self) {
-        //self.parent = None;
-    }
+    // fn attach_to(&mut self, parent: &WorldCoords) {
+    //     //self.parent = Some(parent as *const WorldCoords);
+    // }
+
+    // fn detach(&mut self) {
+    //     //self.parent = None;
+    // }
 }
 
 

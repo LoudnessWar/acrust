@@ -9,7 +9,8 @@ use super::mesh::Mesh;
 
 pub struct Triangle {
     base: Model,
-    pub parent: Option<*const WorldCoords>,//ok so there are two like
+    //pub parent: Option<*const WorldCoords>,//ok yeah so this is causing errors crazy i know
+    //ok so there are two like
     //things with this/issues with not using like a child based system
     //when I update I dont want to constantly check if parent has moved
     //I just want to move the parent and that tell the child to move
@@ -70,8 +71,7 @@ impl Triangle {
         let mesh = Mesh::new(&vertices, &indices);
         let world_coords = WorldCoords::new(position.x, position.y, position.z, rotation);
         let model = Model::new(mesh, world_coords, material);
-        Triangle { base: model,
-            parent: None }
+        Triangle { base: model }
     }
 
 
@@ -94,13 +94,18 @@ impl ModelTrait for Triangle {
         self.base.get_material()
     }
 
-    fn attach_to(&mut self, parent: &WorldCoords) {
-        self.parent = Some(parent as *const WorldCoords);
+    fn set_position(&mut self, position: Vector3<f32>){//ok so not everything needs to move but it just will make life easier if its here... I think?
+        //we can have a seperate thing for moving camera ig
+        self.base.set_position(position);//aahhh the trait is so beautiful bro
     }
 
-    fn detach(&mut self) {
-        // Implementation if needed
-    }
+    // fn attach_to(&mut self, parent: &WorldCoords) {
+    //     self.parent = Some(parent as *const WorldCoords);
+    // }
+
+    // fn detach(&mut self) {
+    //     // Implementation if needed
+    // }
 }
 
 //why is this seperate from modelTrait? simple
@@ -108,18 +113,20 @@ impl ModelTrait for Triangle {
 //every model had coords but not everything that has coords is a model take the camera for example or like
 //idk a light or something
 //also not all models move so why give them that unneeded funcitonality
-impl Coords for Triangle {
-    fn update_position(&mut self) {
-        let global_position = if let Some(parent) = self.parent {
-            let parent_transform = unsafe { &*parent };
-            parent_transform.position + self.get_world_coords().position
-        } else {
-            self.get_world_coords().position
-        };
 
-        self.base.set_position(global_position);
-    }
-}
+
+// impl Coords for Triangle {
+//     fn update_position(&mut self) {
+//         let global_position = if let Some(parent) = self.parent {
+//             let parent_transform = unsafe { &*parent };
+//             parent_transform.position + self.get_world_coords().position
+//         } else {
+//             self.get_world_coords().position
+//         };
+
+//         self.base.set_position(global_position);
+//     }
+// }
 
 
 // use std::sync::{Arc, RwLock};

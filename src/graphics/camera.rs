@@ -1,4 +1,4 @@
-use cgmath::{InnerSpace, Matrix4, PerspectiveFov, Point3, Rad, Vector3, Quaternion, EuclideanSpace, Transform, Rotation3};
+use cgmath::{EuclideanSpace, InnerSpace, Matrix4, PerspectiveFov, Point3, Quaternion, Rad, Rotation, Rotation3, Transform, Vector3};
 use crate::model::transform::WorldCoords;
 
 pub struct Camera {
@@ -6,10 +6,15 @@ pub struct Camera {
     pub projection: Matrix4<f32>, // Perspective or orthographic projection matrix
     pub view: Matrix4<f32>, // View matrix
     pub parent: Option<*const WorldCoords>,
+    pub follow_offset: Option<Vector3<f32>>,
 }
 
 
 //ok I actually have a deliemma. Use Reverse Z or use linear space
+//also how do we handle camera player stuff
+//so either we put the player right in from of the camera getting like the direction the camera is looking at at an offset
+//or we move the player with the camera at an offset... 2 is probably better
+//we shouldnt have both follow the model. Thats a bad idea
 impl Camera {
     pub fn new(perspective: PerspectiveFov<f32>) -> Self {
         let projection = Matrix4::from(perspective);
@@ -23,6 +28,7 @@ impl Camera {
             projection,
             view,
             parent: None,
+            follow_offset: None,
         }
     }
 
@@ -48,30 +54,59 @@ impl Camera {
             projection,
             view,
             parent: None,
+            follow_offset: None,
         }
     }
 
     pub fn update_view(&mut self) {
-        let global_position = if let Some(parent) = self.parent {
+        let (global_position, target) = if let Some(parent) = self.parent {
             let parent_transform = unsafe { &*parent };
-            parent_transform.position + self.transform.position
+
+            let offset = self.follow_offset.unwrap_or(Vector3::new(0.0, 0.0, 0.0));
+            let rotated_offset = parent_transform.rotation.rotate_vector(offset);
+            let camera_position = parent_transform.position + rotated_offset;
+            let look_target = parent_transform.position;
+
+            (camera_position, look_target)
         } else {
-            self.transform.position
+            let forward = self.get_forward_vector();
+            let camera_position = self.transform.position;
+            let target = camera_position + forward;
+            (camera_position, target)
         };
-    
-        let forward = self.get_forward_vector();
-        let target = global_position + forward;
-        
-        let up = Vector3::new(0.0, 1.0, 0.0);
-        let right = forward.cross(up).normalize();
+
+        let forward = (target - global_position).normalize();
+        let right = forward.cross(Vector3::new(0.0, 1.0, 0.0)).normalize();
         let corrected_up = right.cross(forward).normalize();
-    
+
         self.view = Matrix4::look_at_rh(
             Point3::from_vec(global_position),
             Point3::from_vec(target),
-            corrected_up
+            corrected_up,
         );
     }
+
+    // pub fn update_view(&mut self) {
+    //     let global_position = if let Some(parent) = self.parent {
+    //         let parent_transform = unsafe { &*parent };
+    //         parent_transform.position + self.transform.position
+    //     } else {
+    //         self.transform.position
+    //     };
+    
+    //     let forward = self.get_forward_vector();
+    //     let target = global_position + forward;
+        
+    //     let up = Vector3::new(0.0, 1.0, 0.0);
+    //     let right = forward.cross(up).normalize();
+    //     let corrected_up = right.cross(forward).normalize();
+    
+    //     self.view = Matrix4::look_at_rh(
+    //         Point3::from_vec(global_position),
+    //         Point3::from_vec(target),
+    //         corrected_up
+    //     );
+    // }
 
     pub fn get_vp_matrix(&self) -> Matrix4<f32> {//ok to like shader here bc its new value produced as product of the other two
         self.projection * self.view
@@ -132,12 +167,14 @@ impl Camera {
     }
 
     //attach and detach to a partent function
-    pub fn attach_to(&mut self, parent: &WorldCoords) {
+    pub fn attach_to(&mut self, parent: &WorldCoords, offset: Vector3<f32>) {
         self.parent = Some(parent as *const WorldCoords);
+        self.follow_offset = Some(offset);
     }
 
     pub fn detach(&mut self) {
         self.parent = None;
+        self.follow_offset = None;
     }
 }
 
