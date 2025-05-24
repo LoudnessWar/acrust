@@ -352,6 +352,8 @@ fn main() {
         world.render(&mut fpr, &camera, 720, 720, &texture_manager);
         //OOOOKKKKAAAYYYYYYY SOOOOOOOO... IF IT DOESNT HAPPEN AFTER HERE IT DONT HAPPEN LOOKING AT YOU UI NEED TO FIX
 
+        //BRO ITS SO SLOW HELP!!! I think I was lowkey just adding stuff back 
+
         let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
         let projection_matrix = camera.get_p_matrix();
         skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
