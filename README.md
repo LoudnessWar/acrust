@@ -22,3 +22,7 @@ READ ME TODO
 - [ ] Hieristic and LOD Voxel Octree Rendering Implementation
 - [ ] refine_octree thingies
 - [ ] remember what was on the old TODO list
+- [ ] text rendering
+- [ ] collision
+- [ ] better 3d camera
+- [ ] optimization stuff
