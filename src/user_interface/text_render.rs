@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::mem;
+use std::ptr;
 
 use cgmath::Vector2;
 
