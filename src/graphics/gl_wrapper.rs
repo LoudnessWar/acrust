@@ -53,7 +53,7 @@ impl Vao {
         unsafe {
             gl::GenVertexArrays(1, &mut id);
         }
-
+        println!("new VAO made");
         Vao { id }
     }
 
@@ -96,6 +96,7 @@ impl BufferObject {
                 panic!("GL Error during GenBuffers: 0x{:x}", err);
             }
         }
+        println!("new buffer made");
         BufferObject { id, r#type, usage }
     }
 
@@ -181,7 +182,7 @@ impl VertexAttribute {
         unsafe {
             gl::VertexAttribPointer(index, size, r#type, normalized, stride, pointer);
         }
-
+        println!("new VertexAttribute made");
         VertexAttribute { index }
     }
 
@@ -206,6 +207,7 @@ pub struct ShaderProgram {
 #[allow(temporary_cstring_as_ptr)]
 impl ShaderProgram {
     pub fn new(vertex_shader_path: &str, fragment_shader_path: &str) -> Self {
+        println!("created a new shader");
         let vertex_shader_source = Self::read_shader_source(vertex_shader_path);
         let fragment_shader_source = Self::read_shader_source(fragment_shader_path);
         let program_handle = unsafe {
@@ -437,7 +439,7 @@ impl ShaderProgram {
 
     //computer shader stuff 
     pub fn new_compute(compute_shader_path: &str) -> Self {
-        //println!("comp path {}", compute_shader_path );
+        println!("comp path {}", compute_shader_path );
         let compute_shader_source = Self::read_shader_source(compute_shader_path);
         let program_handle = unsafe {
             let compute_shader = Self::compile_shader(&compute_shader_source, gl::COMPUTE_SHADER);
@@ -480,7 +482,7 @@ impl ShaderProgram {
         unsafe {
             gl_check!(gl::DispatchCompute(x, y, z));
                     // Insert fence after compute dispatch
-            let fence = gl::FenceSync(gl::SYNC_GPU_COMMANDS_COMPLETE, 0);
+            let fence = gl::FenceSync(gl::SYNC_GPU_COMMANDS_COMPLETE, 0); //TODO lol we are creating a new fence every time here which is fine for now becasue we are deleteing it but later on will not be chill
 
             // Wait for the GPU to complete compute
             let wait_result = gl::ClientWaitSync(fence, gl::SYNC_FLUSH_COMMANDS_BIT, 1_000_000_000); // 1 sec
@@ -665,7 +667,23 @@ impl ShaderManager {
 }
 
 pub struct Framebuffer { id: GLuint, depth_texture: Rc<depthTexture> }
-pub struct depthTexture { id: GLuint, width: u32, height: u32 }//we finna have to deal with the two textures  later bro
+pub struct depthTexture { id: GLuint, width: u32, height: u32 }//we finna have to deal with the two textures later bro
+
+impl Drop for depthTexture {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteTextures(1, &self.id);
+        }
+    }
+}
+
+impl Drop for Framebuffer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteFramebuffers(1, &self.id);
+        }
+    }
+}
 
 impl Framebuffer {
     pub fn new_depth_only(width: u32, height: u32) -> Self {
@@ -753,13 +771,12 @@ impl Framebuffer {
 
 pub fn run_depth_prepass(
     depth_shader: &ShaderProgram,
-    framebuffer: &Framebuffer,
+    framebuffer: Rc<depthTexture>,
     scene_objects: &Vec<&Mesh>,
     light_manager: &mut LightManager,
     width: u32,
     height: u32,
 ) {
-    framebuffer.bind();
     
     unsafe {
         gl_check!(gl::Viewport(0, 0, width as i32, height as i32));
@@ -787,7 +804,7 @@ pub fn run_depth_prepass(
 
 
 
-    light_manager.set_depth_texture(framebuffer.get_depth_texture());
+    light_manager.set_depth_texture(framebuffer);
 }
 
 // Replace run_depth_prepass temporarily
@@ -1255,140 +1272,140 @@ impl LightManager {
     //     self.debug_texture = Some(debug_tex);
     // }
 
-    pub fn render_debug_visualization(&self, texture_id: GLuint, width: u32, height: u32, debug_shader: &mut ShaderProgram) {
-        let debug_width = width / 4;  // 1/4 of screen width
-        let debug_height = height / 4; // 1/4 of screen height
+    // pub fn render_debug_visualization(&self, texture_id: GLuint, width: u32, height: u32, debug_shader: &mut ShaderProgram) {
+    //     let debug_width = width / 4;  // 1/4 of screen width
+    //     let debug_height = height / 4; // 1/4 of screen height
         
-        unsafe {
-            gl::Viewport(
-                (width - debug_width) as i32, 
-                0, 
-                debug_width as i32, 
-                debug_height as i32
-            );
-        }
+    //     unsafe {
+    //         gl::Viewport(
+    //             (width - debug_width) as i32, 
+    //             0, 
+    //             debug_width as i32, 
+    //             debug_height as i32
+    //         );
+    //     }
 
         
-        if let Some(debug_tex) = self.debug_texture {
-            // Create a simple fullscreen quad shader if you don't have one
-            //let debug_shader = LightManager::create_debug_display_shader();
-            debug_shader.bind();
+    //     if let Some(debug_tex) = self.debug_texture {
+    //         // Create a simple fullscreen quad shader if you don't have one
+    //         //let debug_shader = LightManager::create_debug_display_shader();
+    //         debug_shader.bind();
 
-            let vertices: [f32; 8] = [
-                -1.0, -1.0,
-                 1.0, -1.0,
-                -1.0,  1.0,
-                 1.0,  1.0,
-            ];
+    //         let vertices: [f32; 8] = [
+    //             -1.0, -1.0,
+    //              1.0, -1.0,
+    //             -1.0,  1.0,
+    //              1.0,  1.0,
+    //         ];
 
-            let mut vao: GLuint = 0;
-            let mut vbo: GLuint = 0;
+    //         let mut vao: GLuint = 0;
+    //         let mut vbo: GLuint = 0;
 
-            unsafe {
-                gl::GenVertexArrays(1, &mut vao);
-                gl::GenBuffers(1, &mut vbo);
+    //         unsafe {
+    //             gl::GenVertexArrays(1, &mut vao);
+    //             gl::GenBuffers(1, &mut vbo);
 
-                gl::BindVertexArray(vao);
-                gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-                gl::BufferData(
-                    gl::ARRAY_BUFFER,
-                    (vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
-                    vertices.as_ptr() as *const c_void,
-                    gl::STATIC_DRAW,
-                );
+    //             gl::BindVertexArray(vao);
+    //             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+    //             gl::BufferData(
+    //                 gl::ARRAY_BUFFER,
+    //                 (vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+    //                 vertices.as_ptr() as *const c_void,
+    //                 gl::STATIC_DRAW,
+    //             );
 
-                gl::EnableVertexAttribArray(0);
-                gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, 2 * std::mem::size_of::<f32>() as GLsizei, ptr::null());
+    //             gl::EnableVertexAttribArray(0);
+    //             gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, 2 * std::mem::size_of::<f32>() as GLsizei, ptr::null());
 
-                gl::Disable(gl::DEPTH_TEST);
+    //             gl::Disable(gl::DEPTH_TEST);
 
-                gl::UseProgram(debug_shader.get_program_handle().clone());
+    //             gl::UseProgram(debug_shader.get_program_handle().clone());
 
-                gl::ActiveTexture(gl::TEXTURE0);
-                gl::BindTexture(gl::TEXTURE_2D, debug_tex);
-                //debug_shader.create_uniform("debugTexture");
-                debug_shader.set_uniform1i("debugTexture", &0);
+    //             gl::ActiveTexture(gl::TEXTURE0);
+    //             gl::BindTexture(gl::TEXTURE_2D, debug_tex);
+    //             //debug_shader.create_uniform("debugTexture");
+    //             debug_shader.set_uniform1i("debugTexture", &0);
 
-                gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
-                gl::BindVertexArray(0);
-                gl::DeleteBuffers(1, &vbo);
-                gl::DeleteVertexArrays(1, &vao);
+    //             gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
+    //             gl::BindVertexArray(0);
+    //             gl::DeleteBuffers(1, &vbo);
+    //             gl::DeleteVertexArrays(1, &vao);
 
-                gl::Enable(gl::DEPTH_TEST);
-            }
+    //             gl::Enable(gl::DEPTH_TEST);
+    //         }
                         
-            // Create a VAO for the fullscreen quad (can be cached and reused)
-            // let mut vao: GLuint = 0;
-            // let mut vbo: GLuint = 0;
+    //         // Create a VAO for the fullscreen quad (can be cached and reused)
+    //         // let mut vao: GLuint = 0;
+    //         // let mut vbo: GLuint = 0;
             
-            // // Define fullscreen quad vertices (position and texture coordinates)
-            // let vertices: [f32; 20] = [
-            //     // Position (3) and TexCoord (2)
-            //     -1.0, -1.0, 0.0,   0.0, 0.0,
-            //      1.0, -1.0, 0.0,   1.0, 0.0,
-            //     -1.0,  1.0, 0.0,   0.0, 1.0,
-            //      1.0,  1.0, 0.0,   1.0, 1.0,
-            // ];
+    //         // // Define fullscreen quad vertices (position and texture coordinates)
+    //         // let vertices: [f32; 20] = [
+    //         //     // Position (3) and TexCoord (2)
+    //         //     -1.0, -1.0, 0.0,   0.0, 0.0,
+    //         //      1.0, -1.0, 0.0,   1.0, 0.0,
+    //         //     -1.0,  1.0, 0.0,   0.0, 1.0,
+    //         //      1.0,  1.0, 0.0,   1.0, 1.0,
+    //         // ];
             
-            // unsafe {
-            //     // Disable depth testing for this debug render
-            //     gl::Disable(gl::DEPTH_TEST);
+    //         // unsafe {
+    //         //     // Disable depth testing for this debug render
+    //         //     gl::Disable(gl::DEPTH_TEST);
                 
-            //     // Create and set up VAO and VBO
-            //     gl::GenVertexArrays(1, &mut vao);
-            //     gl::GenBuffers(1, &mut vbo);
+    //         //     // Create and set up VAO and VBO
+    //         //     gl::GenVertexArrays(1, &mut vao);
+    //         //     gl::GenBuffers(1, &mut vbo);
                 
-            //     gl::BindVertexArray(vao);
-            //     gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-            //     gl::BufferData(
-            //         gl::ARRAY_BUFFER,
-            //         (vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
-            //         vertices.as_ptr() as *const std::ffi::c_void,
-            //         gl::STATIC_DRAW
-            //     );
+    //         //     gl::BindVertexArray(vao);
+    //         //     gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+    //         //     gl::BufferData(
+    //         //         gl::ARRAY_BUFFER,
+    //         //         (vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+    //         //         vertices.as_ptr() as *const std::ffi::c_void,
+    //         //         gl::STATIC_DRAW
+    //         //     );
                 
-            //     // Position attribute
-            //     gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 5 * std::mem::size_of::<f32>() as GLsizei, std::ptr::null());
-            //     gl::EnableVertexAttribArray(0);
+    //         //     // Position attribute
+    //         //     gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 5 * std::mem::size_of::<f32>() as GLsizei, std::ptr::null());
+    //         //     gl::EnableVertexAttribArray(0);
                 
-            //     // Texture coordinate attribute
-            //     gl::VertexAttribPointer(
-            //         1, 
-            //         2, 
-            //         gl::FLOAT, 
-            //         gl::FALSE, 
-            //         5 * std::mem::size_of::<f32>() as GLsizei, 
-            //         (3 * std::mem::size_of::<f32>()) as *const std::ffi::c_void
-            //     );
-            //     gl::EnableVertexAttribArray(1);
+    //         //     // Texture coordinate attribute
+    //         //     gl::VertexAttribPointer(
+    //         //         1, 
+    //         //         2, 
+    //         //         gl::FLOAT, 
+    //         //         gl::FALSE, 
+    //         //         5 * std::mem::size_of::<f32>() as GLsizei, 
+    //         //         (3 * std::mem::size_of::<f32>()) as *const std::ffi::c_void
+    //         //     );
+    //         //     gl::EnableVertexAttribArray(1);
                 
-            //     // Bind the debug texture
-            //     gl::ActiveTexture(gl::TEXTURE0);
-            //     gl::BindTexture(gl::TEXTURE_2D, debug_tex);
-            //     gl::GetError();
+    //         //     // Bind the debug texture
+    //         //     gl::ActiveTexture(gl::TEXTURE0);
+    //         //     gl::BindTexture(gl::TEXTURE_2D, debug_tex);
+    //         //     gl::GetError();
                 
-            //     // Set the shader uniform
-            //     debug_shader.set_uniform1i("debugTexture", &0);
+    //         //     // Set the shader uniform
+    //         //     debug_shader.set_uniform1i("debugTexture", &0);
                 
-            //     // Draw the quad
-            //     gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
+    //         //     // Draw the quad
+    //         //     gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
                 
-            //     // Clean up
-            //     gl::BindVertexArray(0);
-            //     gl::DeleteVertexArrays(1, &vao);
-            //     gl::DeleteBuffers(1, &vbo);
+    //         //     // Clean up
+    //         //     gl::BindVertexArray(0);
+    //         //     gl::DeleteVertexArrays(1, &vao);
+    //         //     gl::DeleteBuffers(1, &vbo);
                 
-            //     // Re-enable depth testing
-            //     //gl::Enable(gl::DEPTH_TEST);add back
-            // }
+    //         //     // Re-enable depth testing
+    //         //     //gl::Enable(gl::DEPTH_TEST);add back
+    //         // }
             
-            ShaderProgram::unbind();
-        }
+    //         ShaderProgram::unbind();
+    //     }
 
-        unsafe {
-            gl::Viewport(0, 0, width as i32, height as i32);
-        }
-    }
+    //     unsafe {
+    //         gl::Viewport(0, 0, width as i32, height as i32);
+    //     }
+    // }
 
     pub fn create_debug_display_shader() -> ShaderProgram {//lol this is just me being lazy
         let vertex_src = "shaders/debug_comp.vert";
@@ -1541,6 +1558,7 @@ pub struct ForwardPlusRenderer {
     depth_shader: Arc<Mutex<ShaderProgram>>,//I might just make these not in shader_manager tbh
     light_shader: Arc<Mutex<ShaderProgram>>,
     light_manager: LightManager,
+    framebuffer: Framebuffer,
 }
 
 impl ForwardPlusRenderer {
@@ -1552,11 +1570,14 @@ impl ForwardPlusRenderer {
             .expect("Light shader not found");
 
         let light_manager = LightManager::new();
+
+        let framebuffer = Framebuffer::new_depth_only(720, 720);//TODO add a method to update this later
         
         Self {
             depth_shader,
             light_shader,
             light_manager,
+            framebuffer,
         }
     }
 
@@ -1568,11 +1589,14 @@ impl ForwardPlusRenderer {
             .expect("Light shader not found");
 
         let light_manager = LightManager::new();
+
+        let framebuffer = Framebuffer::new_depth_only(720, 720);
         
         Self {
             depth_shader,
             light_shader,
             light_manager,
+            framebuffer,
         }
     }
     
@@ -1585,7 +1609,7 @@ impl ForwardPlusRenderer {
     ) {
         let models_iter = models.into_iter().collect::<Vec<_>>();//TODO feel like this adds overhead
 
-        let framebuffer = Framebuffer::new_depth_only(width, height);
+        // let framebuffer = Framebuffer::new_depth_only(width, height);
         let meshes: Vec<&Mesh> = models_iter.iter().map(|model| model.get_mesh()).collect();
         
         let depth_shader_guard = self.depth_shader.lock().expect("failed to bind depth shader");
@@ -1594,12 +1618,15 @@ impl ForwardPlusRenderer {
         depth_shader_guard.set_matrix4fv_uniform("view", camera.get_view());
         depth_shader_guard.set_matrix4fv_uniform("projection", camera.get_p_matrix());
         //println!("here");
+
+        self.framebuffer.bind();
+        
         for model in &models_iter {
             depth_shader_guard.set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
 
             run_depth_prepass(
                 &depth_shader_guard,
-                &framebuffer,
+                self.framebuffer.get_depth_texture(),
                 &meshes,
                 &mut self.light_manager,
                 width,
@@ -1689,210 +1716,210 @@ impl ForwardPlusRenderer {
         ShaderProgram::unbind();
     }
 
-    pub fn render_test<T: ModelTrait>(&mut self, 
-        models: &[T], 
-        camera: &Camera,
-        width: u32, 
-        height: u32,
-        texture_manager: &TextureManager
-    ) {
-        let framebuffer = Framebuffer::new_depth_only(width, height);
-        let meshes: Vec<&Mesh> = models.iter().map(|model| model.get_mesh()).collect();
+    // pub fn render_test<T: ModelTrait>(&mut self, 
+    //     models: &[T], 
+    //     camera: &Camera,
+    //     width: u32, 
+    //     height: u32,
+    //     texture_manager: &TextureManager
+    // ) {
+    //     let framebuffer = Framebuffer::new_depth_only(width, height);
+    //     let meshes: Vec<&Mesh> = models.iter().map(|model| model.get_mesh()).collect();
         
-        self.depth_shader.lock().expect("failed to bind depth").bind();
+    //     self.depth_shader.lock().expect("failed to bind depth").bind();
         
-        for model in models {
-            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
-            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", camera.get_view());
-            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", camera.get_p_matrix());
-            // Depth pre-pass
-            run_depth_prepass(
-                &self.depth_shader.lock().expect("failed to get depth Shader during prepass"),
-                &framebuffer,
-                &meshes,
-                &mut self.light_manager,
-                width,
-                height,
-            );
-        }
+    //     for model in models {
+    //         self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
+    //         self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", camera.get_view());
+    //         self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", camera.get_p_matrix());
+    //         // Depth pre-pass
+    //         run_depth_prepass(
+    //             &self.depth_shader.lock().expect("failed to get depth Shader during prepass"),
+    //             &framebuffer,
+    //             &meshes,
+    //             &mut self.light_manager,
+    //             width,
+    //             height,
+    //         );
+    //     }
 
-        if let Some(culling_buffers) = &self.light_manager.culling_buffers {
-            unsafe {
-                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
-                gl_check!(gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id()));
-            }
-        }
+    //     if let Some(culling_buffers) = &self.light_manager.culling_buffers {
+    //         unsafe {
+    //             gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
+    //             gl_check!(gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id()));
+    //         }
+    //     }
         
-        // Light culling
-        self.light_manager.perform_gpu_light_culling(camera.get_view(),camera.get_p_matrix());//vp should prolly be just done on gpu later
+    //     // Light culling
+    //     self.light_manager.perform_gpu_light_culling(camera.get_view(),camera.get_p_matrix());//vp should prolly be just done on gpu later
         
        
         
-        self.light_shader.lock().expect("failed bind").bind();//if this was mutable would this work
+    //     self.light_shader.lock().expect("failed bind").bind();//if this was mutable would this work
         
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", &camera.get_view());
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", &camera.get_p_matrix());
+    //     self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", &camera.get_view());
+    //     self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", &camera.get_p_matrix());
 
-        //print!("heeeeeeeheeeee");
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_useNormalSmoothing", 1.0);
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_smoothingFactor",1.0);
+    //     //print!("heeeeeeeheeeee");
+    //     self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_useNormalSmoothing", 1.0);
+    //     self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_smoothingFactor",1.0);
 
-        if let Some(culling_buffers) = &self.light_manager.culling_buffers {//If i get rid of if this doesnt work and I forget why... I think its something like if if we know its there so no need to account for like refstuff
-            let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();//TODO move this and num of tiles to where shader is set up
-            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_tileCountX", &(tile_count_x as i32));
-        }
+    //     if let Some(culling_buffers) = &self.light_manager.culling_buffers {//If i get rid of if this doesnt work and I forget why... I think its something like if if we know its there so no need to account for like refstuff
+    //         let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();//TODO move this and num of tiles to where shader is set up
+    //         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_tileCountX", &(tile_count_x as i32));
+    //     }
         
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_lightCount", &(self.light_manager.lights.len() as i32));
+    //     self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_lightCount", &(self.light_manager.lights.len() as i32));
 
 
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 1.0);
+    //     self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
+    //     self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 1.0);
         
     
-        for model in models {
-            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
-            model.get_mesh().draw();
-        }
+    //     for model in models {
+    //         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
+    //         model.get_mesh().draw();
+    //     }
 
-        unsafe{//just a precaution
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
-		    gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, 0);
-        }
+    //     unsafe{//just a precaution
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
+	// 	    gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, 0);
+    //     }
         
-        ShaderProgram::unbind();
-    }
+    //     ShaderProgram::unbind();
+    // }
 
-    pub fn render_debug<T: ModelTrait>(&mut self, 
-        models: &[T], 
-        camera: &Camera,
-        width: u32, 
-        height: u32,
-        texture_manager: &TextureManager,
-        debug_comp_shader: &mut ShaderProgram,
-    ) {
-        let framebuffer = Framebuffer::new_depth_only(width, height);
-        let meshes: Vec<&Mesh> = models.iter().map(|model| model.get_mesh()).collect();
+    // pub fn render_debug<T: ModelTrait>(&mut self, 
+    //     models: &[T], 
+    //     camera: &Camera,
+    //     width: u32, 
+    //     height: u32,
+    //     texture_manager: &TextureManager,
+    //     debug_comp_shader: &mut ShaderProgram,
+    // ) {
+    //     let framebuffer = Framebuffer::new_depth_only(width, height);
+    //     let meshes: Vec<&Mesh> = models.iter().map(|model| model.get_mesh()).collect();
         
-        self.depth_shader.lock().expect("failed to bind depth").bind();
+    //     self.depth_shader.lock().expect("failed to bind depth").bind();
 
-        // let debugshader = initialize_depth_debug_shader();//lol recompiling this is not optimal btw
-        // debugshader.bind();
+    //     // let debugshader = initialize_depth_debug_shader();//lol recompiling this is not optimal btw
+    //     // debugshader.bind();
 
-        // let model_matrices: Vec<Matrix4<f32>> = models.iter()
-        //     .map(|model| model.get_world_coords().get_model_matrix())
-        //     .collect();
+    //     // let model_matrices: Vec<Matrix4<f32>> = models.iter()
+    //     //     .map(|model| model.get_world_coords().get_model_matrix())
+    //     //     .collect();
 
-        // run_depth_debug_pass(
-        //     &debugshader,
-        //     &meshes,
-        //     camera,
-        //     &model_matrices,
-        // );//this works really well now
+    //     // run_depth_debug_pass(
+    //     //     &debugshader,
+    //     //     &meshes,
+    //     //     camera,
+    //     //     &model_matrices,
+    //     // );//this works really well now
         
-        for model in models {
-            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
-            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", camera.get_view());
-            self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", camera.get_p_matrix());
-            // Depth pre-pass
-            run_depth_prepass(
-                &self.depth_shader.lock().expect("failed to get depth Shader during prepass"),
-                &framebuffer,
-                &meshes,
-                &mut self.light_manager,
-                width,
-                height,
-            );
-        }
+    //     for model in models {
+    //         self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
+    //         self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", camera.get_view());
+    //         self.depth_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", camera.get_p_matrix());
+    //         // Depth pre-pass
+    //         run_depth_prepass(
+    //             &self.depth_shader.lock().expect("failed to get depth Shader during prepass"),
+    //             &framebuffer,
+    //             &meshes,
+    //             &mut self.light_manager,
+    //             width,
+    //             height,
+    //         );
+    //     }
 
-        if let Some(culling_buffers) = &self.light_manager.culling_buffers {
-            unsafe {
-                gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
-                //gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, culling_buffers.light_grid_buffer.get_id());
-                gl_check!(gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id()));
-            }
-        }
+    //     if let Some(culling_buffers) = &self.light_manager.culling_buffers {
+    //         unsafe {
+    //             gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, culling_buffers.light_buffer.get_id());
+    //             //gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, culling_buffers.light_grid_buffer.get_id());
+    //             gl_check!(gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, culling_buffers.light_index_buffer.get_id()));
+    //         }
+    //     }
         
         
-        // Light culling
-        //self.light_manager.debug_perform_gpu_light_culling(camera.get_view(),camera.get_p_matrix(), width, height);//vp should prolly be just done on gpu later
-        let debug_texture = self.light_manager.debug_perform_gpu_light_culling(
-            camera.get_view(),
-            camera.get_p_matrix(),
-        );
+    //     // Light culling
+    //     //self.light_manager.debug_perform_gpu_light_culling(camera.get_view(),camera.get_p_matrix(), width, height);//vp should prolly be just done on gpu later
+    //     let debug_texture = self.light_manager.debug_perform_gpu_light_culling(
+    //         camera.get_view(),
+    //         camera.get_p_matrix(),
+    //     );
     
         
-        // Light pass
-        //Framebuffer::unbind();
+    //     // Light pass
+    //     //Framebuffer::unbind();
         
-        // unsafe {
-        //     gl::Viewport(0, 0, width as i32, height as i32);
-        //     gl::ClearDepth(0.0);
-        //     gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-        //     gl::DepthFunc(gl::GREATER);//this is erm maybe finiky
-        //     gl::Enable(gl::DEPTH_TEST);
-        // }
+    //     // unsafe {
+    //     //     gl::Viewport(0, 0, width as i32, height as i32);
+    //     //     gl::ClearDepth(0.0);
+    //     //     gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+    //     //     gl::DepthFunc(gl::GREATER);//this is erm maybe finiky
+    //     //     gl::Enable(gl::DEPTH_TEST);
+    //     // }
         
-        self.light_shader.lock().expect("failed bind").bind();//if this was mutable would this work
-        //if im getting errrors later look into this
+    //     self.light_shader.lock().expect("failed bind").bind();//if this was mutable would this work
+    //     //if im getting errrors later look into this
 
-        // Bind depth texture
-        //let depth_tex = self.light_manager.get_depth_texture();
-        // unsafe {
-        //     gl_check!(gl::ActiveTexture(gl::TEXTURE0));
-        //     gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
-        // }
+    //     // Bind depth texture
+    //     //let depth_tex = self.light_manager.get_depth_texture();
+    //     // unsafe {
+    //     //     gl_check!(gl::ActiveTexture(gl::TEXTURE0));
+    //     //     gl::BindTexture(gl::TEXTURE_2D, depth_tex.id);
+    //     // }
 
-        //self.light_shader.lock().expect("failed bind").bind();
+    //     //self.light_shader.lock().expect("failed bind").bind();
 
-        //idk gonna do like vertex stuff here
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", &camera.get_view());
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", &camera.get_p_matrix());
+    //     //idk gonna do like vertex stuff here
+    //     self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", &camera.get_view());
+    //     self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", &camera.get_p_matrix());
 
-        //lol move this create uniform somewhere else
-        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_depthTex");
-        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
+    //     //lol move this create uniform somewhere else
+    //     //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_depthTex");
+    //     //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
         
-        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
-        // Bind light culling buffers
+    //     //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("u_depthTex", &0);
+    //     // Bind light culling buffers
 
-        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_lightCount");
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("totalLightCount", &(self.light_manager.lights.len() as i32));
-        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
+    //     //self.light_shader.lock().expect("temp_light_shader failed to set uniform").create_uniform("u_lightCount");
+    //     self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("totalLightCount", &(self.light_manager.lights.len() as i32));
+    //     //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
         
-        if let Some(culling_buffers) = &self.light_manager.culling_buffers {//If i get rid of if this doesnt work and I forget why... I think its something like if if we know its there so no need to account for like refstuff
-            let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();//TODO move this and num of tiles to where shader is set up
-            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("numberOfTilesX", &(tile_count_x as i32));
-        }
+    //     if let Some(culling_buffers) = &self.light_manager.culling_buffers {//If i get rid of if this doesnt work and I forget why... I think its something like if if we know its there so no need to account for like refstuff
+    //         let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();//TODO move this and num of tiles to where shader is set up
+    //         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1i("numberOfTilesX", &(tile_count_x as i32));
+    //     }
         
-        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountY", tile_count_y as f32);
-        //this all needs to move later
-        //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 1.0);
+    //     //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_tileCountY", tile_count_y as f32);
+    //     //this all needs to move later
+    //     //self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_uniform1f("u_specularPower", 1.0);
         
-        self.light_shader.lock().expect("temp_light_shader failed to set uniform").debug_print_uniforms();
-        // Render each model with its material
-        for model in models {
-            self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
-            //model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
-            model.get_mesh().draw();
-        }
+    //     self.light_shader.lock().expect("temp_light_shader failed to set uniform").debug_print_uniforms();
+    //     // Render each model with its material
+    //     for model in models {
+    //         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
+    //         //model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
+    //         model.get_mesh().draw();
+    //     }
 
-        if let Some(debug_tex) = debug_texture {
-            // Now render the debug texture (can be in corner of screen)
-            self.light_manager.render_debug_visualization(debug_tex, width, height, debug_comp_shader);
+    //     if let Some(debug_tex) = debug_texture {
+    //         // Now render the debug texture (can be in corner of screen)
+    //         self.light_manager.render_debug_visualization(debug_tex, width, height, debug_comp_shader);
             
-            // Clean up the debug texture when done
-            unsafe {
-                gl_check!(gl::DeleteTextures(1, &debug_tex));
-            }
-        }
+    //         // Clean up the debug texture when done
+    //         unsafe {
+    //             gl_check!(gl::DeleteTextures(1, &debug_tex));
+    //         }
+    //     }
 
-        unsafe{
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
-		    gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, 0);
-        }
+    //     unsafe{
+    //         gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
+	// 	    gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, 0);
+    //     }
         
-        ShaderProgram::unbind();
-    }
+    //     ShaderProgram::unbind();
+    // }
     
     pub fn add_light(&mut self, position: [f32; 3], radius: f32, color: [f32; 3], intensity: f32) {
         self.light_manager.lights.push(Light { 

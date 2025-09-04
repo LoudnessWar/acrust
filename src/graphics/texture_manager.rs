@@ -37,6 +37,7 @@ impl TextureManager {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
 
             // Upload texture data
+            println!("uploaded texture data");
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,

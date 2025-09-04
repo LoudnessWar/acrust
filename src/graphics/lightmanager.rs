@@ -163,34 +163,34 @@ pub unsafe fn render_depth_only_prepass(depth_shader_program: u32){
         gl::ColorMask(gl::TRUE, gl::TRUE, gl::TRUE, gl::TRUE); // Re-enable color write after
 }
 
-pub unsafe fn compute_shader_lightculling(width: i32, height: i32){
-    let mut fbo = 0;
-    gl::GenFramebuffers(1, &mut fbo);
-    gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
+// pub unsafe fn compute_shader_lightculling(width: i32, height: i32){
+//     let mut fbo = 0;
+//     gl::GenFramebuffers(1, &mut fbo);
+//     gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
 
-    let mut depth_tex = 0;
-    gl::GenTextures(1, &mut depth_tex);
-    gl::BindTexture(gl::TEXTURE_2D, depth_tex);
-    gl::TexImage2D(
-        gl::TEXTURE_2D,
-        0,
-        gl::DEPTH_COMPONENT32F as i32,
-        width,
-        height,
-        0,
-        gl::DEPTH_COMPONENT,
-        gl::FLOAT,
-        std::ptr::null(),
-    );
+//     let mut depth_tex = 0;
+//     gl::GenTextures(1, &mut depth_tex);
+//     gl::BindTexture(gl::TEXTURE_2D, depth_tex);
+//     gl::TexImage2D(
+//         gl::TEXTURE_2D,
+//         0,
+//         gl::DEPTH_COMPONENT32F as i32,
+//         width,
+//         height,
+//         0,
+//         gl::DEPTH_COMPONENT,
+//         gl::FLOAT,
+//         std::ptr::null(),
+//     );
 
-    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST.try_into().unwrap());
-    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST.try_into().unwrap());
+//     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST.try_into().unwrap());
+//     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST.try_into().unwrap());
 
-    gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, depth_tex, 0);
-    gl::DrawBuffer(gl::NONE);
-    gl::ReadBuffer(gl::NONE);
+//     gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::DEPTH_ATTACHMENT, gl::TEXTURE_2D, depth_tex, 0);
+//     gl::DrawBuffer(gl::NONE);
+//     gl::ReadBuffer(gl::NONE);
 
-    assert!(gl::CheckFramebufferStatus(gl::FRAMEBUFFER) == gl::FRAMEBUFFER_COMPLETE);
-    gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+//     assert!(gl::CheckFramebufferStatus(gl::FRAMEBUFFER) == gl::FRAMEBUFFER_COMPLETE);
+//     gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
 
-}
+// }
