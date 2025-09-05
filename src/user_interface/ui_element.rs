@@ -341,3 +341,43 @@ impl Slot {
         self.position
     }
 }
+
+pub struct UIText {
+    base: UIElement,
+    text: String,
+    font_size: f32,
+}
+
+impl UIText {
+    pub fn new(id: u32, position: Vector2<f32>, size: Vector2<f32>, text: String, font_size: f32) -> Self {
+        Self {
+            base: UIElement::new(id, position, size),
+            text,
+            font_size,
+        }
+    }
+
+    pub fn set_text(&mut self, text: String) {
+        self.text = text;
+    }
+
+    pub fn get_text(&self) -> &str {
+        &self.text
+    }
+}
+
+impl UIElementTrait for UIText {
+    fn is_hovered(&self, mouse_pos: (f64, f64)) -> bool {
+        self.base.is_hovered(mouse_pos)
+    }
+    fn get_id(&self) -> u32 { self.base.get_id() }
+    fn get_position(&self) -> Vector2<f32> { self.base.get_position() }
+    fn get_size(&self) -> Vector2<f32> { self.base.get_size() }
+    fn get_color(&self) -> Vector4<f32> { self.base.get_color() }
+    fn get_texture_id(&self) -> Option<u32> { None }
+    fn set_texture(&mut self, _texture_id: u32) {}
+    fn set_color(&mut self, color: Vector4<f32>) { self.base.set_color(color); }
+    fn set_position(&mut self, position: Vector2<f32>) { self.base.set_position(position); }
+    fn set_size(&mut self, size: Vector2<f32>) { self.base.set_size(size); }
+    fn accept(&mut self, _visitor: &mut dyn UIElementVisitor) {}
+}

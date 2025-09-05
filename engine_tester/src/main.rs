@@ -129,6 +129,15 @@ fn main() {
 
     let mut ui_button = Button::new(3, Vector2::new(400.0,90.0), Vector2::new(200.0, 100.0));  
     ui_element2.set_color(Vector4::new(1.0, 1.0, 0.0, 1.0));
+
+    let mut ui_text = UIText::new(
+        5,
+        Vector2::new(300.0, 300.0),
+        Vector2::new(200.0, 50.0),
+        "Hello, world!".to_string(),
+        24.0,
+    );
+    ui_manager.add_element(Box::new(ui_text));
     
     ui_manager.add_element(Box::new(ui_element));
     ui_manager.add_element(Box::new(ui_element2));
