@@ -3,7 +3,7 @@ use gl::types::GLfloat;
 use std::{mem, ptr};
 use super::ui_element::*;
 use gl::types::GLsizei;
-use crate::graphics::gl_wrapper::*;
+use crate::{graphics::gl_wrapper::*, user_interface::ui_manager};
 use std::collections::VecDeque;
 
 #[derive(Clone, Debug)]
@@ -236,6 +236,10 @@ impl UIManager {
 
     pub fn is_element_hovered(&self, id: u32) -> bool {
         self.has_event_for_element(id, |event| matches!(event, UIEvent::Hover(_)))
+    }
+
+    pub fn get_elements(&self) -> &Vec<Box<dyn UIElementTrait>> {
+        &self.elements
     }
 
     // pub fn handle_event(&mut self, event: &UIEvent) {

@@ -29,6 +29,7 @@ pub trait UIElementTrait {
 pub trait UIElementVisitor {
     fn visit_button(&mut self, button: &mut Button, is_clicked: bool);
     fn visit_slider(&mut self, slider: &mut Slider);
+    fn visit_text(&mut self, text: &mut UIText);
 }
 
 // A basic UIElement struct for shared properties
@@ -364,6 +365,14 @@ impl UIText {
     pub fn get_text(&self) -> &str {
         &self.text
     }
+
+    pub fn set_font_size(&mut self, font_size: f32) {
+        self.font_size = font_size;
+    }
+
+    pub fn get_font_size(&self) -> f32 {
+        self.font_size
+    }
 }
 
 impl UIElementTrait for UIText {
@@ -379,5 +388,7 @@ impl UIElementTrait for UIText {
     fn set_color(&mut self, color: Vector4<f32>) { self.base.set_color(color); }
     fn set_position(&mut self, position: Vector2<f32>) { self.base.set_position(position); }
     fn set_size(&mut self, size: Vector2<f32>) { self.base.set_size(size); }
-    fn accept(&mut self, _visitor: &mut dyn UIElementVisitor) {}
+    fn accept(&mut self, visitor: &mut dyn UIElementVisitor) {
+        visitor.visit_text(self);
+    }
 }

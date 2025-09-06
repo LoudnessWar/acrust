@@ -26,6 +26,9 @@ use acrust::model::transform::WorldCoords;
 
 use acrust::graphics::camera::CameraMode;//this can be not in here if I do it correct
 
+use acrust::user_interface::text_render::TextRenderer;
+use acrust::user_interface::visitors::TextRenderVisitor;
+
 use acrust::model::cube::Cube;
 use acrust::model::triangle::Triangle;
 use acrust::model::objload::load_obj;
@@ -114,6 +117,13 @@ fn main() {
     let mut texture_manager = TextureManager::new();
     let texture_id = texture_manager.load_texture("textures/right.jpg")
                 .expect("Failed to load texture");
+
+    
+    let mut text_shader = ShaderProgram::new("shaders/text.vert", "shaders/text.frag");
+    text_shader.create_uniform("projection");
+    text_shader.create_uniform("textColor");
+    let mut text_renderer = TextRenderer::new(text_shader);
+    text_renderer.load_font("fonts/arial.ttf", 24.0);
 
     // UI setup - kept separate from ECS
     let mut ui_manager = UIManager::new(720.0, 720.0);
@@ -254,7 +264,7 @@ fn main() {
         camera.rotate(-delta_x as f32 * sensitivity, -delta_y as f32 * sensitivity);
 
         window.process_input_events(&mut input_system);
-        
+
         // THIS IS GENIENLY SUPER SCUFFED TODO FIX THIS HOW THIS IS DONE
         // if input_system.is_key_pressed(&Key::W) {
         //     player.move_forward(camera.get_forward_vector());
@@ -371,6 +381,10 @@ fn main() {
         if input_system.is_key_pressed(&Key::Tab) {
             ui_manager.update(current_mouse_position);
             ui_manager.render(&ui_shader);
+
+            let mut text_visitor = TextRenderVisitor { text_renderer: &text_renderer };
+            ui_manager.visit_all(&mut text_visitor);
+
             if input_system.is_mouse_button_just_pressed(&CLICKS::Left) {
                 ui_manager.start_drag(current_mouse_position);
             }
@@ -477,5 +491,9 @@ impl UIElementVisitor for ClickVisitor {
 
     fn visit_slider(&mut self, slider: &mut Slider) {
         println!("Slider value: {}", slider.get_value());
+    }
+
+    fn visit_text(&mut self, text: &mut UIText) {//todo make this do something maybe idk
+        println!("Text content: {}", text.get_text());
     }
 }
