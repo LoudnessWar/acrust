@@ -15,8 +15,8 @@ impl<'a> UIElementVisitor for TextRenderVisitor<'a> {
             text.get_position().x + 1.0, // adjust as needed
             text.get_position().y + 1.0 + text.get_font_size(), // adjust as needed
             1.0,
-            cgmath::Vector3::new(0.0, 0.0, 0.0), // black
-            &cgmath::ortho(0.0, 720.0, 720.0, 0.0, -1.0, 1.0),//todo this needs to be dynamic and not ass like bruh i am just stetting width and height to 720 exactly and hoping it works basically
+            cgmath::Vector3::new(0.3, 0.4, 1.0), // black
+            &cgmath::ortho(0.0, 720.0, 0.0, 720.0, -1.0, 1.0),//todo this needs to be dynamic and not ass like bruh i am just stetting width and height to 720 exactly and hoping it works basically
         );
     }
 }

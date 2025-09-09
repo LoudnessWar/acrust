@@ -147,6 +147,7 @@ impl UIManager {
         self.event_queue.iter().any(|event| matches!(event, UIEvent::Hover(e) | UIEvent::Click(e) | UIEvent::MouseEnter(e) | UIEvent::MouseExit(e) | UIEvent::DragStart(e) | UIEvent::Dragging(e, _) | UIEvent::DragEnd(e) if *e == id && event_type(event)))
     }
     
+    //lol i forget whaat this was made for
     pub fn cache_vertices(&mut self) {
         self.vertex_cache.clear();
         self.index_cache.clear();

@@ -2,9 +2,12 @@ use std::collections::HashMap;
 use std::mem;
 use std::ptr;
 
+use cgmath::Matrix;
 use cgmath::Matrix4;
 use cgmath::Vector2;
 use cgmath::Vector3;
+use cgmath::Vector3 as Vec3;
+use gl::types::GLfloat;
 
 use crate::graphics::gl_wrapper::Vao;
 use crate::graphics::gl_wrapper::VertexAttribute;
@@ -19,13 +22,14 @@ pub struct Character {
     pub texture_id: GLuint,
     pub size: Vector2<i32>,
     pub bearing: Vector2<i32>,
-    pub advance: u32,
+    pub advance: f32,
 }
 
 pub struct TextRenderer {
     characters: HashMap<char, Character>,
     vao: Vao,
     vbo: BufferObject,
+    ebo: BufferObject,
     shader: ShaderProgram,
 }
 
@@ -37,17 +41,121 @@ impl TextRenderer {
         let vbo = BufferObject::new(gl::ARRAY_BUFFER, gl::DYNAMIC_DRAW);
         vbo.bind();
 
-        let stride = 4 * mem::size_of::<f32>() as gl::types::GLsizei;
-        VertexAttribute::new(0, 4, gl::FLOAT, gl::FALSE, stride, ptr::null()).enable();
+        let ebo = BufferObject::new(gl::ELEMENT_ARRAY_BUFFER, gl::DYNAMIC_DRAW);
+        ebo.bind();
 
+        // stride: 3 position floats + 2 uv floats
+        let stride = (5 * mem::size_of::<f32>()) as gl::types::GLsizei;
+        VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, stride, ptr::null()).enable();
+        VertexAttribute::new(
+            1,
+            2,
+            gl::FLOAT,
+            gl::FALSE,
+            stride,
+            (3 * mem::size_of::<f32>()) as *const _,
+        )
+        .enable();
+
+        // Unbind to keep state clean
         vao.unbind();
 
         Self {
             characters: HashMap::new(),
             vao,
             vbo,
+            ebo,
             shader: text_shader,
         }
+    }
+
+    pub fn render_text(
+        &self,
+        text: &str,
+        mut x: f32,
+        y: f32,
+        scale: f32,
+        color: Vector3<f32>,
+        projection: &Matrix4<f32>,
+    ) {
+        self.shader.bind();
+        self.vao.bind();
+
+        // Set text color uniform
+        self.shader.set_uniform3f("textColor", &color);
+
+        // Some GL wrappers expect row-major, some column-major. To be resilient we
+        // upload the transposed projection as well as the original from the caller
+        // (common shader upload implementations take column-major by default). If
+        // your shader expects a different layout, remove the .transpose() call.
+        self.shader.set_matrix4fv_uniform("projection", &projection);
+
+        unsafe {
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        }
+
+        for c in text.chars() {
+            if let Some(ch) = self.characters.get(&c) {
+                if ch.texture_id == 0 {
+                    x += ch.advance * scale;
+                    continue;
+                }
+
+                // Position the quad based on stored bearing/size (baseline at y)
+                let xpos = x + ch.bearing.x as f32 * scale;
+                let ypos = y - (ch.size.y as f32 - ch.bearing.y as f32) * scale;
+
+                let w = ch.size.x as f32 * scale;
+                let h = ch.size.y as f32 * scale;
+
+                println!(
+                    "Rendering char '{}' at ({}, {}) with size ({}, {})",
+                    c, xpos, ypos, w, h
+                );
+
+                // bottom-left origin for positions and matching UVs
+                let vertices: [f32; 20] = [
+                    xpos,     ypos,     0.0, 0.0, 0.0, // bottom-left
+                    xpos + w, ypos,     0.0, 1.0, 0.0, // bottom-right
+                    xpos + w, ypos + h, 0.0, 1.0, 1.0, // top-right
+                    xpos,     ypos + h, 0.0, 0.0, 1.0, // top-left
+                ];
+
+                // indices as unsigned ints to match gl::UNSIGNED_INT
+                let indices: [i32; 6] = [0, 1, 2, 0, 2, 3];
+
+                // Upload vertex data per-glyph (overwrite VBO/ EBO)
+                self.vbo.bind();
+                self.vbo.store_f32_data(&vertices);
+
+                self.ebo.bind();
+                self.ebo.store_i32_data(&indices);
+
+                unsafe {
+                    // Bind the glyph texture
+                    gl::BindTexture(gl::TEXTURE_2D, ch.texture_id);
+
+                    // Draw the quad
+                    gl::DrawElements(
+                        gl::TRIANGLES,
+                        indices.len() as i32,
+                        gl::UNSIGNED_INT,
+                        ptr::null(),
+                    );
+                }
+
+                // Advance cursor for next glyph
+                x += ch.advance * scale;
+            }
+        }
+
+        unsafe {
+            gl::Disable(gl::BLEND);
+        }
+
+        self.vao.unbind();
     }
 
     pub fn load_font(&mut self, font_path: &str, font_size: f32) {
@@ -78,6 +186,12 @@ impl TextRenderer {
                 unsafe {
                     gl::GenTextures(1, &mut texture_id);
                     gl::BindTexture(gl::TEXTURE_2D, texture_id);
+
+                    // IMPORTANT: single-channel bitmap rows may not be 4-byte aligned.
+                    // Tell GL unpack alignment = 1 to avoid row stride padding which
+                    // otherwise can cause strange distortions (appears like shear).
+                    gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+
                     gl::TexImage2D(
                         gl::TEXTURE_2D,
                         0,
@@ -89,19 +203,31 @@ impl TextRenderer {
                         gl::UNSIGNED_BYTE,
                         pixel_data.as_ptr() as *const _,
                     );
+
+                    // Treat the red channel as alpha in the shader OR swizzle it here
+                    // so sampling returns alpha in the "a" channel (optional):
+                    // let swizzle: [i32; 4] = [gl::RED as i32, gl::RED as i32, gl::RED as i32, gl::RED as i32];
+                    // gl::TexParameteriv(gl::TEXTURE_2D, gl::TEXTURE_SWIZZLE_RGBA, swizzle.as_ptr());
+
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+
+                    // Reset to default alignment after upload to be safe for other uploads
+                    gl::PixelStorei(gl::UNPACK_ALIGNMENT, 4);
                 }
 
+                // Store bitmap size and bearing using bb coordinates. rusttype's bb.min is the
+                // top-left (or baseline relative) corner; storing min.x and min.y gives us
+                // the correct offsets for screen placement.
                 self.characters.insert(
                     ch,
                     Character {
                         texture_id,
                         size: Vector2::new(width, height),
                         bearing: Vector2::new(bb.min.x, bb.min.y),
-                        advance: h_metrics.advance_width as u32,
+                        advance: h_metrics.advance_width,
                     },
                 );
             } else {
@@ -112,67 +238,10 @@ impl TextRenderer {
                         texture_id: 0,
                         size: Vector2::new(0, 0),
                         bearing: Vector2::new(0, 0),
-                        advance: h_metrics.advance_width as u32,
+                        advance: h_metrics.advance_width,
                     },
                 );
             }
         }
-    }
-
-    pub fn render_text(
-        &self,
-        text: &str,
-        mut x: f32,
-        y: f32,
-        scale: f32,
-        color: Vector3<f32>,
-        get_projection: &Matrix4<f32>,
-    ) {
-        self.shader.bind();
-        self.vao.bind();
-
-        // Set text color uniform (assuming your shader uses "textColor")
-        self.shader.set_uniform3f("textColor", &color);
-        self.shader.set_matrix4fv_uniform("projection", get_projection);
-
-        unsafe {
-            gl::ActiveTexture(gl::TEXTURE0);
-        }
-
-        for c in text.chars() {
-            if let Some(ch) = self.characters.get(&c) {
-                if ch.texture_id == 0 {
-                    x += ch.advance as f32 * scale;
-                    continue;
-                }
-                let xpos = x + ch.bearing.x as f32 * scale;
-                let ypos = y - ch.bearing.y as f32 * scale;
-
-                let w = ch.size.x as f32 * scale;
-                let h = ch.size.y as f32 * scale;
-
-                // Vertices: x, y, tex_x, tex_y
-                let vertices: [f32; 16] = [
-                    xpos,     ypos + h, 0.0, 1.0,
-                    xpos + w, ypos + h, 1.0, 1.0,
-                    xpos + w, ypos,     1.0, 0.0,
-                    xpos,     ypos,     0.0, 0.0,
-                ];
-
-                // Upload vertex data
-                self.vbo.bind();
-                self.vbo.store_f32_data(&vertices);
-
-                unsafe {
-                    gl::BindTexture(gl::TEXTURE_2D, ch.texture_id);
-                    gl::DrawArrays(gl::TRIANGLE_FAN, 0, 4);
-                }
-
-                // Advance cursor for next glyph
-                x += ch.advance as f32 * scale;
-            }
-        }
-
-        self.vao.unbind();
     }
 }
