@@ -168,6 +168,7 @@ impl UIElementTrait for UIDraggable {
 
     fn accept(&mut self, visitor: &mut dyn UIElementVisitor) {
         print!("accpeted");
+        //todo!("add accept logic for draggable");
         //visitor.visit_button(self, true);//this should be changed to a draggable visitor
     }
 

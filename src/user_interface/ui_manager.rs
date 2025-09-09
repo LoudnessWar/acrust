@@ -242,6 +242,10 @@ impl UIManager {
         &self.elements
     }
 
+    pub fn get_projection(&self) -> &Matrix4<f32> {
+        &self.projection
+    }
+
     // pub fn handle_event(&mut self, event: &UIEvent) {
     //     match event {
     //         UIEvent::Click(id) => {

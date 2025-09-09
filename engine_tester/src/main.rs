@@ -123,7 +123,7 @@ fn main() {
     text_shader.create_uniform("projection");
     text_shader.create_uniform("textColor");
     let mut text_renderer = TextRenderer::new(text_shader);
-    text_renderer.load_font("fonts/arial.ttf", 24.0);
+    text_renderer.load_font("fonts/Roboto.ttf", 24.0);
 
     // UI setup - kept separate from ECS
     let mut ui_manager = UIManager::new(720.0, 720.0);
@@ -383,6 +383,12 @@ fn main() {
             ui_manager.render(&ui_shader);
 
             let mut text_visitor = TextRenderVisitor { text_renderer: &text_renderer };
+            unsafe {
+                gl::Enable(gl::BLEND);
+                gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+                gl::Disable(gl::DEPTH_TEST); // Optional: if text is hidden behind UI
+            }
+            let mut text_visitor = TextRenderVisitor { text_renderer: &text_renderer };
             ui_manager.visit_all(&mut text_visitor);
 
             if input_system.is_mouse_button_just_pressed(&CLICKS::Left) {
@@ -395,6 +401,9 @@ fn main() {
                 ui_manager.end_drag();
             }
         }
+
+        // let mut text_visitor = TextRenderVisitor { text_renderer: &text_renderer };
+        //     ui_manager.visit_all(&mut text_visitor);
 
         // OMG HAAIIIII Process UI events the event system to be ony used with the ui because i was lazy HAAIIIIII
         while let Some(event) = ui_manager.poll_event() {

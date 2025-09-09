@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::ptr;
 
+use cgmath::Matrix4;
 use cgmath::Vector2;
 use cgmath::Vector3;
 
@@ -125,12 +126,14 @@ impl TextRenderer {
         y: f32,
         scale: f32,
         color: Vector3<f32>,
+        get_projection: &Matrix4<f32>,
     ) {
         self.shader.bind();
         self.vao.bind();
 
         // Set text color uniform (assuming your shader uses "textColor")
         self.shader.set_uniform3f("textColor", &color);
+        self.shader.set_matrix4fv_uniform("projection", get_projection);
 
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
