@@ -2,12 +2,11 @@ use std::collections::HashMap;
 use std::mem;
 use std::ptr;
 
-use cgmath::Matrix;
+
 use cgmath::Matrix4;
 use cgmath::Vector2;
 use cgmath::Vector3;
-use cgmath::Vector3 as Vec3;
-use gl::types::GLfloat;
+
 
 use crate::graphics::gl_wrapper::Vao;
 use crate::graphics::gl_wrapper::VertexAttribute;
@@ -117,10 +116,10 @@ impl TextRenderer {
 
                 // bottom-left origin for positions and matching UVs
                 let vertices: [f32; 20] = [
-                    xpos,     ypos,     0.0, 0.0, 0.0, // bottom-left
-                    xpos + w, ypos,     0.0, 1.0, 0.0, // bottom-right
-                    xpos + w, ypos + h, 0.0, 1.0, 1.0, // top-right
                     xpos,     ypos + h, 0.0, 0.0, 1.0, // top-left
+                    xpos + w, ypos + h, 0.0, 1.0, 1.0, // top-right
+                    xpos + w, ypos,     0.0, 1.0, 0.0, // bottom-right
+                    xpos,     ypos,     0.0, 0.0, 0.0, // bottom-left
                 ];
 
                 // indices as unsigned ints to match gl::UNSIGNED_INT
