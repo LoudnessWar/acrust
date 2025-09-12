@@ -2,11 +2,9 @@ use std::collections::HashMap;
 use std::mem;
 use std::ptr;
 
-
 use cgmath::Matrix4;
 use cgmath::Vector2;
 use cgmath::Vector3;
-
 
 use crate::graphics::gl_wrapper::Vao;
 use crate::graphics::gl_wrapper::VertexAttribute;
@@ -30,6 +28,8 @@ pub struct TextRenderer {
     vbo: BufferObject,
     ebo: BufferObject,
     shader: ShaderProgram,
+    // Store font metrics for consistent baseline alignment
+    baseline_offset: f32,
 }
 
 impl TextRenderer {
@@ -65,6 +65,7 @@ impl TextRenderer {
             vbo,
             ebo,
             shader: text_shader,
+            baseline_offset: 0.0,
         }
     }
 
@@ -102,9 +103,10 @@ impl TextRenderer {
                     continue;
                 }
 
-                // Position the quad based on stored bearing/size (baseline at y)
+                // Fixed positioning: align all characters to the same baseline
                 let xpos = x + ch.bearing.x as f32 * scale;
-                let ypos = y - (ch.size.y as f32 - ch.bearing.y as f32) * scale;
+                // Use the baseline_offset to ensure consistent alignment
+                let ypos = y + (self.baseline_offset + ch.bearing.y as f32) * scale;
 
                 let w = ch.size.x as f32 * scale;
                 let h = ch.size.y as f32 * scale;
@@ -163,7 +165,28 @@ impl TextRenderer {
         let font = Font::try_from_vec(font_data).expect("Failed to load font");
 
         let scale = Scale::uniform(font_size);
+        
+        // Calculate baseline offset by finding the maximum bearing.y (how far above baseline)
+        // This ensures all characters align to the same visual baseline
+        let mut max_bearing_y = 0;
+        let mut min_bearing_y = 0;
+        
+        // First pass: calculate font metrics
+        for c in 0u8..128u8 {
+            let ch = c as char;
+            let glyph = font.glyph(ch).scaled(scale).positioned(point(0.0, 0.0));
+            
+            if let Some(bb) = glyph.pixel_bounding_box() {
+                max_bearing_y = max_bearing_y.max(bb.max.y);
+                min_bearing_y = min_bearing_y.min(bb.min.y);
+            }
+        }
+        
+        // Set baseline offset to the maximum ascent (distance above baseline)
+        // This way, the 'y' parameter in render_text represents the bottom of the tallest character
+        self.baseline_offset = -min_bearing_y as f32;
 
+        // Second pass: generate textures
         for c in 0u8..128u8 {
             let ch = c as char;
             let glyph = font.glyph(ch).scaled(scale).positioned(point(0.0, 0.0));
@@ -203,11 +226,6 @@ impl TextRenderer {
                         pixel_data.as_ptr() as *const _,
                     );
 
-                    // Treat the red channel as alpha in the shader OR swizzle it here
-                    // so sampling returns alpha in the "a" channel (optional):
-                    // let swizzle: [i32; 4] = [gl::RED as i32, gl::RED as i32, gl::RED as i32, gl::RED as i32];
-                    // gl::TexParameteriv(gl::TEXTURE_2D, gl::TEXTURE_SWIZZLE_RGBA, swizzle.as_ptr());
-
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
@@ -217,9 +235,7 @@ impl TextRenderer {
                     gl::PixelStorei(gl::UNPACK_ALIGNMENT, 4);
                 }
 
-                // Store bitmap size and bearing using bb coordinates. rusttype's bb.min is the
-                // top-left (or baseline relative) corner; storing min.x and min.y gives us
-                // the correct offsets for screen placement.
+                // Store the character with its bounding box bearings
                 self.characters.insert(
                     ch,
                     Character {
