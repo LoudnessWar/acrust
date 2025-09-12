@@ -30,6 +30,8 @@ pub struct TextRenderer {
     shader: ShaderProgram,
     // Store font metrics for consistent baseline alignment
     baseline_offset: f32,
+    line_height: f32,
+    tab_width: f32,
 }
 
 impl TextRenderer {
@@ -66,6 +68,8 @@ impl TextRenderer {
             ebo,
             shader: text_shader,
             baseline_offset: 0.0,
+            line_height: 0.0,     // <- Initialized here
+            tab_width: 0.0,
         }
     }
 
@@ -258,5 +262,74 @@ impl TextRenderer {
                 );
             }
         }
+    }
+
+    /// Get the calculated line height for this font
+    pub fn get_line_height(&self) -> f32 {
+        self.line_height
+    }
+
+    /// Set custom line height multiplier (default is 1.2)
+    pub fn set_line_height_multiplier(&mut self, multiplier: f32) {
+        // Recalculate line height with new multiplier
+        let base_height = self.line_height / 1.2; // Get original base height
+        self.line_height = base_height * multiplier;
+    }
+
+    /// Set custom tab width (in terms of space characters, default is 4)
+    pub fn set_tab_width(&mut self, spaces: f32) {
+        let space_glyph = match self.characters.get(&' ') {
+            Some(ch) => ch.advance,
+            None => self.line_height * 0.25, // Fallback
+        };
+        self.tab_width = space_glyph * spaces;
+    }
+
+    /// Calculate the dimensions of a text string (width, height)
+    pub fn measure_text(&self, text: &str, scale: f32) -> (f32, f32) {
+        let mut width = 0.0f32;
+        let mut max_width = 0.0f32;
+        let mut height = self.line_height * scale;
+
+        let line_height = self.line_height * scale;
+        let tab_width = self.tab_width * scale;
+
+        for c in text.chars() {
+            match c {
+                '\n' => {
+                    max_width = max_width.max(width);
+                    width = 0.0;
+                    height += line_height;
+                }
+                '\r' => {
+                    width = 0.0;
+                }
+                '\t' => {
+                    let tab_stops = width / tab_width;
+                    let next_tab = ((tab_stops as i32) + 1) as f32;
+                    width = next_tab * tab_width;
+                }
+                ' ' => {
+                    if let Some(ch) = self.characters.get(&' ') {
+                        width += ch.advance * scale;
+                    } else {
+                        width += self.line_height * 0.25 * scale;
+                    }
+                }
+                '\0' => {
+                    // Skip null characters
+                }
+                _ => {
+                    if let Some(ch) = self.characters.get(&c) {
+                        width += ch.advance * scale;
+                    } else {
+                        width += self.line_height * 0.5 * scale;
+                    }
+                }
+            }
+        }
+
+        max_width = max_width.max(width);
+        (max_width, height)
     }
 }

@@ -144,7 +144,7 @@ fn main() {
         5,
         Vector2::new(300.0, 300.0),
         Vector2::new(200.0, 50.0),
-        "Hello, world!".to_string(),
+        "Hello, world! \n my name is jeff".to_string(),
         24.0,
     );
     ui_manager.add_element(Box::new(ui_text));
