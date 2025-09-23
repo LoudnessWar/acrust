@@ -76,8 +76,8 @@ impl TextRenderer {
     pub fn render_text(
         &self,
         text: &str,
-        mut x: f32,
-        y: f32,
+        start_x: f32,
+        start_y: f32,
         scale: f32,
         color: Vector3<f32>,
         projection: &Matrix4<f32>,
@@ -87,11 +87,6 @@ impl TextRenderer {
 
         // Set text color uniform
         self.shader.set_uniform3f("textColor", &color);
-
-        // Some GL wrappers expect row-major, some column-major. To be resilient we
-        // upload the transposed projection as well as the original from the caller
-        // (common shader upload implementations take column-major by default). If
-        // your shader expects a different layout, remove the .transpose() call.
         self.shader.set_matrix4fv_uniform("projection", &projection);
 
         unsafe {
@@ -100,7 +95,38 @@ impl TextRenderer {
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
 
+        let mut x = start_x;
+        let mut y = start_y;
+        let line_height = self.line_height * scale;
+        let tab_width = self.tab_width * scale;
+
         for c in text.chars() {
+            match c {
+                '\n' => {
+                    // Move to next line
+                    x = start_x;
+                    y += line_height; // Move down (assuming y increases upward)
+                    continue;
+                }
+                '\r' => {
+                    // Carriage return - move to start of current line
+                    x = start_x;
+                    continue;
+                }
+                '\t' => {
+                    // Tab character - advance to next tab stop
+                    let tab_stops = (x - start_x) / tab_width;
+                    let next_tab = ((tab_stops as i32) + 1) as f32;
+                    x = start_x + (next_tab * tab_width);
+                    continue;
+                }
+                '\0' => {
+                    // Skip null characters
+                    continue;
+                }
+                _ => {}
+            }
+
             if let Some(ch) = self.characters.get(&c) {
                 if ch.texture_id == 0 {
                     x += ch.advance * scale;
@@ -109,7 +135,6 @@ impl TextRenderer {
 
                 // Fixed positioning: align all characters to the same baseline
                 let xpos = x + ch.bearing.x as f32 * scale;
-                // Use the baseline_offset to ensure consistent alignment
                 let ypos = y + (self.baseline_offset + ch.bearing.y as f32) * scale;
 
                 let w = ch.size.x as f32 * scale;
@@ -128,10 +153,9 @@ impl TextRenderer {
                     xpos,     ypos,     0.0, 0.0, 0.0, // bottom-left
                 ];
 
-                // indices as unsigned ints to match gl::UNSIGNED_INT
                 let indices: [i32; 6] = [0, 1, 2, 0, 2, 3];
 
-                // Upload vertex data per-glyph (overwrite VBO/ EBO)
+                // Upload vertex data per-glyph
                 self.vbo.bind();
                 self.vbo.store_f32_data(&vertices);
 
@@ -139,10 +163,7 @@ impl TextRenderer {
                 self.ebo.store_i32_data(&indices);
 
                 unsafe {
-                    // Bind the glyph texture
                     gl::BindTexture(gl::TEXTURE_2D, ch.texture_id);
-
-                    // Draw the quad
                     gl::DrawElements(
                         gl::TRIANGLES,
                         indices.len() as i32,
@@ -189,6 +210,14 @@ impl TextRenderer {
         // Set baseline offset to the maximum ascent (distance above baseline)
         // This way, the 'y' parameter in render_text represents the bottom of the tallest character
         self.baseline_offset = -min_bearing_y as f32;
+
+        let total_height = (max_bearing_y - min_bearing_y) as f32;
+        self.line_height = total_height * 1.2; // 1.2 is a common line spacing multiplier
+
+        // Initialize tab width (4 spaces worth)
+        let space_glyph = font.glyph(' ').scaled(scale);
+        let space_advance = space_glyph.h_metrics().advance_width;
+        self.tab_width = space_advance * 4.0;
 
         // Second pass: generate textures
         for c in 0u8..128u8 {
