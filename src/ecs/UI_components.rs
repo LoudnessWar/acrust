@@ -1,4 +1,4 @@
-// UI Components - following your existing pattern
+// UI Components there wes never the word your in this file never has been no one has ever said your not a word not a word
 use cgmath::{Vector2, Vector3, Vector4};
 use crate::ecs::world::{Component, ComponentStorage};
 use crate::user_interface::text_render::{self, TextRenderer};
@@ -165,7 +165,7 @@ impl UIText {
 
 // impl Component for UIText {}
 
-// UI System - following your existing pattern
+// UI System
 pub struct UISystem {
     transforms: ComponentStorage<UITransform>,
     pub styles: ComponentStorage<UIStyle>, //todo lol bad fix
@@ -180,7 +180,7 @@ pub struct UISystem {
     pub layout_dirty: bool,
     hover_state: std::collections::HashMap<u32, bool>,
     
-    // OpenGL resources (like your existing UI manager)
+    // OpenGL resources
     vao: crate::graphics::gl_wrapper::Vao,
     vbo: crate::graphics::gl_wrapper::BufferObject,
     ebo: crate::graphics::gl_wrapper::BufferObject,
@@ -191,7 +191,7 @@ pub struct UISystem {
 
 impl UISystem {
     pub fn new(screen_width: f32, screen_height: f32, text_renderer: TextRenderer) -> Self {
-        // Set up OpenGL resources (same as your current UIManager)
+        // Set up OpenGL resources
         let vao = crate::graphics::gl_wrapper::Vao::new();
         vao.bind();
 
@@ -229,7 +229,7 @@ impl UISystem {
         }
     }
     
-    // Component management - following your existing pattern
+    // Component management
     pub fn add_transform(&mut self, entity_id: u32, transform: UITransform) {
         self.transforms.insert(entity_id, transform);
         self.layout_dirty = true;
@@ -307,7 +307,7 @@ impl UISystem {
     }
 
     
-    // Layout system - no borrow conflicts like your movement system
+    // Layout system
     pub fn update_layout(&mut self) {
         if !self.layout_dirty {
             return;
@@ -408,7 +408,7 @@ impl UISystem {
         }
     }
     
-    // Input handling - following your existing patterns
+    // Input handling
     pub fn update_input(&mut self, mouse_pos: (f64, f64), mouse_down: bool, mouse_clicked: bool) {
         let mouse_vec = Vector2::new(mouse_pos.0 as f32, mouse_pos.1 as f32);
         
@@ -433,7 +433,18 @@ impl UISystem {
         }
     }
     
-    // Rendering - similar to your existing render system
+    // ok so basically this is not fun at all, also just real quick i got a new computer and now i have like the co piolot shit on my vs code
+    //and its like fine or whatever it gives useful stuff like 1/10 tries but it is so terrible when you are writing commetents
+    //like it had no idea that here i was going to complain about the fact the the text and UI elements use a different shader and so i need to render the UI elements and then the text and make sure that they are index properly so that this
+    //works because random junk like changes the hash so that they are rendered out of order and so you cannot see the text, especially when they are both 0. TBH  TBH TBH it should be deterministic it should be
+    //todo maybe make it deteministic
+    //but honestly it doesnt really matter if you want it to be a certain way use the z index
+    //like i remember using godot that like the z sorting in that is ass imo because it is based off the parent child relationship and so it made procedurally generetad
+    //sprites really hard to get the z plane on properly so all i really want is for the text of a button to be one above the actual button element. This can create issues if you are like
+    //putting a thing exactly one above a button but in that case 1. why are you placing an element on top of a button, 2. it doesnt really matter all that much like just move everything else up one layer on the z index then it will no longer be a problem.
+    //BITCH
+
+    //fuch this has nothing to do with the borrow checker i know your stalking me copilot because I have complained about the borrow checker in so many comments before but the comments are my space like stay out!!!
     pub fn render(&self, shader: &crate::graphics::gl_wrapper::ShaderProgram) {
     let mut render_list: Vec<(u32, i32)> = Vec::new();
     
@@ -455,16 +466,15 @@ impl UISystem {
     shader.set_matrix4fv_uniform("projection", &self.projection);
     self.vao.bind();
     
-    // First pass: Render all background elements
     for (entity_id, _) in &render_list {
         let transform = self.transforms.get(*entity_id).unwrap();
         let style = self.styles.get(*entity_id).unwrap();
         
-        // Always render the background/style if the entity has one
+
         self.render_ui_element(*entity_id, transform, style, shader);
     }
 
-    // Second pass: Render all text elements on top
+    
     for (entity_id, _) in &render_list {
         if self.texts.contains(*entity_id) {
             self.render_text_element(*entity_id);
@@ -582,7 +592,7 @@ fn render_text_element(&self, entity_id: u32) {
         }
     }
     
-    // Query methods - like your existing get methods
+    // Query methods
     pub fn is_button_clicked(&self, entity_id: u32) -> bool {
         self.buttons.get(entity_id).map(|b| b.is_clicked).unwrap_or(false)
     }

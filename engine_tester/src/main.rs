@@ -66,10 +66,14 @@ mod octo;
 mod wave_generator;
 mod midi;
 
+//what a load of use
+
 fn main() {
+    //boring window init stuff
     let mut window = Window::new(720, 720, "CUBE!", 60);
     window.init_gl();
 
+    //more boring init stuff
     let mut input_system = InputSystem::new();
 
     let mut shader_manager = ShaderManager::new();
@@ -81,13 +85,19 @@ fn main() {
     let depth_shader = shader_manager.get_shader("depth").unwrap();
     let light_shader = shader_manager.get_shader("light").unwrap();
 
+    //now you can use whatever shaders you want btw but default the materials use a forward plus shader that i copied from a paper and its
+    //definetly liked in the code somewhere so check it out. I modified it a bit because i am not goood enough to do what they did
+    //like adding material like bump maps and textures to the buffer i like said whatever. lol
+
+    //aslo some bs still needs to be done to like get smooth lighting and stuff
+
     let mut ui_shader = ShaderProgram::new("shaders/ui_vertex.glsl", "shaders/ui_fragment.glsl");
     ui_shader.create_uniform("projection");
     ui_shader.create_uniform("color");
     ui_shader.create_uniform("useTexture");
 
-    ShaderManager::enable_backface_culling();
-    ShaderManager::enable_depth();
+    ShaderManager::enable_backface_culling();//these should just be enabled by default tbh like the user should have to disable them iof they dont want them on bc like
+    ShaderManager::enable_depth();//who tf turning off depth like nah i just want everything on 1
 
     let mat_man = MaterialManager::new();
     let material = mat_man.load_material("mat1", &shader_manager, "Basic");
@@ -124,6 +134,11 @@ fn main() {
                 .expect("Failed to load texture");
 
     
+    //this should all just be like done for the user already like they just run a init text renderer and its all in there already
+    //im exited to make it so that text can be displayed on an object like a sign or something
+    //that totally wont be the worst thing ever. TBH it probably wont be becuase its just like
+    //you get the text as a texture and then some uv mapping nosese and put it on dat thang
+
     let mut text_shader = ShaderProgram::new("shaders/text.vert", "shaders/text.frag");
     text_shader.create_uniform("projection");
     text_shader.create_uniform("textColor");
@@ -134,18 +149,18 @@ fn main() {
     window.lock_cursor();
     let mut sensitivity = 0.002;
 
-    //let mut visitor = ClickVisitor::new();
+
     let mut time = 0.0;
 
     let mut ds = DragState::new();
 
-    // Initialize ForwardPlusRenderer
+    // Initialize ForwardPlusRenderer woooooooooooooooooooooo a milestone step
     let mut fpr = ForwardPlusRenderer::new(&shader_manager);
 
     fpr.add_light(
         [0.0, -1.0, 20.0],  // position
         50.0,             // radius
-        [1.0, 1.0, 1.0],  // color (white)
+        [1.0, 1.0, 1.0],  // color
         10.1               // intensity
     );
 
@@ -156,14 +171,22 @@ fn main() {
         10.1
     );
 
+    fpr.add_light(
+        [10.0, 5.0, -5.0],
+        60.0, 
+        [0.2, 0.7, 0.3],
+        10.1
+    );
+
+
     fpr.initialize_light_culling(720, 720, &shader_manager);
 
-    // Initialize the ECS World
+    // Initialize the ECS World also a milestone i have come around a little to ecs mainly because i got lazy i still things its slightly erm uuuh dumb
     let mut world = World::new_with_ui(720.0, 720.0, text_renderer);
 
     let (main_menu_id, ui_element1_id, ui_element2_id, ui_button_id, ui_text_id) = setup_ui_system(&mut world, texture_id);
     
-    // Create entities in the ECS
+    // adding all the bs to the ecs well tge end tities just a single teddy bear now
     let teddy_entity = world.create_entity("Teddy");
     let teddy_model = Model::new(
         load_obj_new_normals("models/teddy.obj"), 
@@ -171,7 +194,8 @@ fn main() {
         mat_man.get_mat("mat2")
     );
     
-    // Add components to entities
+    // Add components to the teddy bear, also this is why i dont fw ecs because like... do you see how many like hoops i had to jump throught to add one thing
+    //it is like not actually that much its just yk it feels like a lot
     world.movement.add_coords(teddy_entity.id, WorldCoords::new(0.0, 0.0, 0.0, 0.0));
     world.movement.add_velocity(teddy_entity.id, Velocity {
         direction: Vector3::new(0.0, 0.0, 0.0),
@@ -198,12 +222,12 @@ fn main() {
     });
     world.render.add_renderable(triangle_entity.id, Renderable {
         model: Box::new(triangle_model)
-    });
+    }); 
     
     // AYYY fuck this guy
     let player_entity = world.spawn_player("MainPlayer", 0.0, 0.0, -10.0, 0.0);
 
-    //skybox
+    //skybox lol these take forever to load and have trippled dev time but if they break i will die so i keep dem
     let skybox_faces = [
         "textures/right.jpg",
         "textures/left.jpg",
@@ -219,7 +243,7 @@ fn main() {
     skybox_material.init_uniform("view");
     skybox_material.init_uniform("projection");
     
-    // Time tracking for delta time calculation
+    // Time tracking for delta time calculation 😴😴😴😴😴😴😴
     let mut last_frame_time = Instant::now();
 
     let mut show_ui = false;
@@ -245,35 +269,6 @@ fn main() {
         camera.rotate(-delta_x as f32 * sensitivity, -delta_y as f32 * sensitivity);
 
         window.process_input_events(&mut input_system);
-
-        // THIS IS GENIENLY SUPER SCUFFED TODO FIX THIS HOW THIS IS DONE
-        // if input_system.is_key_pressed(&Key::W) {
-        //     player.move_forward(camera.get_forward_vector());
-        //     // Also update the ECS player position for synchronization if needed
-        //     //this like also needs to be like a function of something like... omglob
-        //     //man I love the way if let be though like feel funcitonal yk
-        //     if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
-        //         coords.position = *player.get_position();
-        //     }
-        // }
-        // if input_system.is_key_pressed(&Key::S) {
-        //     player.move_backward(camera.get_forward_vector());
-        //     if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
-        //         coords.position = *player.get_position();
-        //     }
-        // }
-        // if input_system.is_key_pressed(&Key::A) {
-        //     player.move_left(camera.get_left_vector());
-        //     if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
-        //         coords.position = *player.get_position();
-        //     }
-        // }
-        // if input_system.is_key_pressed(&Key::D) {
-        //     player.move_right(camera.get_left_vector());
-        //     if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
-        //         coords.position = *player.get_position();
-        //     }
-        // }
 
         if input_system.is_key_pressed(&Key::W) {
             player.move_forward_with_camera(&camera);//eehhhhhhhhhhhh meehehheheheh hidk if I like this yo TODOs
@@ -356,7 +351,8 @@ fn main() {
         world.render(&mut fpr, &camera, 720, 720, &texture_manager);
         //OOOOKKKKAAAYYYYYYY SOOOOOOOO... IF IT DOESNT HAPPEN AFTER HERE IT DONT HAPPEN LOOKING AT YOU UI NEED TO FIX
 
-        //BRO ITS SO SLOW HELP!!! I think I was lowkey just adding stuff back 
+        //BRO ITS SO SLOW HELP!!! I think I was lowkey just adding stuff back, nah i figured it out btw it was a memory leak in the lighting where i was calling the
+        //spam creating a buffer and it was filling up vram
 
         let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
         let projection_matrix = camera.get_p_matrix();
@@ -364,7 +360,7 @@ fn main() {
 
 
         if show_ui {
-            // Enable blending for UI
+            // Enable blending for UI even thought idk if its all that impoortant
             unsafe {
                 gl::Enable(gl::BLEND);
                 gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
@@ -377,7 +373,6 @@ fn main() {
             // Handle UI interactions
             if world.is_ui_button_clicked(ui_button_id) {
                 println!("ECS UI Button clicked!");
-                // Move the button as an example
                 world.update_ui_element_position(ui_button_id, Vector2::new(250.0, 200.0));
             }
             
