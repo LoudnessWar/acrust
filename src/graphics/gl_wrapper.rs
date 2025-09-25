@@ -578,7 +578,6 @@ impl ShaderManager {
 
     pub fn init_forward_plus(&mut self){
 
-        
     //this is all like initializing debug stuff
         unsafe {
             gl::Enable(gl::DEBUG_OUTPUT);
@@ -657,7 +656,7 @@ impl ShaderManager {
         ShaderProgram::enable_depth();
     }
 
-    pub fn enable_z_depth(){
+    pub fn enable_z_depth(){//todo add this later
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthFunc(gl::GREATER);      // Reverse Z!
@@ -667,7 +666,7 @@ impl ShaderManager {
 }
 
 pub struct Framebuffer { id: GLuint, depth_texture: Rc<depthTexture> }
-pub struct depthTexture { id: GLuint, width: u32, height: u32 }//we finna have to deal with the two textures later bro
+pub struct depthTexture { id: GLuint, width: u32, height: u32 }//todo we finna have to deal with the two textures later bro
 
 impl Drop for depthTexture {
     fn drop(&mut self) {
@@ -715,7 +714,8 @@ impl Framebuffer {
 
             //let borderColor: [f32; 4]= [1.0, 1.0, 1.0, 1.0];
 
-            gl::TexParameterfv(gl::TEXTURE_2D, gl::TEXTURE_BORDER_COLOR, [1.0, 1.0, 1.0, 1.0].as_ptr());//giving error for some reason
+            gl::TexParameterfv(gl::TEXTURE_2D, gl::TEXTURE_BORDER_COLOR, [1.0, 1.0, 1.0, 1.0].as_ptr());//giving error for some reason// what is the point of this even is it like to make it so that 
+            //it knowns where to cull based off the white border?
 
             gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
             
@@ -773,7 +773,7 @@ pub fn run_depth_prepass(
     depth_shader: &ShaderProgram,
     framebuffer: Rc<depthTexture>,
     scene_objects: &Vec<&Mesh>,
-    light_manager: &mut LightManager,
+    light_manager: &mut LightManager,//idk why this isnt just a return tbh
     width: u32,
     height: u32,
 ) {
@@ -1041,7 +1041,7 @@ pub struct LightManager {
 impl LightManager {
     pub fn new() -> Self {
         Self {
-            lights: vec![],
+            lights: vec![],//bruh im stupid
             depth_texture: None,
             tile_light_indices: vec![],
             culling_buffers: None,
@@ -1921,6 +1921,8 @@ impl ForwardPlusRenderer {
     //     ShaderProgram::unbind();
     // }
     
+
+    //a bunch of function mess with lights and stuff
     pub fn add_light(&mut self, position: [f32; 3], radius: f32, color: [f32; 3], intensity: f32) {
         self.light_manager.lights.push(Light { 
             position, 
@@ -1928,6 +1930,24 @@ impl ForwardPlusRenderer {
             color, 
             intensity 
         });
+    }
+
+    pub fn clear_lights(&mut self) {
+        self.light_manager.lights.clear();
+    }
+
+    pub fn get_light_count(&self) -> usize {
+        self.light_manager.lights.len()
+    }
+
+    pub fn get_lights(&self) -> &Vec<Light> {
+        &self.light_manager.lights
+    }
+
+    pub fn update_light_position(&mut self, index: usize, new_position: [f32; 3]) {
+        if let Some(light) = self.light_manager.lights.get_mut(index) {
+            light.position = new_position;
+        }
     }
     
     pub fn initialize_light_culling(&mut self, width: u32, height: u32, shader_manager: &ShaderManager) {

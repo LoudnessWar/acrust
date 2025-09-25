@@ -174,8 +174,15 @@ fn main() {
 
     fpr.add_light(
         [10.0, 5.0, -5.0],
-        60.0, 
+        90.0, 
         [0.2, 0.7, 0.3],
+        10.1
+    );
+
+    fpr.add_light(
+        [10.0, 5.0, -5.0],
+        50.0, 
+        [0.7, 0.2, 0.1],
         10.1
     );
 
@@ -476,6 +483,8 @@ fn main() {
         // if let Some(coords) = world.movement.get_coords_mut(teddy_entity.id) {
         //     coords.position.y = 5.0 * f32::sin(time);
         // }
+
+        fpr.update_light_position(3, vec3(10.0, 5.0 + 5.0 * f32::sin(time), -7.0).into());//dude im stupid and lazy sometimes lol I dont want to convert it inot a vec in the funciton lol
 
         if let Some(coords) = world.movement.get_coords_mut(triangle_entity.id) {
             coords.position = *player.get_position();
