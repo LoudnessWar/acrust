@@ -1,9 +1,12 @@
 use std::collections::{VecDeque, HashSet};
 
+use crate::input;
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Key {
     W, A, S, D, Q, Right, Left, Up, Down,
     LShift, Lctrl, Space, Escape, Tab, Mouse1,//what is mouse 1 again??? idk lowkey TODO look into this
+    Backspace, Delete, Home, End,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -31,6 +34,10 @@ pub fn map_glfw_key(glfw_key: glfw::Key) -> Option<Key> {
         glfw::Key::Tab => Some(Key::Tab),
         glfw::Key::Space => Some(Key::Space),
         glfw::Key::Escape => Some(Key::Escape),
+        glfw::Key::Backspace => Some(Key::Backspace),
+        glfw::Key::Delete => Some(Key::Delete),
+        glfw::Key::Home => Some(Key::Home),
+        glfw::Key::End => Some(Key::End),
         _ => None,
     }
 }
@@ -51,6 +58,7 @@ pub enum InputEvent {
     MouseButtonPressed(CLICKS),
     MouseButtonReleased(CLICKS),
     ScrollWheel(f64, f64),
+    CharTyped(char),
 }
 
 pub struct InputSystem {
@@ -89,6 +97,10 @@ impl InputSystem {
             InputEvent::ScrollWheel(x_offset, y_offset) => {
                 self.scroll_offset = (x_offset, y_offset);
             }
+            InputEvent::CharTyped(ref key) => {
+                //self.pressed_keys.insert(Key::from(key.clone()));
+                println!("Char typed: {}", key);
+            }
             // _ => {} ig just take it out bro
         }
         self.event_queue.push_back(event);
@@ -107,6 +119,10 @@ impl InputSystem {
     //         self.event_queue.push_back(event);
     //     }
     // }
+
+    pub fn queue_char_event(&mut self, character: char) {
+        self.event_queue.push_back(InputEvent::CharTyped(character));
+    }
 
     pub fn get_event_queue(&mut self) -> &mut VecDeque<InputEvent> {
         &mut self.event_queue

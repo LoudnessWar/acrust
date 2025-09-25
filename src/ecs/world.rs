@@ -266,10 +266,44 @@ impl World {
         let entity = self.create_entity(name);
         
         self.ui.add_transform(entity.id, UITransform::new(position, size));
-        self.ui.add_style(entity.id, UIStyle::new().with_color(Vector4::new(0.1, 0.1, 0.1, 1.0)));
+        
+        // Create button style with dark blue background and white text
+        let button_style = UIStyle::button_style(
+            Vector4::new(0.1, 0.3, 0.4, 1.0), // Background color
+            Vector4::new(1.0, 1.0, 1.0, 1.0)  // Text color (white)
+        );
+        self.ui.add_style(entity.id, button_style);
+        
         self.ui.add_button(entity.id);
         self.ui.add_text(entity.id, text, 16.0);
+        self.ui.add_z_index(entity.id, 0);
+        
+        entity
+    }
 
+    pub fn create_ui_button_colored(&mut self, name: &str, position: Vector2<f32>, size: Vector2<f32>, text: String, bg_color: Vector4<f32>, text_color: Vector4<f32>) -> Entity {
+        let entity = self.create_entity(name);
+        
+        self.ui.add_transform(entity.id, UITransform::new(position, size));
+        
+        let button_style = UIStyle::button_style(bg_color, text_color);
+        self.ui.add_style(entity.id, button_style);
+        
+        self.ui.add_button(entity.id);
+        self.ui.add_text(entity.id, text, 16.0);
+        self.ui.add_z_index(entity.id, 0);
+        
+        entity
+    }
+
+
+    //literally just a container without a layout
+    //for just splatting a shape down wherever
+    pub fn create_ui_panel(&mut self, name: &str, position: Vector2<f32>, size: Vector2<f32>, color: Vector4<f32>) -> Entity {
+        let entity = self.create_entity(name);
+        
+        self.ui.add_transform(entity.id, UITransform::new(position, size));
+        self.ui.add_style(entity.id, UIStyle::new().with_color(color));
         self.ui.add_z_index(entity.id, 0);
         
         entity
@@ -287,23 +321,28 @@ impl World {
         entity
     }
     
-    pub fn create_ui_text(&mut self, name: &str, position: Vector2<f32>, text: String, font_size: f32) -> Entity {
+    pub fn create_ui_text(&mut self, name: &str, position: Vector2<f32>, text: String, font_size: f32, color: Vector4<f32>) -> Entity {
         let entity = self.create_entity(name);
         
-        // Create text component first
-        self.ui.add_text(entity.id, text.clone(), font_size);
+        self.ui.add_transform(entity.id, UITransform::new(position, Vector2::new(0.0, 0.0))); // Size will be auto-calculated
         
-        // Calculate dimensions automatically
-        let scale = font_size / 24.0;
-        let (width, height) = self.ui.text_renderer.measure_text(&text, scale);
+        // Create text-only style (no background rendering)
+        let text_style = UIStyle::new()
+            .with_text_color(color)
+            .text_only(); // This sets render_background = false
+        self.ui.add_style(entity.id, text_style);
         
-        // Create transform with calculated size
-        self.ui.add_transform(entity.id, UITransform::new(position, Vector2::new(width, height)));
-        self.ui.add_style(entity.id, UIStyle::new());
+        self.ui.add_text(entity.id, text, font_size);
+        self.ui.add_z_index(entity.id, 0);
         
         entity
     }
-    
+
+    //idk this might be a waste of space
+    pub fn create_ui_label(&mut self, name: &str, position: Vector2<f32>, text: String) -> Entity {
+        self.create_ui_text(name, position, text, 16.0, Vector4::new(0.0, 0.0, 0.0, 1.0)) // Black text
+    }
+        
     // lol they are the same now so this is like no longer needed
     pub fn create_ui_button_with_text(&mut self, name: &str, position: Vector2<f32>, size: Vector2<f32>, text: String, font_size: f32) -> Entity {
         let entity = self.create_entity(name);
@@ -388,7 +427,7 @@ impl World {
     
     pub fn update_ui_element_color(&mut self, entity_id: u32, color: Vector4<f32>) {
         if let Some(style) = self.ui.styles.get_mut(entity_id) {
-            style.color = color;
+            style.background_color = color;//todo just change background color to color later
         }
     }
 }

@@ -196,6 +196,8 @@ fn main() {
     
     // Add components to the teddy bear, also this is why i dont fw ecs because like... do you see how many like hoops i had to jump throught to add one thing
     //it is like not actually that much its just yk it feels like a lot
+    //it just needs a lot of helper functions really so that you can just place stuff quickly
+    //with one line like boom position it at 0 then give it no velocitty then add it to renderable, the rest of that stuff should like you have to manually add it if you want it imo
     world.movement.add_coords(teddy_entity.id, WorldCoords::new(0.0, 0.0, 0.0, 0.0));
     world.movement.add_velocity(teddy_entity.id, Velocity {
         direction: Vector3::new(0.0, 0.0, 0.0),
@@ -494,6 +496,7 @@ fn setup_ui_system(world: &mut World, texture_id: u32) -> (u32, u32, u32, u32, u
         Vector2::new(0.0, 0.0), // Will be positioned by container
         "Game Menu".to_string(),
         32.0,
+        Vector4::new(1.0, 0.0, 0.0, 1.0),
     );
     world.add_ui_child(main_menu.id, title_text.id);
     
@@ -522,6 +525,7 @@ fn setup_ui_system(world: &mut World, texture_id: u32) -> (u32, u32, u32, u32, u
         Vector2::new(0.0, 0.0),
         "Press Tab to toggle UI\nUse WASD to move".to_string(),
         14.0,
+        Vector4::new(1.0, 0.0, 0.0, 1.0)
     );
     world.add_ui_child(main_menu.id, info_text.id);
     

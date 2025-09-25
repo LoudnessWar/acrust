@@ -2,6 +2,7 @@
 use cgmath::{Vector2, Vector3, Vector4};
 use crate::ecs::world::{Component, ComponentStorage};
 use crate::user_interface::text_render::{self, TextRenderer};
+use crate::input::input::{InputSystem, InputEvent, Key, CLICKS};
 
 // UI-specific components
 #[derive(Debug, Clone)]
@@ -25,29 +26,50 @@ impl UITransform {
 
 #[derive(Debug, Clone)]
 pub struct UIStyle {
-    pub color: Vector4<f32>,
+    pub background_color: Vector4<f32>,  // Renamed from 'color'
+    pub text_color: Vector4<f32>,        // New field for text color
     pub texture_id: Option<u32>,
     pub visible: bool,
+    pub render_background: bool,         // New field to control background rendering
 }
 
 impl UIStyle {
     pub fn new() -> Self {
         Self {
-            color: Vector4::new(1.0, 1.0, 1.0, 1.0),
+            background_color: Vector4::new(1.0, 1.0, 1.0, 1.0),
+            text_color: Vector4::new(0.0, 0.0, 0.0, 1.0),  // Default to black text
             texture_id: None,
             visible: true,
+            render_background: true,  // Default to rendering background
         }
     }
     
-    pub fn with_color(mut self, color: Vector4<f32>) -> Self {
-        println!("Setting UIStyle color to {:?}", color);
-        self.color = color;
+    pub fn with_color(mut self, color: Vector4<f32>) -> Self {//this naming is a bit bad but i think its more intuitive if that makes sense instead of making it know that there is a sepertaion between text and background color like they will figure it out once and then not have to think about it everytime they create a ui element with
+        //a background color
+        self.background_color = color;
+        self
+    }
+    
+    pub fn with_text_color(mut self, color: Vector4<f32>) -> Self {
+        self.text_color = color;
         self
     }
     
     pub fn with_texture(mut self, texture_id: u32) -> Self {
         self.texture_id = Some(texture_id);
         self
+    }
+    
+    pub fn text_only(mut self) -> Self {
+        self.render_background = false;
+        self
+    }
+    
+    // Convenience method for buttons will probably make more of these later
+    pub fn button_style(background: Vector4<f32>, text: Vector4<f32>) -> Self {
+        Self::new()
+            .with_color(background)
+            .with_text_color(text)
     }
 }
 
@@ -149,6 +171,107 @@ impl UIButton {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct UITextInput {
+    pub text: String,
+    pub cursor_position: usize,
+    pub is_focused: bool,
+    pub placeholder: String,
+    pub max_length: Option<usize>,
+    pub cursor_visible: bool,
+    pub cursor_timer: f32,  // For blinking cursor
+}
+
+impl UITextInput {
+    pub fn new(placeholder: String) -> Self {
+        Self {
+            text: String::new(),
+            cursor_position: 0,
+            is_focused: false,
+            placeholder,
+            max_length: None,
+            cursor_visible: true,
+            cursor_timer: 0.0,
+        }
+    }
+    
+    pub fn with_max_length(mut self, max_length: usize) -> Self {
+        self.max_length = Some(max_length);
+        self
+    }
+    
+    pub fn insert_char(&mut self, c: char) {
+        if let Some(max_len) = self.max_length {
+            if self.text.len() >= max_len {
+                return;
+            }
+        }
+        
+        self.text.insert(self.cursor_position, c);
+        self.cursor_position += 1;
+        self.reset_cursor_blink();
+    }
+    
+    pub fn delete_char(&mut self) {
+        if self.cursor_position > 0 {
+            self.cursor_position -= 1;
+            self.text.remove(self.cursor_position);
+        }
+        self.reset_cursor_blink();
+    }
+    
+    pub fn delete_char_forward(&mut self) {
+        if self.cursor_position < self.text.len() {
+            self.text.remove(self.cursor_position);
+        }
+        self.reset_cursor_blink();
+    }
+    
+    pub fn move_cursor_left(&mut self) {
+        if self.cursor_position > 0 {
+            self.cursor_position -= 1;
+        }
+        self.reset_cursor_blink();
+    }
+    
+    pub fn move_cursor_right(&mut self) {
+        if self.cursor_position < self.text.len() {
+            self.cursor_position += 1;
+        }
+        self.reset_cursor_blink();
+    }
+    
+    pub fn move_cursor_to_start(&mut self) {
+        self.cursor_position = 0;
+        self.reset_cursor_blink();
+    }
+    
+    pub fn move_cursor_to_end(&mut self) {
+        self.cursor_position = self.text.len();
+        self.reset_cursor_blink();
+    }
+    
+    pub fn reset_cursor_blink(&mut self) {
+        self.cursor_visible = true;
+        self.cursor_timer = 0.0;
+    }
+    
+    pub fn update_cursor_blink(&mut self, delta_time: f32) {
+        self.cursor_timer += delta_time;
+        if self.cursor_timer >= 0.5 {  // Blink every 500ms
+            self.cursor_visible = !self.cursor_visible;
+            self.cursor_timer = 0.0;
+        }
+    }
+    
+    pub fn get_display_text(&self) -> &str {
+        if self.text.is_empty() && !self.is_focused {
+            &self.placeholder
+        } else {
+            &self.text
+        }
+    }
+}
 
 // impl Component for UIButton {}
 
@@ -467,15 +590,18 @@ impl UISystem {
         shader.set_matrix4fv_uniform("projection", &self.projection);
         self.vao.bind();
         
+        // First pass: Render all background elements (only if render_background is true)
         for (entity_id, _) in &render_list {
             let transform = self.transforms.get(*entity_id).unwrap();
             let style = self.styles.get(*entity_id).unwrap();
             
-
-            self.render_ui_element(*entity_id, transform, style, shader);
+            // Only render background if the flag is set
+            if style.render_background {
+                self.render_ui_element(*entity_id, transform, style, shader);
+            }
         }
 
-        
+        // Second pass: Render all text elements on top
         for (entity_id, _) in &render_list {
             if self.texts.contains(*entity_id) {
                 self.render_text_element(*entity_id);
@@ -483,43 +609,8 @@ impl UISystem {
         }
     }
 
-// Helper method to render a single text element
-fn render_text_element(&self, entity_id: u32) {
-    unsafe {
-        gl::Enable(gl::BLEND);
-        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-        gl::Disable(gl::DEPTH_TEST);
-    }
-    
-    if let Some(text_component) = self.texts.get(entity_id) {
-        if let Some(transform) = self.transforms.get(entity_id) {
-            if let Some(style) = self.styles.get(entity_id) {
-                if !style.visible {
-                    return;
-                }
-                
-                let text_color = Vector3::new(style.color.x, style.color.y, style.color.z);
-                let scale = text_component.font_size / 24.0;
-                
-                self.text_renderer.render_text(
-                    &text_component.text,
-                    transform.position.x,
-                    transform.position.y,
-                    scale,
-                    text_color,
-                    &self.projection,
-                );
-            }
-        }
-    }
-    
-    unsafe {
-        gl::Enable(gl::DEPTH_TEST);
-        gl::Disable(gl::BLEND);
-    }
-}
-    
-    fn render_ui_element(&self, entity_id: u32, transform: &UITransform, style: &UIStyle, shader: &crate::graphics::gl_wrapper::ShaderProgram) { //todo lol this needs to be checked todo
+    // Updated render_ui_element to use background_color
+    fn render_ui_element(&self, entity_id: u32, transform: &UITransform, style: &UIStyle, shader: &crate::graphics::gl_wrapper::ShaderProgram) {
         let vertices: Vec<f32> = vec![
             transform.position.x, transform.position.y + transform.size.y, 0.0,  0.0, 1.0,
             transform.position.x + transform.size.x, transform.position.y + transform.size.y, 0.0,  1.0, 1.0,
@@ -542,8 +633,7 @@ fn render_text_element(&self, entity_id: u32) {
             }
         } else {
             shader.set_uniform1i("useTexture", &0);
-            shader.set_uniform4f("color", &style.color);
-            //println!("Rendering UI Element {} with color {:?}", entity_id, style.color);
+            shader.set_uniform4f("color", &style.background_color); // Use background_color instead of color
         }
 
         unsafe {
@@ -556,25 +646,24 @@ fn render_text_element(&self, entity_id: u32) {
         }
     }
 
-    fn render_text_elements(&self) {
+    // Updated render_text_element to use text_color
+    fn render_text_element(&self, entity_id: u32) {
         unsafe {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
             gl::Disable(gl::DEPTH_TEST);
         }
         
-        for (entity_id, text_component) in self.texts.iter() {
-            if let Some(transform) = self.transforms.get(*entity_id) {
-                if let Some(style) = self.styles.get(*entity_id) {
+        if let Some(text_component) = self.texts.get(entity_id) {
+            if let Some(transform) = self.transforms.get(entity_id) {
+                if let Some(style) = self.styles.get(entity_id) {
                     if !style.visible {
-                        continue;
+                        return;
                     }
                     
-                    // Calculate text color from style
-                    let text_color = Vector3::new(style.color.x, style.color.y, style.color.z);
-                    
-                    // Calculate scale based on font size and transform size
-                    let scale = text_component.font_size / 24.0; // Assuming 24.0 is base font size
+                    // Use text_color instead of background color
+                    let text_color = Vector3::new(style.text_color.x, style.text_color.y, style.text_color.z);
+                    let scale = text_component.font_size / 24.0;
                     
                     self.text_renderer.render_text(
                         &text_component.text,
@@ -593,6 +682,81 @@ fn render_text_element(&self, entity_id: u32) {
             gl::Disable(gl::BLEND);
         }
     }
+    
+    // fn render_ui_element(&self, entity_id: u32, transform: &UITransform, style: &UIStyle, shader: &crate::graphics::gl_wrapper::ShaderProgram) { //todo lol this needs to be checked todo
+    //     let vertices: Vec<f32> = vec![
+    //         transform.position.x, transform.position.y + transform.size.y, 0.0,  0.0, 1.0,
+    //         transform.position.x + transform.size.x, transform.position.y + transform.size.y, 0.0,  1.0, 1.0,
+    //         transform.position.x + transform.size.x, transform.position.y, 0.0,  1.0, 0.0,
+    //         transform.position.x, transform.position.y, 0.0,  0.0, 0.0,
+    //     ];
+
+    //     let indices: Vec<i32> = vec![0, 1, 2, 0, 2, 3];
+
+    //     self.vbo.bind();
+    //     self.vbo.store_f32_data(&vertices);
+    //     self.ebo.bind();
+    //     self.ebo.store_i32_data(&indices);
+
+    //     if let Some(texture_id) = style.texture_id {
+    //         shader.set_uniform1i("useTexture", &1);
+    //         unsafe {
+    //             gl::ActiveTexture(gl::TEXTURE0);
+    //             gl::BindTexture(gl::TEXTURE_2D, texture_id);
+    //         }
+    //     } else {
+    //         shader.set_uniform1i("useTexture", &0);
+    //         shader.set_uniform4f("color", &style.color);
+    //         //println!("Rendering UI Element {} with color {:?}", entity_id, style.color);
+    //     }
+
+    //     unsafe {
+    //         gl::DrawElements(
+    //             gl::TRIANGLES,
+    //             indices.len() as i32,
+    //             gl::UNSIGNED_INT,
+    //             std::ptr::null(),
+    //         );
+    //     }
+    // }
+
+    // fn render_text_elements(&self) {
+    //     unsafe {
+    //         gl::Enable(gl::BLEND);
+    //         gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+    //         gl::Disable(gl::DEPTH_TEST);
+    //     }
+        
+    //     for (entity_id, text_component) in self.texts.iter() {
+    //         if let Some(transform) = self.transforms.get(*entity_id) {
+    //             if let Some(style) = self.styles.get(*entity_id) {
+    //                 if !style.visible {
+    //                     continue;
+    //                 }
+                    
+    //                 // Calculate text color from style
+    //                 let text_color = Vector3::new(style.color.x, style.color.y, style.color.z);
+                    
+    //                 // Calculate scale based on font size and transform size
+    //                 let scale = text_component.font_size / 24.0; // Assuming 24.0 is base font size
+                    
+    //                 self.text_renderer.render_text(
+    //                     &text_component.text,
+    //                     transform.position.x,
+    //                     transform.position.y,
+    //                     scale,
+    //                     text_color,
+    //                     &self.projection,
+    //                 );
+    //             }
+    //         }
+    //     }
+        
+    //     unsafe {
+    //         gl::Enable(gl::DEPTH_TEST);
+    //         gl::Disable(gl::BLEND);
+    //     }
+    // }
     
     // Query methods
     pub fn is_button_clicked(&self, entity_id: u32) -> bool {
