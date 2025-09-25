@@ -312,22 +312,24 @@ impl UISystem {
         if !self.layout_dirty {
             return;
         }
-        
+
         // Find root elements (no parent)
         let root_entities: Vec<u32> = self.transforms
             .iter()
             .filter(|(id, _)| {
-                !self.parents.contains(**id) || 
+                !self.parents.contains(**id) ||
                 self.parents.get(**id).unwrap().parent_id.is_none()
             })
             .map(|(id, _)| *id)
             .collect();
-        
+
         // Process each root hierarchy
         for root_id in root_entities {
-            self.calculate_hierarchy_positions(root_id, Vector2::new(0.0, 0.0));
+            // Use the root's position as the starting offset
+            let root_pos = self.transforms.get(root_id).map(|t| t.position).unwrap_or(Vector2::new(0.0, 0.0));
+            self.calculate_hierarchy_positions(root_id, root_pos);
         }
-        
+
         self.layout_dirty = false;
     }
     
@@ -433,29 +435,44 @@ impl UISystem {
     
     // Rendering - similar to your existing render system
     pub fn render(&self, shader: &crate::graphics::gl_wrapper::ShaderProgram) {
+
+        let mut render_list: Vec<(u32, i32)> = Vec::new();
+        
+        for (entity_id, transform) in self.transforms.iter() {
+            if let Some(style) = self.styles.get(*entity_id) {
+                if style.visible {
+                    let z_index = self.z_indices.get(*entity_id)
+                        .map(|z| z.z_index)
+                        .unwrap_or(0); // Default z-index = 0
+                    
+                    render_list.push((*entity_id, z_index));
+                }
+            }
+        }
+
+        render_list.sort_by_key(|&(_, z)| z);
+
         shader.bind();
         shader.set_matrix4fv_uniform("projection", &self.projection);
         self.vao.bind();
         
         // Render all visible UI elements
-        for (entity_id, transform) in self.transforms.iter() {
-            if let Some(style) = self.styles.get(*entity_id) {
-                if !style.visible {
-                    continue;
-                }
-
-                if self.texts.contains(*entity_id) {//we dont want to render our text here
-                    continue;
-                }
-                
-                self.render_ui_element(*entity_id, transform, style, shader);
-            }
+        for (entity_id, _) in &render_list {
+            if self.texts.contains(*entity_id) { continue; }
+            
+            let transform = self.transforms.get(*entity_id).unwrap();
+            let style = self.styles.get(*entity_id).unwrap();
+            self.render_ui_element(*entity_id, transform, style, shader);
         }
 
-        self.render_text_elements();
+        for (entity_id, _) in &render_list {
+            if !self.texts.contains(*entity_id) { continue; }
+            
+            self.render_text_elements();
+        }
     }
     
-    fn render_ui_element(&self, entity_id: u32, transform: &UITransform, style: &UIStyle, shader: &crate::graphics::gl_wrapper::ShaderProgram) {
+    fn render_ui_element(&self, entity_id: u32, transform: &UITransform, style: &UIStyle, shader: &crate::graphics::gl_wrapper::ShaderProgram) { //todo lol this needs to be checked todo
         let vertices: Vec<f32> = vec![
             transform.position.x, transform.position.y + transform.size.y, 0.0,  0.0, 1.0,
             transform.position.x + transform.size.x, transform.position.y + transform.size.y, 0.0,  1.0, 1.0,

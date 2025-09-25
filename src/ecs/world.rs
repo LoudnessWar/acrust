@@ -266,7 +266,7 @@ impl World {
         let entity = self.create_entity(name);
         
         self.ui.add_transform(entity.id, UITransform::new(position, size));
-        self.ui.add_style(entity.id, UIStyle::new().with_color(Vector4::new(0.7, 0.7, 0.7, 1.0)));
+        self.ui.add_style(entity.id, UIStyle::new().with_color(Vector4::new(0.1, 0.7, 0.7, 1.0)));
         self.ui.add_button(entity.id);
         self.ui.add_text(entity.id, text, 16.0);
         

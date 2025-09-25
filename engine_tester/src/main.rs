@@ -485,18 +485,13 @@ fn main() {
     }
 }
 
-// ClickVisitor implementation remains unchanged
-pub struct ClickVisitor {
-    pub button_clicked: bool,
-}
-
 fn setup_ui_system(world: &mut World, texture_id: u32) -> (u32, u32, u32, u32, u32) {
     // Create main menu container
     let main_menu = world.create_ui_container(
         "main_menu",
         Vector2::new(0.0, 0.0),
         Vector2::new(720.0, 720.0),
-        UILayout::grid(2, 25.0).with_padding(40.0),
+        UILayout::grid(2, 110.0).with_padding(40.0),
     );
 
     let title_text = world.create_ui_text(
@@ -526,14 +521,6 @@ fn setup_ui_system(world: &mut World, texture_id: u32) -> (u32, u32, u32, u32, u
     );
     world.add_ui_child(main_menu.id, ui_button.id);
     
-    // let ui_text = world.create_ui_text(
-    //     "ui_text",
-    //     Vector2::new(0.0, 0.0),
-    //     Vector2::new(250.0, 50.0),
-    //     "Hello, ECS UI!".to_string(),
-    //     18.0,
-    // );
-    // world.add_ui_child(main_menu.id, ui_text.id);
 
     let info_text = world.create_ui_text(
         "info_text",
