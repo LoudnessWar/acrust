@@ -266,9 +266,11 @@ impl World {
         let entity = self.create_entity(name);
         
         self.ui.add_transform(entity.id, UITransform::new(position, size));
-        self.ui.add_style(entity.id, UIStyle::new().with_color(Vector4::new(0.1, 0.3, 0.4, 1.0)));
+        self.ui.add_style(entity.id, UIStyle::new().with_color(Vector4::new(0.1, 0.1, 0.1, 1.0)));
         self.ui.add_button(entity.id);
         self.ui.add_text(entity.id, text, 16.0);
+
+        self.ui.add_z_index(entity.id, 0);
         
         entity
     }
@@ -279,6 +281,8 @@ impl World {
         self.ui.add_transform(entity.id, UITransform::new(position, size));
         self.ui.add_style(entity.id, UIStyle::new().with_color(Vector4::new(0.2, 0.2, 0.2, 0.8)));//make this dynamic and optional later
         self.ui.add_layout(entity.id, layout);
+
+        self.ui.add_z_index(entity.id, -1);
         
         entity
     }
@@ -300,7 +304,7 @@ impl World {
         entity
     }
     
-    // Enhanced button creation with text
+    // lol they are the same now so this is like no longer needed
     pub fn create_ui_button_with_text(&mut self, name: &str, position: Vector2<f32>, size: Vector2<f32>, text: String, font_size: f32) -> Entity {
         let entity = self.create_entity(name);
         
@@ -308,6 +312,8 @@ impl World {
         self.ui.add_style(entity.id, UIStyle::new().with_color(Vector4::new(0.7, 0.7, 0.7, 1.0)));
         self.ui.add_button(entity.id);
         self.ui.add_text(entity.id, text, font_size);
+
+        self.ui.add_z_index(entity.id, 0);
         
         entity
     }

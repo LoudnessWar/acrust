@@ -40,6 +40,7 @@ impl UIStyle {
     }
     
     pub fn with_color(mut self, color: Vector4<f32>) -> Self {
+        println!("Setting UIStyle color to {:?}", color);
         self.color = color;
         self
     }
@@ -446,41 +447,41 @@ impl UISystem {
 
     //fuch this has nothing to do with the borrow checker i know your stalking me copilot because I have complained about the borrow checker in so many comments before but the comments are my space like stay out!!!
     pub fn render(&self, shader: &crate::graphics::gl_wrapper::ShaderProgram) {
-    let mut render_list: Vec<(u32, i32)> = Vec::new();
-    
-    for (entity_id, transform) in self.transforms.iter() {
-        if let Some(style) = self.styles.get(*entity_id) {
-            if style.visible {
-                let z_index = self.z_indices.get(*entity_id)
-                    .map(|z| z.z_index)
-                    .unwrap_or(0);
-                
-                render_list.push((*entity_id, z_index));
+        let mut render_list: Vec<(u32, i32)> = Vec::new();
+        
+        for (entity_id, transform) in self.transforms.iter() {
+            if let Some(style) = self.styles.get(*entity_id) {
+                if style.visible {
+                    let z_index = self.z_indices.get(*entity_id)
+                        .map(|z| z.z_index)
+                        .unwrap_or(0);
+                    
+                    render_list.push((*entity_id, z_index));
+                }
+            }
+        }
+
+        render_list.sort_by_key(|&(_, z)| z);
+
+        shader.bind();
+        shader.set_matrix4fv_uniform("projection", &self.projection);
+        self.vao.bind();
+        
+        for (entity_id, _) in &render_list {
+            let transform = self.transforms.get(*entity_id).unwrap();
+            let style = self.styles.get(*entity_id).unwrap();
+            
+
+            self.render_ui_element(*entity_id, transform, style, shader);
+        }
+
+        
+        for (entity_id, _) in &render_list {
+            if self.texts.contains(*entity_id) {
+                self.render_text_element(*entity_id);
             }
         }
     }
-
-    render_list.sort_by_key(|&(_, z)| z);
-
-    shader.bind();
-    shader.set_matrix4fv_uniform("projection", &self.projection);
-    self.vao.bind();
-    
-    for (entity_id, _) in &render_list {
-        let transform = self.transforms.get(*entity_id).unwrap();
-        let style = self.styles.get(*entity_id).unwrap();
-        
-
-        self.render_ui_element(*entity_id, transform, style, shader);
-    }
-
-    
-    for (entity_id, _) in &render_list {
-        if self.texts.contains(*entity_id) {
-            self.render_text_element(*entity_id);
-        }
-    }
-}
 
 // Helper method to render a single text element
 fn render_text_element(&self, entity_id: u32) {
@@ -542,6 +543,7 @@ fn render_text_element(&self, entity_id: u32) {
         } else {
             shader.set_uniform1i("useTexture", &0);
             shader.set_uniform4f("color", &style.color);
+            //println!("Rendering UI Element {} with color {:?}", entity_id, style.color);
         }
 
         unsafe {
