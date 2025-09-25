@@ -9,6 +9,11 @@ use acrust::graphics::materials::MaterialManager;
 
 use acrust::input::input::{InputSystem, InputEvent, Key, CLICKS};
 
+use acrust::ecs::UI_components::UILayout;
+use acrust::ecs::UI_components::UITransform;
+use acrust::ecs::UI_components::UIStyle;
+
+
 use acrust::user_interface::ui_element::UIElement;
 use acrust::user_interface::ui_manager::UIManager;
 use acrust::user_interface::ui_element::UIElementTrait;
@@ -126,33 +131,33 @@ fn main() {
     text_renderer.load_font("fonts/Roboto.ttf", 24.0);
 
     // UI setup - kept separate from ECS
-    let mut ui_manager = UIManager::new(720.0, 720.0);
+    // let mut ui_manager = UIManager::new(720.0, 720.0);
 
-    let mut ui_element = UIElement::new(1, Vector2::new(50.0, 50.0), Vector2::new(200.0, 100.0));
-    ui_element.set_texture(texture_id);
+    // let mut ui_element = UIElement::new(1, Vector2::new(50.0, 50.0), Vector2::new(200.0, 100.0));
+    // ui_element.set_texture(texture_id);
 
-    let mut ui_element2 = UIElement::new(2, Vector2::new(90.0,90.0), Vector2::new(100.0, 100.0));    
-    ui_element2.set_color(Vector4::new(1.0, 0.0, 0.0, 1.0));
+    // let mut ui_element2 = UIElement::new(2, Vector2::new(90.0,90.0), Vector2::new(100.0, 100.0));    
+    // ui_element2.set_color(Vector4::new(1.0, 0.0, 0.0, 1.0));
 
-    let mut ui_draggable = UIDraggable::new(4, Vector2::new(120.0,120.0), Vector2::new(200.0, 200.0));    
-    ui_draggable.set_color(Vector4::new(0.0, 1.0, 1.0, 1.0));
+    // let mut ui_draggable = UIDraggable::new(4, Vector2::new(120.0,120.0), Vector2::new(200.0, 200.0));    
+    // ui_draggable.set_color(Vector4::new(0.0, 1.0, 1.0, 1.0));
 
-    let mut ui_button = Button::new(3, Vector2::new(400.0,90.0), Vector2::new(200.0, 100.0));  
-    ui_element2.set_color(Vector4::new(1.0, 1.0, 0.0, 1.0));
+    // let mut ui_button = Button::new(3, Vector2::new(400.0,90.0), Vector2::new(200.0, 100.0));  
+    // ui_element2.set_color(Vector4::new(1.0, 1.0, 0.0, 1.0));
 
-    let mut ui_text = UIText::new(
-        5,
-        Vector2::new(300.0, 300.0),
-        Vector2::new(200.0, 50.0),
-        "Hello, world! \nmy name is jeff".to_string(),
-        24.0,
-    );
-    ui_manager.add_element(Box::new(ui_text));
+    // let mut ui_text = UIText::new(
+    //     5,
+    //     Vector2::new(300.0, 300.0),
+    //     Vector2::new(200.0, 50.0),
+    //     "Hello, world! \nmy name is jeff".to_string(),
+    //     24.0,
+    // );
+    // ui_manager.add_element(Box::new(ui_text));
     
-    ui_manager.add_element(Box::new(ui_element));
-    ui_manager.add_element(Box::new(ui_element2));
-    ui_manager.add_element(Box::new(ui_button));
-    ui_manager.add_element(Box::new(ui_draggable));
+    // ui_manager.add_element(Box::new(ui_element));
+    // ui_manager.add_element(Box::new(ui_element2));
+    // ui_manager.add_element(Box::new(ui_button));
+    // ui_manager.add_element(Box::new(ui_draggable));
 
     window.lock_cursor();
     let mut sensitivity = 0.002;
@@ -182,7 +187,9 @@ fn main() {
     fpr.initialize_light_culling(720, 720, &shader_manager);
 
     // Initialize the ECS World
-    let mut world = World::new();
+    let mut world = World::new_with_ui(720.0, 720.0);
+
+    let (main_menu_id, ui_element1_id, ui_element2_id, ui_button_id) = setup_ui_system(&mut world, texture_id);
     
     // Create entities in the ECS
     let teddy_entity = world.create_entity("Teddy");
@@ -242,6 +249,8 @@ fn main() {
     
     // Time tracking for delta time calculation
     let mut last_frame_time = Instant::now();
+
+    let mut show_ui = false;
 
     while !window.should_close() {
         // Calculate delta time
@@ -365,7 +374,11 @@ fn main() {
         camera.update_view();
 
         // ecs update who gaf
-        world.update(delta_time);
+        //world.update(delta_time);
+        let mouse_down = input_system.is_mouse_button_held(&CLICKS::Left);
+        let mouse_clicked = input_system.is_mouse_button_just_pressed(&CLICKS::Left);
+
+        world.update_ui(delta_time, current_mouse_position, mouse_down, mouse_clicked);
         
         // This is like 3 funcitons deep at this point world -> render -> fpr -> five different fucntions
         world.render(&mut fpr, &camera, 720, 720, &texture_manager);
@@ -378,27 +391,60 @@ fn main() {
         skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
 
         // UI handling
-        if input_system.is_key_pressed(&Key::Tab) {
-            ui_manager.update(current_mouse_position);
-            ui_manager.render(&ui_shader);
+        // if input_system.is_key_pressed(&Key::Tab) {
+        //     ui_manager.update(current_mouse_position);
+        //     ui_manager.render(&ui_shader);
 
-            let mut text_visitor = TextRenderVisitor { text_renderer: &text_renderer };
+        //     let mut text_visitor = TextRenderVisitor { text_renderer: &text_renderer };
+        //     unsafe {
+        //         gl::Enable(gl::BLEND);
+        //         gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        //         gl::Disable(gl::DEPTH_TEST); // Optional: if text is hidden behind UI
+        //     }
+        //     let mut text_visitor = TextRenderVisitor { text_renderer: &text_renderer };
+        //     ui_manager.visit_all(&mut text_visitor);
+
+        //     if input_system.is_mouse_button_just_pressed(&CLICKS::Left) {
+        //         ui_manager.start_drag(current_mouse_position);
+        //     }
+        //     if input_system.is_mouse_button_held(&CLICKS::Left) {
+        //         ui_manager.update_dragging(current_mouse_position);
+        //     }
+        //     if input_system.is_mouse_button_released(&CLICKS::Left) {
+        //         ui_manager.end_drag();
+        //     }
+        // }
+
+        if show_ui {
+            // Enable blending for UI
             unsafe {
                 gl::Enable(gl::BLEND);
                 gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-                gl::Disable(gl::DEPTH_TEST); // Optional: if text is hidden behind UI
+                gl::Disable(gl::DEPTH_TEST);
             }
-            let mut text_visitor = TextRenderVisitor { text_renderer: &text_renderer };
-            ui_manager.visit_all(&mut text_visitor);
-
-            if input_system.is_mouse_button_just_pressed(&CLICKS::Left) {
-                ui_manager.start_drag(current_mouse_position);
+            
+            // Render UI
+            world.ui.render(&ui_shader);
+            
+            // Handle UI interactions
+            if world.is_ui_button_clicked(ui_button_id) {
+                println!("ECS UI Button clicked!");
+                // Move the button as an example
+                world.update_ui_element_position(ui_button_id, Vector2::new(250.0, 200.0));
             }
-            if input_system.is_mouse_button_held(&CLICKS::Left) {
-                ui_manager.update_dragging(current_mouse_position);
+            
+            if world.is_ui_button_hovered(ui_button_id) {
+                // Change button color on hover
+                world.update_ui_element_color(ui_button_id, Vector4::new(0.8, 0.8, 1.0, 1.0));
+            } else {
+                // Reset button color
+                world.update_ui_element_color(ui_button_id, Vector4::new(0.7, 0.7, 0.7, 1.0));
             }
-            if input_system.is_mouse_button_released(&CLICKS::Left) {
-                ui_manager.end_drag();
+            
+            // Re-enable depth testing for 3D rendering
+            unsafe {
+                gl::Enable(gl::DEPTH_TEST);
+                gl::Disable(gl::BLEND);
             }
         }
 
@@ -406,16 +452,49 @@ fn main() {
         //     ui_manager.visit_all(&mut text_visitor);
 
         // OMG HAAIIIII Process UI events the event system to be ony used with the ui because i was lazy HAAIIIIII
-        while let Some(event) = ui_manager.poll_event() {
+        // while let Some(event) = ui_manager.poll_event() {
+        //     match event {
+        //         UIEvent::Hover(id) => {},
+        //         UIEvent::Click(id) => {},
+        //         UIEvent::MouseEnter(id) => {
+        //             println!("Mouse entered element {}", id);
+        //         },
+        //         UIEvent::MouseExit(id) => {
+        //             println!("Mouse exited element {}", id);
+        //         },
+        //         _ => {}
+        //     }
+        // }
+
+        while let Some(event) = input_system.get_event_queue().pop_front() {
             match event {
-                UIEvent::Hover(id) => {},
-                UIEvent::Click(id) => {},
-                UIEvent::MouseEnter(id) => {
-                    println!("Mouse entered element {}", id);
-                },
-                UIEvent::MouseExit(id) => {
-                    println!("Mouse exited element {}", id);
-                },
+                InputEvent::KeyPressed(Key::Lctrl) => {
+                    player.speed = 0.3;
+                }
+                InputEvent::KeyReleased(Key::Lctrl) => {
+                    player.speed = 0.1;
+                }
+                InputEvent::KeyPressed(Key::Tab) => {
+                    show_ui = !show_ui; // Toggle UI visibility
+                    if show_ui {
+                        window.unlock_cursor();
+                        sensitivity = 0.0;
+                    } else {
+                        window.lock_cursor();
+                        sensitivity = 0.002;
+                    }
+                }
+                InputEvent::KeyPressed(Key::Q) => {
+                    camera.cycle_mode();
+                }
+                InputEvent::MouseButtonPressed(CLICKS::Left) => {
+                    if show_ui {
+                        // UI input is handled in world.update()
+                        println!("UI active - mouse input handled by UI system");
+                    } else {
+                        println!("pewpew: {:#?}", player.get_position());
+                    }
+                }
                 _ => {}
             }
         }
@@ -446,9 +525,9 @@ fn main() {
                 InputEvent::MouseButtonPressed(CLICKS::Left) => {
                     println!("pewpew: {:#?}", player.get_position());
                     
-                    if ui_manager.is_element_hovered(3) {
-                        ui_manager.visit_element(3, &mut visitor);
-                    }
+                    // if ui_manager.is_element_hovered(3) {
+                    //     ui_manager.visit_element(3, &mut visitor);
+                    // }
                     ds.end_drag();
                 }
                 InputEvent::MouseButtonReleased(CLICKS::Left) => {
@@ -505,4 +584,45 @@ impl UIElementVisitor for ClickVisitor {
     fn visit_text(&mut self, text: &mut UIText) {//todo make this do something maybe idk
         println!("Text content: {}", text.get_text());
     }
+}
+
+fn setup_ui_system(world: &mut World, texture_id: u32) -> (u32, u32, u32, u32) {
+    // Create main menu container
+    let main_menu = world.create_ui_container(
+        "main_menu",
+        Vector2::new(50.0, 50.0),
+        Vector2::new(720.0, 720.0),
+        UILayout::vertical(15.0).with_padding(20.0),
+    );
+    
+    // Create UI elements as children of the container
+    let ui_element1 = world.create_entity("ui_element1");
+    world.ui.add_transform(ui_element1.id, UITransform::new(Vector2::new(0.0, 0.0), Vector2::new(200.0, 100.0)));
+    world.ui.add_style(ui_element1.id, UIStyle::new().with_texture(texture_id));
+    world.add_ui_child(main_menu.id, ui_element1.id);
+    
+    let ui_element2 = world.create_entity("ui_element2");
+    world.ui.add_transform(ui_element2.id, UITransform::new(Vector2::new(0.0, 0.0), Vector2::new(100.0, 100.0)));
+    world.ui.add_style(ui_element2.id, UIStyle::new().with_color(Vector4::new(1.0, 0.0, 0.0, 1.0)));
+    world.add_ui_child(main_menu.id, ui_element2.id);
+    
+    let ui_button = world.create_ui_button(
+        "ui_button",
+        Vector2::new(0.0, 0.0),
+        Vector2::new(200.0, 60.0),
+        "Click Me!".to_string(),
+    );
+    world.add_ui_child(main_menu.id, ui_button.id);
+    
+    let ui_text = world.create_ui_text(
+        "ui_text",
+        Vector2::new(0.0, 0.0),
+        Vector2::new(250.0, 50.0),
+        "Hello, ECS UI!".to_string(),
+        18.0,
+    );
+    world.add_ui_child(main_menu.id, ui_text.id);
+    
+    // Return IDs for later reference
+    (main_menu.id, ui_element1.id, ui_element2.id, ui_button.id)
 }

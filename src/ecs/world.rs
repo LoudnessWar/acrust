@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::any::{Any, TypeId};
-use cgmath::Vector3;
+use cgmath::{Vector2, Vector3, Vector4};
 
 use crate::graphics::camera::Camera;
 use crate::graphics::gl_wrapper::ForwardPlusRenderer;
@@ -13,6 +13,8 @@ use crate::ecs::player::Player;
 use glfw::RenderContext;
 
 use super::components::Velocity;
+
+use super::UI_components::*;
 
 // Entity remains simple
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -201,6 +203,7 @@ pub struct World {
     pub entities: EntityRegistry,
     pub movement: MovementSystem,
     pub render: RenderSystem,
+    pub ui: UISystem,
 }
 
 impl World {
@@ -209,6 +212,16 @@ impl World {
             entities: EntityRegistry::new(),
             movement: MovementSystem::new(),
             render: RenderSystem::new(),
+            ui: UISystem::new(0.0, 0.0),//TODO fix this later because I know a lot of this is going to be really bad at the start because Im kinda just forcing my old UI system into the space of a new ECS one
+        }
+    }
+
+    pub fn new_with_ui(screen_width: f32, screen_height: f32) -> Self {
+        Self {
+            entities: EntityRegistry::new(),
+            movement: MovementSystem::new(),
+            render: RenderSystem::new(),
+            ui: UISystem::new(screen_width, screen_height),
         }
     }
 
@@ -246,5 +259,92 @@ impl World {
         texture_manager: &TextureManager,
     ) {
         self.render.render(render_context, camera, width, height, texture_manager);
+    }
+
+    pub fn create_ui_button(&mut self, name: &str, position: Vector2<f32>, size: Vector2<f32>, text: String) -> Entity {
+        let entity = self.create_entity(name);
+        
+        self.ui.add_transform(entity.id, UITransform::new(position, size));
+        self.ui.add_style(entity.id, UIStyle::new().with_color(Vector4::new(0.7, 0.7, 0.7, 1.0)));
+        self.ui.add_button(entity.id);
+        self.ui.add_text(entity.id, text, 16.0);
+        
+        entity
+    }
+    
+    pub fn create_ui_container(&mut self, name: &str, position: Vector2<f32>, size: Vector2<f32>, layout: UILayout) -> Entity {
+        let entity = self.create_entity(name);
+        
+        self.ui.add_transform(entity.id, UITransform::new(position, size));
+        self.ui.add_style(entity.id, UIStyle::new().with_color(Vector4::new(0.2, 0.2, 0.2, 0.8)));
+        self.ui.add_layout(entity.id, layout);
+        
+        entity
+    }
+    
+    pub fn create_ui_text(&mut self, name: &str, position: Vector2<f32>, size: Vector2<f32>, text: String, font_size: f32) -> Entity {
+        let entity = self.create_entity(name);
+        
+        self.ui.add_transform(entity.id, UITransform::new(position, size));
+        self.ui.add_style(entity.id, UIStyle::new());
+        self.ui.add_text(entity.id, text, font_size);
+        
+        entity
+    }
+    
+    // Helper to add child to parent
+    pub fn add_ui_child(&mut self, parent_id: u32, child_id: u32) {
+        self.ui.add_parent(child_id, Some(parent_id));
+    }
+
+    pub fn update_ui(&mut self, delta_time: f32, mouse_pos: (f64, f64), mouse_down: bool, mouse_clicked: bool) {
+        // Update physics first
+        self.movement.update(delta_time);
+        
+        // Update renderables
+        self.render.update_transforms(&self.movement);
+        
+        // Update UI
+        self.ui.update_input(mouse_pos, mouse_down, mouse_clicked);
+        self.ui.update_layout();
+    }   
+
+    pub fn render_all(
+        &self,
+        render_context: &mut ForwardPlusRenderer,
+        ui_shader: &crate::graphics::gl_wrapper::ShaderProgram,
+        camera: &Camera,
+        width: u32,
+        height: u32,
+        texture_manager: &TextureManager,
+    ) {
+        // Render 3D world
+        self.render.render(render_context, camera, width, height, texture_manager);
+        
+        // Render UI on top
+        self.ui.render(ui_shader);
+    }
+    
+    // UI query methods
+    pub fn is_ui_button_clicked(&self, entity_id: u32) -> bool {
+        self.ui.is_button_clicked(entity_id)
+    }
+    
+    pub fn is_ui_button_hovered(&self, entity_id: u32) -> bool {
+        self.ui.is_button_hovered(entity_id)
+    }
+    
+    // Safe UI element updates
+    pub fn update_ui_element_position(&mut self, entity_id: u32, position: Vector2<f32>) {
+        if let Some(transform) = self.ui.get_transform_mut(entity_id) {
+            transform.position = position;
+            // Layout will be recalculated automatically
+        }
+    }
+    
+    pub fn update_ui_element_color(&mut self, entity_id: u32, color: Vector4<f32>) {
+        if let Some(style) = self.ui.styles.get_mut(entity_id) {
+            style.color = color;
+        }
     }
 }
