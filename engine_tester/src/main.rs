@@ -75,6 +75,7 @@ fn main() {
 
     //more boring init stuff
     let mut input_system = InputSystem::new();
+    window.setup_character_input(&input_system);//so true this is like hmmmmm because we dont always need character input to be set up
 
     let mut shader_manager = ShaderManager::new();
     shader_manager.load_shader("Basic", "shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");

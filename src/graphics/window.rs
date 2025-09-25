@@ -85,6 +85,19 @@ impl Window {
     }
 
 
+    //secretly a buffer
+    pub fn setup_character_input(&mut self, input_system: &InputSystem) {
+        let char_buffer = input_system.get_character_buffer();
+        
+        self.window_handle.set_char_callback(move |_, codepoint| {
+            if let character = codepoint {//todo lol this is stupid and i am being lazy this does not need to constantly be checked like everything else tbh
+                if let Ok(mut buffer) = char_buffer.lock() {
+                    buffer.push(character);
+                }
+            }
+        });
+    }
+
     
     //TODO: sthis and process_input_events might be redundant to have both!
     fn process_events(&mut self) {
@@ -128,6 +141,8 @@ impl Window {
 
     //this is to process events
     pub fn process_input_events(&mut self, input_system: &mut InputSystem) {
+        input_system.process_character_buffer();//todo so that means remove this because it doesnt constantly need to be checked like the other stuff
+
         for (_, event) in glfw::flush_messages(&self.events) {
             match event {
                 glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {//TODO take this out later just add it to rest of inputs also where the hell is cursor position like idrecall 
@@ -150,12 +165,6 @@ impl Window {
                             glfw::Action::Release => input_system.queue_event(InputEvent::MouseButtonReleased(button_index)),
                             _ => {}
                         }
-                    }
-                }
-                glfw::WindowEvent::Char(codepoint) => {
-                    if let character = codepoint {//todo lol this is stupid and i am being lazy this does not need to constantly be checked like everything else tbh
-                        println!("Char typed: {}", character);
-                        input_system.queue_event(InputEvent::CharTyped(character));
                     }
                 }
                 glfw::WindowEvent::Scroll(x_offset, y_offset) => {

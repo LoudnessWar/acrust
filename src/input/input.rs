@@ -1,4 +1,5 @@
 use std::collections::{VecDeque, HashSet};
+use std::sync::{Arc, Mutex};
 
 use crate::input;
 
@@ -67,6 +68,8 @@ pub struct InputSystem {
     pressed_mouse_buttons: HashSet<CLICKS>,
     mouse_position: (f64, f64),
     scroll_offset: (f64, f64),
+
+    character_buffer: Arc<Mutex<Vec<char>>>,//errrmmm RUST ALERT WEEE WOO WEE WOOO WWEEEE WOOOO
 }
 
 impl InputSystem {
@@ -77,6 +80,8 @@ impl InputSystem {
             pressed_mouse_buttons: HashSet::new(),
             mouse_position: (0.0, 0.0),
             scroll_offset: (0.0, 0.0),
+
+            character_buffer: Arc::new(Mutex::new(Vec::new()))// WEEE WOO WEE WOOO WWEEEE WOOOO
         }
     }
 
@@ -104,6 +109,18 @@ impl InputSystem {
             // _ => {} ig just take it out bro
         }
         self.event_queue.push_back(event);
+    }
+
+    pub fn get_character_buffer(&self) -> Arc<Mutex<Vec<char>>> {
+        Arc::clone(&self.character_buffer)
+    }
+
+    pub fn process_character_buffer(&mut self) {
+        if let Ok(mut buffer) = self.character_buffer.lock() {
+            for character in buffer.drain(..) {
+                self.event_queue.push_back(InputEvent::CharTyped(character));
+            }
+        }
     }
 
     // pub fn queue_event(&mut self, event: InputEvent) {
