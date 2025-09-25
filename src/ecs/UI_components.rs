@@ -435,42 +435,78 @@ impl UISystem {
     
     // Rendering - similar to your existing render system
     pub fn render(&self, shader: &crate::graphics::gl_wrapper::ShaderProgram) {
-
-        let mut render_list: Vec<(u32, i32)> = Vec::new();
-        
-        for (entity_id, transform) in self.transforms.iter() {
-            if let Some(style) = self.styles.get(*entity_id) {
-                if style.visible {
-                    let z_index = self.z_indices.get(*entity_id)
-                        .map(|z| z.z_index)
-                        .unwrap_or(0); // Default z-index = 0
-                    
-                    render_list.push((*entity_id, z_index));
-                }
+    let mut render_list: Vec<(u32, i32)> = Vec::new();
+    
+    for (entity_id, transform) in self.transforms.iter() {
+        if let Some(style) = self.styles.get(*entity_id) {
+            if style.visible {
+                let z_index = self.z_indices.get(*entity_id)
+                    .map(|z| z.z_index)
+                    .unwrap_or(0);
+                
+                render_list.push((*entity_id, z_index));
             }
         }
+    }
 
-        render_list.sort_by_key(|&(_, z)| z);
+    render_list.sort_by_key(|&(_, z)| z);
 
-        shader.bind();
-        shader.set_matrix4fv_uniform("projection", &self.projection);
-        self.vao.bind();
+    shader.bind();
+    shader.set_matrix4fv_uniform("projection", &self.projection);
+    self.vao.bind();
+    
+    // First pass: Render all background elements
+    for (entity_id, _) in &render_list {
+        let transform = self.transforms.get(*entity_id).unwrap();
+        let style = self.styles.get(*entity_id).unwrap();
         
-        // Render all visible UI elements
-        for (entity_id, _) in &render_list {
-            if self.texts.contains(*entity_id) { continue; }
-            
-            let transform = self.transforms.get(*entity_id).unwrap();
-            let style = self.styles.get(*entity_id).unwrap();
-            self.render_ui_element(*entity_id, transform, style, shader);
-        }
+        // Always render the background/style if the entity has one
+        self.render_ui_element(*entity_id, transform, style, shader);
+    }
 
-        for (entity_id, _) in &render_list {
-            if !self.texts.contains(*entity_id) { continue; }
-            
-            self.render_text_elements();
+    // Second pass: Render all text elements on top
+    for (entity_id, _) in &render_list {
+        if self.texts.contains(*entity_id) {
+            self.render_text_element(*entity_id);
         }
     }
+}
+
+// Helper method to render a single text element
+fn render_text_element(&self, entity_id: u32) {
+    unsafe {
+        gl::Enable(gl::BLEND);
+        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        gl::Disable(gl::DEPTH_TEST);
+    }
+    
+    if let Some(text_component) = self.texts.get(entity_id) {
+        if let Some(transform) = self.transforms.get(entity_id) {
+            if let Some(style) = self.styles.get(entity_id) {
+                if !style.visible {
+                    return;
+                }
+                
+                let text_color = Vector3::new(style.color.x, style.color.y, style.color.z);
+                let scale = text_component.font_size / 24.0;
+                
+                self.text_renderer.render_text(
+                    &text_component.text,
+                    transform.position.x,
+                    transform.position.y,
+                    scale,
+                    text_color,
+                    &self.projection,
+                );
+            }
+        }
+    }
+    
+    unsafe {
+        gl::Enable(gl::DEPTH_TEST);
+        gl::Disable(gl::BLEND);
+    }
+}
     
     fn render_ui_element(&self, entity_id: u32, transform: &UITransform, style: &UIStyle, shader: &crate::graphics::gl_wrapper::ShaderProgram) { //todo lol this needs to be checked todo
         let vertices: Vec<f32> = vec![
