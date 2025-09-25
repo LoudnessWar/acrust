@@ -912,6 +912,7 @@ pub enum UniformValue {//i need one for vec3 but im 2 lazy to add rn literally t
 }
 
 //this is like so stupid and useless i know but like yooooooo maybe it will be hype guys
+//i mean not really but also it looks better for the user
 impl TryFrom<f32> for UniformValue {
     type Error = &'static str;
 
@@ -1094,13 +1095,13 @@ impl LightManager {
         //println!("cum poop shader");
         let compute_shader = shader_manager.load_shader_compute(//yoooooooo this shit does not work with the shader is the acrust src only looks at the engine buttttt... who cares bro fix later
             "light_culling", 
-            "shaders/comp_debug.comp" // Path to your compute shader
+            "shaders/comp_debug.comp" // Path to compute shader that should prolly change
         );
         
         // Initialize culling buffers
         let culling_buffers = LightCullingBuffers::new(width, height, self.lights.len() as u32);//TODO only have one light initializtion we got 2 rn for fpr and lightmangaer
         
-        compute_shader.lock().expect("Failed to lock computer shader").create_uniform("view");//as to why I create the uniforms here... idk im dumb I will move later in fact TODO move later to comp
+        compute_shader.lock().expect("Failed to lock computer shader").create_uniform("view");//TODO as to why I create the uniforms here... idk im dumb I will move later in fact TODO move later to comp
         compute_shader.lock().expect("Failed to lock computer shader").create_uniform("projection");
 
         compute_shader.lock().expect("Failed to lock computer shader").create_uniform("u_lightCount");
@@ -2024,6 +2025,7 @@ impl LightCullingBuffers {
         self.light_buffer.store_f32_data(&light_data);
         //print!("af liught");
         // Prepare light grid buffer (will be filled by compute shader)TODO LOOK HEREH HERHEHREHR EHRHE
+        //TODO
         let total_tiles = (self.tile_count_x * self.tile_count_y) as usize;
         //let grid_size = total_tiles * 2; // Each tile has (offset, count)
         //let mut grid_data = vec![0i32; grid_size];

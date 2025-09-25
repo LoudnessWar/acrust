@@ -127,16 +127,19 @@ void main() {
         diffuse += light.color * diff * attenuation;
 
         vec3 reflectDir = reflect(-lightDir, normal);
-        float shininess = clamp(u_specularPower, 1.0, 64.0);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
+        //todo shininess should be controlled by something
+        //float shininess = clamp(u_specularPower, 1.0, 64.0);
+        //float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), u_specularPower);
+
 
         // Apply energy conservation scaling
-        spec *= (1.0 - diff);
+        //spec *= (1.0 - diff);
 
-        // Optional: Fresnel term
-        float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 5.0);
-        fresnel = mix(0.1, 1.0, fresnel);
-        spec *= fresnel;
+        //Fresnel term which makes the lighting slightly more realistic
+        //float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 5.0);
+        //fresnel = mix(0.1, 1.0, fresnel);
+        //spec *= fresnel;
 
         specular += light.color * spec * attenuation;
 
@@ -146,6 +149,7 @@ void main() {
     vec3 result = (diffuse * u_diffuseColor.rgb) + specular;
     result += u_diffuseColor.rgb * 0.03;
 
+    //4 is the norm
     int mode = 4;
 
     switch (mode) {
