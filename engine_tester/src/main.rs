@@ -130,39 +130,11 @@ fn main() {
     let mut text_renderer = TextRenderer::new(text_shader);
     text_renderer.load_font("fonts/Roboto.ttf", 24.0);
 
-    // UI setup - kept separate from ECS
-    // let mut ui_manager = UIManager::new(720.0, 720.0);
-
-    // let mut ui_element = UIElement::new(1, Vector2::new(50.0, 50.0), Vector2::new(200.0, 100.0));
-    // ui_element.set_texture(texture_id);
-
-    // let mut ui_element2 = UIElement::new(2, Vector2::new(90.0,90.0), Vector2::new(100.0, 100.0));    
-    // ui_element2.set_color(Vector4::new(1.0, 0.0, 0.0, 1.0));
-
-    // let mut ui_draggable = UIDraggable::new(4, Vector2::new(120.0,120.0), Vector2::new(200.0, 200.0));    
-    // ui_draggable.set_color(Vector4::new(0.0, 1.0, 1.0, 1.0));
-
-    // let mut ui_button = Button::new(3, Vector2::new(400.0,90.0), Vector2::new(200.0, 100.0));  
-    // ui_element2.set_color(Vector4::new(1.0, 1.0, 0.0, 1.0));
-
-    // let mut ui_text = UIText::new(
-    //     5,
-    //     Vector2::new(300.0, 300.0),
-    //     Vector2::new(200.0, 50.0),
-    //     "Hello, world! \nmy name is jeff".to_string(),
-    //     24.0,
-    // );
-    // ui_manager.add_element(Box::new(ui_text));
-    
-    // ui_manager.add_element(Box::new(ui_element));
-    // ui_manager.add_element(Box::new(ui_element2));
-    // ui_manager.add_element(Box::new(ui_button));
-    // ui_manager.add_element(Box::new(ui_draggable));
 
     window.lock_cursor();
     let mut sensitivity = 0.002;
 
-    let mut visitor = ClickVisitor::new();
+    //let mut visitor = ClickVisitor::new();
     let mut time = 0.0;
 
     let mut ds = DragState::new();
@@ -187,9 +159,9 @@ fn main() {
     fpr.initialize_light_culling(720, 720, &shader_manager);
 
     // Initialize the ECS World
-    let mut world = World::new_with_ui(720.0, 720.0);
+    let mut world = World::new_with_ui(720.0, 720.0, text_renderer);
 
-    let (main_menu_id, ui_element1_id, ui_element2_id, ui_button_id) = setup_ui_system(&mut world, texture_id);
+    let (main_menu_id, ui_element1_id, ui_element2_id, ui_button_id, ui_text_id) = setup_ui_system(&mut world, texture_id);
     
     // Create entities in the ECS
     let teddy_entity = world.create_entity("Teddy");
@@ -390,30 +362,6 @@ fn main() {
         let projection_matrix = camera.get_p_matrix();
         skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
 
-        // UI handling
-        // if input_system.is_key_pressed(&Key::Tab) {
-        //     ui_manager.update(current_mouse_position);
-        //     ui_manager.render(&ui_shader);
-
-        //     let mut text_visitor = TextRenderVisitor { text_renderer: &text_renderer };
-        //     unsafe {
-        //         gl::Enable(gl::BLEND);
-        //         gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-        //         gl::Disable(gl::DEPTH_TEST); // Optional: if text is hidden behind UI
-        //     }
-        //     let mut text_visitor = TextRenderVisitor { text_renderer: &text_renderer };
-        //     ui_manager.visit_all(&mut text_visitor);
-
-        //     if input_system.is_mouse_button_just_pressed(&CLICKS::Left) {
-        //         ui_manager.start_drag(current_mouse_position);
-        //     }
-        //     if input_system.is_mouse_button_held(&CLICKS::Left) {
-        //         ui_manager.update_dragging(current_mouse_position);
-        //     }
-        //     if input_system.is_mouse_button_released(&CLICKS::Left) {
-        //         ui_manager.end_drag();
-        //     }
-        // }
 
         if show_ui {
             // Enable blending for UI
@@ -447,24 +395,6 @@ fn main() {
                 gl::Disable(gl::BLEND);
             }
         }
-
-        // let mut text_visitor = TextRenderVisitor { text_renderer: &text_renderer };
-        //     ui_manager.visit_all(&mut text_visitor);
-
-        // OMG HAAIIIII Process UI events the event system to be ony used with the ui because i was lazy HAAIIIIII
-        // while let Some(event) = ui_manager.poll_event() {
-        //     match event {
-        //         UIEvent::Hover(id) => {},
-        //         UIEvent::Click(id) => {},
-        //         UIEvent::MouseEnter(id) => {
-        //             println!("Mouse entered element {}", id);
-        //         },
-        //         UIEvent::MouseExit(id) => {
-        //             println!("Mouse exited element {}", id);
-        //         },
-        //         _ => {}
-        //     }
-        // }
 
         while let Some(event) = input_system.get_event_queue().pop_front() {
             match event {
@@ -560,46 +490,28 @@ pub struct ClickVisitor {
     pub button_clicked: bool,
 }
 
-impl ClickVisitor {
-    pub fn new() -> Self {
-        Self {
-            button_clicked: false,
-        }
-    }
-}
-
-impl UIElementVisitor for ClickVisitor {
-    fn visit_button(&mut self, button: &mut Button, is_clicked: bool) {
-        if is_clicked {
-            self.button_clicked = true;
-            println!("Button clicked: ID {}", button.get_id());
-            button.set_position(button.get_position() + Vector2::new(10.0, 0.0));
-        }
-    }
-
-    fn visit_slider(&mut self, slider: &mut Slider) {
-        println!("Slider value: {}", slider.get_value());
-    }
-
-    fn visit_text(&mut self, text: &mut UIText) {//todo make this do something maybe idk
-        println!("Text content: {}", text.get_text());
-    }
-}
-
-fn setup_ui_system(world: &mut World, texture_id: u32) -> (u32, u32, u32, u32) {
+fn setup_ui_system(world: &mut World, texture_id: u32) -> (u32, u32, u32, u32, u32) {
     // Create main menu container
     let main_menu = world.create_ui_container(
         "main_menu",
-        Vector2::new(50.0, 50.0),
+        Vector2::new(0.0, 0.0),
         Vector2::new(720.0, 720.0),
-        UILayout::vertical(15.0).with_padding(20.0),
+        UILayout::grid(2, 25.0).with_padding(40.0),
     );
+
+    let title_text = world.create_ui_text(
+        "title",
+        Vector2::new(0.0, 0.0), // Will be positioned by container
+        "Game Menu".to_string(),
+        32.0,
+    );
+    world.add_ui_child(main_menu.id, title_text.id);
     
     // Create UI elements as children of the container
     let ui_element1 = world.create_entity("ui_element1");
-    world.ui.add_transform(ui_element1.id, UITransform::new(Vector2::new(0.0, 0.0), Vector2::new(200.0, 100.0)));
+    world.ui.add_transform(ui_element1.id, UITransform::new(Vector2::new(100.0, 300.0), Vector2::new(200.0, 100.0)));
     world.ui.add_style(ui_element1.id, UIStyle::new().with_texture(texture_id));
-    world.add_ui_child(main_menu.id, ui_element1.id);
+    //world.add_ui_child(main_menu.id, ui_element1.id);
     
     let ui_element2 = world.create_entity("ui_element2");
     world.ui.add_transform(ui_element2.id, UITransform::new(Vector2::new(0.0, 0.0), Vector2::new(100.0, 100.0)));
@@ -609,20 +521,28 @@ fn setup_ui_system(world: &mut World, texture_id: u32) -> (u32, u32, u32, u32) {
     let ui_button = world.create_ui_button(
         "ui_button",
         Vector2::new(0.0, 0.0),
-        Vector2::new(200.0, 60.0),
+        Vector2::new(200.0, 160.0),
         "Click Me!".to_string(),
     );
     world.add_ui_child(main_menu.id, ui_button.id);
     
-    let ui_text = world.create_ui_text(
-        "ui_text",
+    // let ui_text = world.create_ui_text(
+    //     "ui_text",
+    //     Vector2::new(0.0, 0.0),
+    //     Vector2::new(250.0, 50.0),
+    //     "Hello, ECS UI!".to_string(),
+    //     18.0,
+    // );
+    // world.add_ui_child(main_menu.id, ui_text.id);
+
+    let info_text = world.create_ui_text(
+        "info_text",
         Vector2::new(0.0, 0.0),
-        Vector2::new(250.0, 50.0),
-        "Hello, ECS UI!".to_string(),
-        18.0,
+        "Press Tab to toggle UI\nUse WASD to move".to_string(),
+        14.0,
     );
-    world.add_ui_child(main_menu.id, ui_text.id);
+    world.add_ui_child(main_menu.id, info_text.id);
     
     // Return IDs for later reference
-    (main_menu.id, ui_element1.id, ui_element2.id, ui_button.id)
+    (main_menu.id, ui_element1.id, ui_element2.id, ui_button.id, info_text.id)
 }

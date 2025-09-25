@@ -1,6 +1,7 @@
 // UI Components - following your existing pattern
-use cgmath::{Vector2, Vector4};
+use cgmath::{Vector2, Vector3, Vector4};
 use crate::ecs::world::{Component, ComponentStorage};
+use crate::user_interface::text_render::{self, TextRenderer};
 
 // UI-specific components
 #[derive(Debug, Clone)]
@@ -109,11 +110,23 @@ impl UILayout {
             padding: Vector4::new(0.0, 0.0, 0.0, 0.0),
         }
     }
+
+    pub fn grid(cols: u32, spacing: f32) -> Self {
+        Self {
+            layout_type: LayoutType::Grid { cols, spacing },
+            padding: Vector4::new(0.0, 0.0, 0.0, 0.0),
+        }
+    }
     
     pub fn with_padding(mut self, padding: f32) -> Self {
         self.padding = Vector4::new(padding, padding, padding, padding);
         self
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct UIZIndex {
+    pub z_index: i32, // Higher values render on top
 }
 
 // impl Component for UILayout {}
@@ -134,6 +147,7 @@ impl UIButton {
         }
     }
 }
+
 
 // impl Component for UIButton {}
 
@@ -157,12 +171,13 @@ pub struct UISystem {
     pub styles: ComponentStorage<UIStyle>, //todo lol bad fix
     parents: ComponentStorage<UIParent>,
     children: ComponentStorage<UIChildren>,
-    layouts: ComponentStorage<UILayout>,
+    pub layouts: ComponentStorage<UILayout>,
     buttons: ComponentStorage<UIButton>,
-    texts: ComponentStorage<UIText>,
+    pub texts: ComponentStorage<UIText>,
+    z_indices: ComponentStorage<UIZIndex>,
     
     // UI-specific state
-    layout_dirty: bool,
+    pub layout_dirty: bool,
     hover_state: std::collections::HashMap<u32, bool>,
     
     // OpenGL resources (like your existing UI manager)
@@ -170,10 +185,12 @@ pub struct UISystem {
     vbo: crate::graphics::gl_wrapper::BufferObject,
     ebo: crate::graphics::gl_wrapper::BufferObject,
     projection: cgmath::Matrix4<f32>,
+
+    pub text_renderer: TextRenderer,
 }
 
 impl UISystem {
-    pub fn new(screen_width: f32, screen_height: f32) -> Self {
+    pub fn new(screen_width: f32, screen_height: f32, text_renderer: TextRenderer) -> Self {
         // Set up OpenGL resources (same as your current UIManager)
         let vao = crate::graphics::gl_wrapper::Vao::new();
         vao.bind();
@@ -201,12 +218,14 @@ impl UISystem {
             layouts: ComponentStorage::new(),
             buttons: ComponentStorage::new(),
             texts: ComponentStorage::new(),
+            z_indices: ComponentStorage::new(),
             layout_dirty: false,
             hover_state: std::collections::HashMap::new(),
             vao,
             vbo,
             ebo,
             projection,
+            text_renderer,
         }
     }
     
@@ -214,6 +233,10 @@ impl UISystem {
     pub fn add_transform(&mut self, entity_id: u32, transform: UITransform) {
         self.transforms.insert(entity_id, transform);
         self.layout_dirty = true;
+    }
+
+    pub fn add_z_index(&mut self, entity_id: u32, z_index: i32) {
+        self.z_indices.insert(entity_id, UIZIndex { z_index });
     }
     
     pub fn add_style(&mut self, entity_id: u32, style: UIStyle) {
@@ -245,7 +268,6 @@ impl UISystem {
         self.texts.insert(entity_id, UIText::new(text, font_size));
     }
     
-    // Safe getters - following your pattern
     pub fn get_transform(&self, entity_id: u32) -> Option<&UITransform> {
         self.transforms.get(entity_id)
     }
@@ -253,6 +275,37 @@ impl UISystem {
     pub fn get_transform_mut(&mut self, entity_id: u32) -> Option<&mut UITransform> {
         self.transforms.get_mut(entity_id)
     }
+
+    pub fn update_text(&mut self, entity_id: u32, new_text: String) {
+        if let Some(text_component) = self.texts.get_mut(entity_id) {
+            text_component.text = new_text;
+        }
+    }
+    
+    pub fn get_text_dimensions(&self, entity_id: u32) -> Option<(f32, f32)> {
+        if let Some(text_component) = self.texts.get(entity_id) {
+            let scale = text_component.font_size / 24.0;
+            let (width, height) = self.text_renderer.measure_text(&text_component.text, scale);
+            Some((width, height))
+        } else {
+            None
+        }
+    }
+    
+    pub fn auto_size_text_elements(&mut self) {
+        let text_entities: Vec<u32> = self.texts.iter().map(|(id, _)| *id).collect();
+        
+        for entity_id in text_entities {
+            if let Some((width, height)) = self.get_text_dimensions(entity_id) {
+                if let Some(transform) = self.transforms.get_mut(entity_id) {
+                    transform.size = Vector2::new(width, height);
+                }
+            }
+        }
+        
+        self.layout_dirty = true;
+    }
+
     
     // Layout system - no borrow conflicts like your movement system
     pub fn update_layout(&mut self) {
@@ -390,10 +443,16 @@ impl UISystem {
                 if !style.visible {
                     continue;
                 }
+
+                if self.texts.contains(*entity_id) {//we dont want to render our text here
+                    continue;
+                }
                 
                 self.render_ui_element(*entity_id, transform, style, shader);
             }
         }
+
+        self.render_text_elements();
     }
     
     fn render_ui_element(&self, entity_id: u32, transform: &UITransform, style: &UIStyle, shader: &crate::graphics::gl_wrapper::ShaderProgram) {
@@ -429,6 +488,44 @@ impl UISystem {
                 gl::UNSIGNED_INT,
                 std::ptr::null(),
             );
+        }
+    }
+
+    fn render_text_elements(&self) {
+        unsafe {
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            gl::Disable(gl::DEPTH_TEST);
+        }
+        
+        for (entity_id, text_component) in self.texts.iter() {
+            if let Some(transform) = self.transforms.get(*entity_id) {
+                if let Some(style) = self.styles.get(*entity_id) {
+                    if !style.visible {
+                        continue;
+                    }
+                    
+                    // Calculate text color from style
+                    let text_color = Vector3::new(style.color.x, style.color.y, style.color.z);
+                    
+                    // Calculate scale based on font size and transform size
+                    let scale = text_component.font_size / 24.0; // Assuming 24.0 is base font size
+                    
+                    self.text_renderer.render_text(
+                        &text_component.text,
+                        transform.position.x,
+                        transform.position.y,
+                        scale,
+                        text_color,
+                        &self.projection,
+                    );
+                }
+            }
+        }
+        
+        unsafe {
+            gl::Enable(gl::DEPTH_TEST);
+            gl::Disable(gl::BLEND);
         }
     }
     

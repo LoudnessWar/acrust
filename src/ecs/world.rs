@@ -10,6 +10,7 @@ use crate::model::transform::WorldCoords;
 use crate::model::objload::{Model, ModelTrait};
 use crate::ecs::components::Renderable;
 use crate::ecs::player::Player;
+use crate::user_interface::text_render::TextRenderer;
 use glfw::RenderContext;
 
 use super::components::Velocity;
@@ -207,21 +208,21 @@ pub struct World {
 }
 
 impl World {
-    pub fn new() -> Self {
-        Self {
-            entities: EntityRegistry::new(),
-            movement: MovementSystem::new(),
-            render: RenderSystem::new(),
-            ui: UISystem::new(0.0, 0.0),//TODO fix this later because I know a lot of this is going to be really bad at the start because Im kinda just forcing my old UI system into the space of a new ECS one
-        }
-    }
+    // pub fn new() -> Self {
+    //     Self {
+    //         entities: EntityRegistry::new(),
+    //         movement: MovementSystem::new(),
+    //         render: RenderSystem::new(),
+    //         ui: UISystem::new(0.0, 0.0),//TODO fix this later because I know a lot of this is going to be really bad at the start because Im kinda just forcing my old UI system into the space of a new ECS one
+    //     }
+    // }
 
-    pub fn new_with_ui(screen_width: f32, screen_height: f32) -> Self {
+    pub fn new_with_ui(screen_width: f32, screen_height: f32, text_renderer: TextRenderer) -> Self {
         Self {
             entities: EntityRegistry::new(),
             movement: MovementSystem::new(),
             render: RenderSystem::new(),
-            ui: UISystem::new(screen_width, screen_height),
+            ui: UISystem::new(screen_width, screen_height, text_renderer),
         }
     }
 
@@ -276,20 +277,57 @@ impl World {
         let entity = self.create_entity(name);
         
         self.ui.add_transform(entity.id, UITransform::new(position, size));
-        self.ui.add_style(entity.id, UIStyle::new().with_color(Vector4::new(0.2, 0.2, 0.2, 0.8)));
+        self.ui.add_style(entity.id, UIStyle::new().with_color(Vector4::new(0.2, 0.2, 0.2, 0.8)));//make this dynamic and optional later
         self.ui.add_layout(entity.id, layout);
         
         entity
     }
     
-    pub fn create_ui_text(&mut self, name: &str, position: Vector2<f32>, size: Vector2<f32>, text: String, font_size: f32) -> Entity {
+    pub fn create_ui_text(&mut self, name: &str, position: Vector2<f32>, text: String, font_size: f32) -> Entity {
+        let entity = self.create_entity(name);
+        
+        // Create text component first
+        self.ui.add_text(entity.id, text.clone(), font_size);
+        
+        // Calculate dimensions automatically
+        let scale = font_size / 24.0;
+        let (width, height) = self.ui.text_renderer.measure_text(&text, scale);
+        
+        // Create transform with calculated size
+        self.ui.add_transform(entity.id, UITransform::new(position, Vector2::new(width, height)));
+        self.ui.add_style(entity.id, UIStyle::new());
+        
+        entity
+    }
+    
+    // Enhanced button creation with text
+    pub fn create_ui_button_with_text(&mut self, name: &str, position: Vector2<f32>, size: Vector2<f32>, text: String, font_size: f32) -> Entity {
         let entity = self.create_entity(name);
         
         self.ui.add_transform(entity.id, UITransform::new(position, size));
-        self.ui.add_style(entity.id, UIStyle::new());
+        self.ui.add_style(entity.id, UIStyle::new().with_color(Vector4::new(0.7, 0.7, 0.7, 1.0)));
+        self.ui.add_button(entity.id);
         self.ui.add_text(entity.id, text, font_size);
         
         entity
+    }
+    
+    // Method to update text content
+    pub fn update_ui_text(&mut self, entity_id: u32, new_text: String) {
+        self.ui.update_text(entity_id, new_text);
+        
+        // Auto-resize if needed
+        if let Some((width, height)) = self.ui.get_text_dimensions(entity_id) {
+            if let Some(transform) = self.ui.get_transform_mut(entity_id) {
+                transform.size = Vector2::new(width, height);
+                self.ui.layout_dirty = true;
+            }
+        }
+    }
+    
+    // Get text content
+    pub fn get_ui_text(&self, entity_id: u32) -> Option<&str> {
+        self.ui.texts.get(entity_id).map(|t| t.text.as_str())
     }
     
     // Helper to add child to parent

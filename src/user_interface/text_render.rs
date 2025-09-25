@@ -140,10 +140,10 @@ impl TextRenderer {
                 let w = ch.size.x as f32 * scale;
                 let h = ch.size.y as f32 * scale;
 
-                println!(
-                    "Rendering char '{}' at ({}, {}) with size ({}, {})",
-                    c, xpos, ypos, w, h
-                );
+                // println!(
+                //     "Rendering char '{}' at ({}, {}) with size ({}, {})",
+                //     c, xpos, ypos, w, h
+                // );
 
                 // bottom-left origin for positions and matching UVs
                 let vertices: [f32; 20] = [
