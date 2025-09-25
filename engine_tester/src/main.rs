@@ -347,7 +347,8 @@ fn main() {
         let mouse_down = input_system.is_mouse_button_held(&CLICKS::Left);
         let mouse_clicked = input_system.is_mouse_button_just_pressed(&CLICKS::Left);
 
-        world.update_ui(delta_time, current_mouse_position, mouse_down, mouse_clicked);
+        //world.update_ui(delta_time, current_mouse_position, mouse_down, mouse_clicked);
+        world.update_ui_with_text_input(delta_time, &mut input_system);
         
         // This is like 3 funcitons deep at this point world -> render -> fpr -> five different fucntions
         world.render(&mut fpr, &camera, 720, 720, &texture_manager);
@@ -427,6 +428,8 @@ fn main() {
         }
 
         // This here really demonstates the issue with this because like this should not go after the rendering
+        // ok i think i know the issue now, its that the events are being run through and discarded in the pervious while loop
+        // so if you click and the ui is open it gets discarded and never makes it here... i think
         while let Some(event) = input_system.get_event_queue().pop_front() {
             match event {
                 InputEvent::KeyPressed(Key::Lctrl) => {
@@ -528,6 +531,14 @@ fn setup_ui_system(world: &mut World, texture_id: u32) -> (u32, u32, u32, u32, u
         Vector4::new(1.0, 0.0, 0.0, 1.0)
     );
     world.add_ui_child(main_menu.id, info_text.id);
+
+    let username_input = world.create_ui_text_input(
+        "username",
+        Vector2::new(100.0, 100.0),
+        Vector2::new(200.0, 30.0),
+        "Enter username...".to_string()
+    );
+
     
     // Return IDs for later reference
     (main_menu.id, ui_element1.id, ui_element2.id, ui_button.id, info_text.id)

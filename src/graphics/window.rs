@@ -131,6 +131,7 @@ impl Window {
         for (_, event) in glfw::flush_messages(&self.events) {
             match event {
                 glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {//TODO take this out later just add it to rest of inputs also where the hell is cursor position like idrecall 
+                    println!("exit");
                     self.window_handle.set_should_close(true)
                 }
                 glfw::WindowEvent::Key(glfw_key, _, action, _) => {
@@ -149,6 +150,12 @@ impl Window {
                             glfw::Action::Release => input_system.queue_event(InputEvent::MouseButtonReleased(button_index)),
                             _ => {}
                         }
+                    }
+                }
+                glfw::WindowEvent::Char(codepoint) => {
+                    if let character = codepoint {//todo lol this is stupid and i am being lazy this does not need to constantly be checked like everything else tbh
+                        println!("Char typed: {}", character);
+                        input_system.queue_event(InputEvent::CharTyped(character));
                     }
                 }
                 glfw::WindowEvent::Scroll(x_offset, y_offset) => {

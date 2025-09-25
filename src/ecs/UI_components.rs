@@ -297,8 +297,9 @@ pub struct UISystem {
     children: ComponentStorage<UIChildren>,
     pub layouts: ComponentStorage<UILayout>,
     buttons: ComponentStorage<UIButton>,
-    pub texts: ComponentStorage<UIText>,
+    pub texts: ComponentStorage<UIText>,//todo add a function to convert text imputs to text
     z_indices: ComponentStorage<UIZIndex>,
+    pub text_inputs: ComponentStorage<UITextInput>,
     
     // UI-specific state
     pub layout_dirty: bool,
@@ -343,6 +344,7 @@ impl UISystem {
             buttons: ComponentStorage::new(),
             texts: ComponentStorage::new(),
             z_indices: ComponentStorage::new(),
+            text_inputs: ComponentStorage::new(),
             layout_dirty: false,
             hover_state: std::collections::HashMap::new(),
             vao,
@@ -390,6 +392,10 @@ impl UISystem {
     
     pub fn add_text(&mut self, entity_id: u32, text: String, font_size: f32) {
         self.texts.insert(entity_id, UIText::new(text, font_size));
+    }
+
+    pub fn add_text_input(&mut self, entity_id: u32, text_input: UITextInput) {
+        self.text_inputs.insert(entity_id, text_input);
     }
     
     pub fn get_transform(&self, entity_id: u32) -> Option<&UITransform> {
@@ -455,6 +461,149 @@ impl UISystem {
         }
 
         self.layout_dirty = false;
+    }
+
+    pub fn update_text_input(&mut self, input_system: &mut InputSystem) {
+        let mouse_pos = input_system.get_mouse_position();
+        let mouse_vec = Vector2::new(mouse_pos.0 as f32, mouse_pos.1 as f32);
+        
+        // Handle focus changes on mouse click
+        if input_system.is_mouse_button_just_pressed(&CLICKS::Left) {
+            for (entity_id, text_input) in self.text_inputs.iter_mut() {
+                let was_focused = text_input.is_focused;
+                
+                if let Some(transform) = self.transforms.get(*entity_id) {
+                    let is_clicked = mouse_vec.x >= transform.position.x &&
+                        mouse_vec.x <= transform.position.x + transform.size.x &&
+                        mouse_vec.y >= transform.position.y &&
+                        mouse_vec.y <= transform.position.y + transform.size.y;
+                    
+                    text_input.is_focused = is_clicked;
+                    
+                    if is_clicked && !was_focused {
+                        text_input.reset_cursor_blink();
+                        println!("Text input {} gained focus!", entity_id);
+                    }
+                } else {
+                    text_input.is_focused = false;
+                }
+            }
+        }
+        
+        // Process input events for focused text input
+        let mut focused_entity: Option<u32> = None;
+        for (entity_id, text_input) in self.text_inputs.iter() {
+            if text_input.is_focused {
+                focused_entity = Some(*entity_id);
+                break;
+            }
+        }
+        
+        if let Some(entity_id) = focused_entity {
+            // Process all events in the queue for the focused text input
+            while let Some(event) = input_system.get_event_queue().pop_front() {
+                if let Some(text_input) = self.text_inputs.get_mut(entity_id) {
+                    match event {
+                        InputEvent::CharTyped(c) => {
+                            if !c.is_control() {
+                                text_input.insert_char(c);
+                            }
+                        },
+                        InputEvent::KeyPressed(key) => {
+                            match key {
+                                Key::Backspace => text_input.delete_char(),
+                                Key::Delete => text_input.delete_char_forward(),
+                                Key::Left => text_input.move_cursor_left(),
+                                Key::Right => text_input.move_cursor_right(),
+                                Key::Home => text_input.move_cursor_to_start(),
+                                Key::End => text_input.move_cursor_to_end(),
+                                Key::Escape => text_input.is_focused = false,
+                                _ => {
+                                    // Put the event back if it's not handled
+                                    // input_system.get_event_queue().push_front(event);
+                                    // break;
+                                }
+                            }
+                        },
+                        _ => {
+                            // Put non-text-input events back... do we even need to do this?
+                            input_system.get_event_queue().push_front(event);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn update_text_inputs(&mut self, delta_time: f32) {
+        for (_, text_input) in self.text_inputs.iter_mut() {
+            if text_input.is_focused {
+                text_input.update_cursor_blink(delta_time);
+            }
+        }
+    }
+    
+    // Render text input with cursor
+    fn render_text_input_element(&self, entity_id: u32) {
+        unsafe {
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            gl::Disable(gl::DEPTH_TEST);
+        }
+        
+        if let Some(text_input) = self.text_inputs.get(entity_id) {
+            if let Some(transform) = self.transforms.get(entity_id) {
+                if let Some(style) = self.styles.get(entity_id) {
+                    if !style.visible {
+                        return;
+                    }
+                    
+                    let display_text = text_input.get_display_text();
+                    let text_color = if text_input.text.is_empty() && !text_input.is_focused {
+                        // Use a lighter color for placeholder text
+                        Vector3::new(0.6, 0.6, 0.6)
+                    } else {
+                        Vector3::new(style.text_color.x, style.text_color.y, style.text_color.z)
+                    };
+                    
+                    // Calculate scale and render text
+                    let scale = 16.0 / 24.0; // Assuming 16px font size
+                    let text_x = transform.position.x + 5.0; // Small padding
+                    let text_y = transform.position.y + 5.0;
+                    
+                    self.text_renderer.render_text(
+                        display_text,
+                        text_x,
+                        text_y,
+                        scale,
+                        text_color,
+                        &self.projection,
+                    );
+                    
+                    // Render cursor if focused and visible
+                    if text_input.is_focused && text_input.cursor_visible {
+                        let cursor_text = &text_input.text[..text_input.cursor_position];
+                        let (cursor_offset, _) = self.text_renderer.measure_text(cursor_text, scale);
+                        
+                        // Render cursor as a simple line
+                        self.text_renderer.render_text(
+                            "|",
+                            text_x + cursor_offset,
+                            text_y,
+                            scale,
+                            Vector3::new(0.0, 0.0, 0.0), // Black cursor
+                            &self.projection,
+                        );
+                    }
+                }
+            }
+        }
+        
+        unsafe {
+            gl::Enable(gl::DEPTH_TEST);
+            gl::Disable(gl::BLEND);
+        }
     }
     
     fn calculate_hierarchy_positions(&mut self, entity_id: u32, parent_offset: Vector2<f32>) {
@@ -605,6 +754,13 @@ impl UISystem {
         for (entity_id, _) in &render_list {
             if self.texts.contains(*entity_id) {
                 self.render_text_element(*entity_id);
+            }
+        }
+
+        //... third pass to render text input elements, lowkey though still only O(n) because its just another loop in a row and nothing is nested
+        for (entity_id, _) in &render_list {
+            if self.text_inputs.contains(*entity_id) {
+                self.render_text_input_element(*entity_id);
             }
         }
     }

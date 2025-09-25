@@ -430,4 +430,134 @@ impl World {
             style.background_color = color;//todo just change background color to color later
         }
     }
+
+    pub fn create_ui_text_input(&mut self, name: &str, position: Vector2<f32>, size: Vector2<f32>, placeholder: String) -> Entity {
+        let entity = self.create_entity(name);
+        
+        // Set up transform
+        self.ui.add_transform(entity.id, UITransform::new(position, size));
+        
+        // Create style with white background and border-like appearance
+        let input_style = UIStyle::new()
+            .with_color(Vector4::new(1.0, 1.0, 1.0, 1.0)) // White background
+            .with_text_color(Vector4::new(0.0, 0.0, 0.0, 1.0)); // Black text
+        self.ui.add_style(entity.id, input_style);
+        
+        // Add text input component
+        self.ui.add_text_input(entity.id, UITextInput::new(placeholder));
+        
+        // Set z-index so it renders properly
+        self.ui.add_z_index(entity.id, 0);
+        
+        entity
+    }
+    
+    // Create a text input with custom styling
+    pub fn create_ui_text_input_styled(&mut self, name: &str, position: Vector2<f32>, size: Vector2<f32>, 
+                                     placeholder: String, bg_color: Vector4<f32>, text_color: Vector4<f32>) -> Entity {
+        let entity = self.create_entity(name);
+        
+        self.ui.add_transform(entity.id, UITransform::new(position, size));
+        
+        let input_style = UIStyle::new()
+            .with_color(bg_color)
+            .with_text_color(text_color);
+        self.ui.add_style(entity.id, input_style);
+        
+        self.ui.add_text_input(entity.id, UITextInput::new(placeholder));
+        self.ui.add_z_index(entity.id, 0);
+        
+        entity
+    }
+    
+    // Create a text input with maximum length
+    pub fn create_ui_text_input_with_limit(&mut self, name: &str, position: Vector2<f32>, size: Vector2<f32>, 
+                                         placeholder: String, max_length: usize) -> Entity {
+        let entity = self.create_entity(name);
+        
+        self.ui.add_transform(entity.id, UITransform::new(position, size));
+        
+        let input_style = UIStyle::new()
+            .with_color(Vector4::new(1.0, 1.0, 1.0, 1.0))
+            .with_text_color(Vector4::new(0.0, 0.0, 0.0, 1.0));
+        self.ui.add_style(entity.id, input_style);
+        
+        let text_input = UITextInput::new(placeholder).with_max_length(max_length);
+        self.ui.add_text_input(entity.id, text_input);
+        self.ui.add_z_index(entity.id, 0);
+        
+        entity
+    }
+    
+    // Update method that includes text input handling with your InputSystem
+    pub fn update_ui_with_text_input(&mut self, delta_time: f32, input_system: &mut crate::input::input::InputSystem) {//dude maybe i should just like import and not do this shit
+        // Update movement and render transforms
+        self.movement.update(delta_time);
+        self.render.update_transforms(&self.movement);
+        
+        // Update regular UI input
+        let mouse_pos = input_system.get_mouse_position();
+        let mouse_down = input_system.is_mouse_button_held(&crate::input::input::CLICKS::Left);
+        let mouse_clicked = input_system.is_mouse_button_just_pressed(&crate::input::input::CLICKS::Left);
+        
+        self.ui.update_input(mouse_pos, mouse_down, mouse_clicked);
+        
+        // Update text inputs - this will consume relevant events from the input system
+        self.ui.update_text_input(input_system);
+        self.ui.update_text_inputs(delta_time);
+        
+        // Update layout
+        self.ui.update_layout();
+    }
+    
+    // Get the current text from a text input
+    pub fn get_text_input_value(&self, entity_id: u32) -> Option<String> {
+        self.ui.text_inputs.get(entity_id).map(|input| input.text.clone())
+    }
+    
+    // Set the text in a text input
+    pub fn set_text_input_value(&mut self, entity_id: u32, text: String) {
+        if let Some(input) = self.ui.text_inputs.get_mut(entity_id) {
+            input.text = text;
+            input.cursor_position = input.text.len();
+            input.reset_cursor_blink();
+        }
+    }
+    
+    // Clear a text input
+    pub fn clear_text_input(&mut self, entity_id: u32) {
+        if let Some(input) = self.ui.text_inputs.get_mut(entity_id) {
+            input.text.clear();
+            input.cursor_position = 0;
+            input.reset_cursor_blink();
+        }
+    }
+    
+    // Check if a text input is focused
+    pub fn is_text_input_focused(&self, entity_id: u32) -> bool {
+        self.ui.text_inputs.get(entity_id)
+            .map(|input| input.is_focused)
+            .unwrap_or(false)
+    }
+    
+    // Set focus on a text input (and remove focus from others)
+    pub fn focus_text_input(&mut self, entity_id: u32) {
+        // First, remove focus from all text inputs
+        for (_, input) in self.ui.text_inputs.iter_mut() {
+            input.is_focused = false;
+        }
+        
+        // Then focus the specified one
+        if let Some(input) = self.ui.text_inputs.get_mut(entity_id) {
+            input.is_focused = true;
+            input.reset_cursor_blink();
+        }
+    }
+    
+    // Remove focus from all text inputs
+    pub fn clear_text_input_focus(&mut self) {
+        for (_, input) in self.ui.text_inputs.iter_mut() {
+            input.is_focused = false;
+        }
+    }
 }
