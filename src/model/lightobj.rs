@@ -1,6 +1,6 @@
-use cgmath::Vector3;
+// use cgmath::Vector3;
 
-use crate::graphics::lightmanager::*;
+// use crate::graphics::lightmanager::*;
 
 //dude... do I add this to like materials or objects themselves...
 //I think to the objects themselves is more flexible and like...

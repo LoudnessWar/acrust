@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::any::{Any, TypeId};
+use std::any::{Any};
 use cgmath::{Vector2, Vector3, Vector4};
 
 use crate::graphics::camera::Camera;
@@ -7,11 +7,12 @@ use crate::graphics::gl_wrapper::ForwardPlusRenderer;
 use crate::graphics::texture_manager::TextureManager;
 // Importing your existing types (adjust paths as needed)
 use crate::model::transform::WorldCoords;
-use crate::model::objload::{Model, ModelTrait};
+use crate::model::objload::{ModelTrait};
 use crate::ecs::components::Renderable;
-use crate::ecs::player::Player;
+// use crate::ecs::player::Player;
 use crate::user_interface::text_render::TextRenderer;
-use glfw::RenderContext;
+use super::collision_system::{CollisionSystem, Collider, CollisionShape, CollisionEvent};
+// use glfw::RenderContext;
 
 use super::components::Velocity;
 
@@ -205,6 +206,7 @@ pub struct World {
     pub movement: MovementSystem,
     pub render: RenderSystem,
     pub ui: UISystem,
+    pub collision: CollisionSystem,
 }
 
 impl World {
@@ -217,12 +219,22 @@ impl World {
     //     }
     // }
 
-    pub fn new_with_ui(screen_width: f32, screen_height: f32, text_renderer: TextRenderer) -> Self {
+    // pub fn new_with_ui(screen_width: f32, screen_height: f32, text_renderer: TextRenderer) -> Self {
+    //     Self {
+    //         entities: EntityRegistry::new(),
+    //         movement: MovementSystem::new(),
+    //         render: RenderSystem::new(),
+    //         ui: UISystem::new(screen_width, screen_height, text_renderer),
+    //     }
+    // }
+
+    pub fn new_with_ui_and_collision(screen_width: f32, screen_height: f32, text_renderer: TextRenderer) -> Self {
         Self {
             entities: EntityRegistry::new(),
             movement: MovementSystem::new(),
             render: RenderSystem::new(),
             ui: UISystem::new(screen_width, screen_height, text_renderer),
+            collision: CollisionSystem::new(),
         }
     }
 
@@ -242,6 +254,57 @@ impl World {
         
         entity
     }
+
+    pub fn spawn_player_with_collision(&mut self, name: &str, x: f32, y: f32, z: f32, rotation: f32, collider: Collider) -> Entity {
+        let entity = self.create_entity(name);
+        let coords = WorldCoords::new(x, y, z, rotation);
+        
+        self.movement.add_coords(entity.id, coords);
+        self.movement.add_velocity(entity.id, Velocity { 
+            direction: Vector3::new(0.0, 0.0, 0.0), 
+            speed: 0.1 
+        });
+        
+        // Add collision
+        self.collision.add_collider(entity.id, collider);
+        
+        entity
+    }
+
+    //lol the naming needs to be better
+    pub fn create_static(&mut self, name: &str, x: f32, y: f32, z: f32, collider: Collider) -> Entity {
+        let entity = self.create_entity(name);
+        let coords = WorldCoords::new(x, y, z, 0.0);
+        
+        self.movement.add_coords(entity.id, coords);
+        // No velocity - it's static
+        
+        self.collision.add_collider(entity.id, collider);
+        
+        entity
+    }
+
+    pub fn create_moving_entity(&mut self, name: &str, x: f32, y: f32, z: f32, velocity: Velocity, collider: Collider) -> Entity {
+        let entity = self.create_entity(name);
+        let coords = WorldCoords::new(x, y, z, 0.0);
+        
+        self.movement.add_coords(entity.id, coords);
+        self.movement.add_velocity(entity.id, velocity);
+        self.collision.add_collider(entity.id, collider);
+        
+        entity
+    }
+    
+    pub fn create_trigger_zone(&mut self, name: &str, x: f32, y: f32, z: f32, collider: Collider) -> Entity {
+        let entity = self.create_entity(name);
+        let coords = WorldCoords::new(x, y, z, 0.0);
+        
+        self.movement.add_coords(entity.id, coords);
+        self.collision.add_collider(entity.id, collider.as_trigger());
+        
+        entity
+    }    
+
 
     pub fn update(&mut self, delta_time: f32) {
         // Update physics first
@@ -392,6 +455,38 @@ impl World {
         self.ui.update_layout();
     }   
 
+    pub fn update_ui_with_collision(&mut self, delta_time: f32, mouse_pos: (f64, f64), mouse_down: bool, mouse_clicked: bool) {
+        // Update movement
+        self.movement.update(delta_time);
+        
+        // Update collisions
+        self.collision.update(&mut self.movement, delta_time);
+        
+        // Update renderables
+        self.render.update_transforms(&self.movement);
+        
+        // Update UI
+        self.ui.update_input(mouse_pos, mouse_down, mouse_clicked);
+        self.ui.update_layout();
+    }
+
+    pub fn update_ui_with_text_input_and_collision(&mut self, delta_time: f32, input_system: &mut crate::input::input::InputSystem) {
+        // Update movement and collision
+        self.movement.update(delta_time);
+        self.collision.update(&mut self.movement, delta_time);
+        self.render.update_transforms(&self.movement);
+        
+        // Update regular UI input
+        let mouse_pos = input_system.get_mouse_position();
+        let mouse_down = input_system.is_mouse_button_held(&crate::input::input::CLICKS::Left);
+        let mouse_clicked = input_system.is_mouse_button_just_pressed(&crate::input::input::CLICKS::Left);
+        
+        self.ui.update_input(mouse_pos, mouse_down, mouse_clicked);
+        self.ui.update_text_input(input_system);
+        self.ui.update_text_inputs(delta_time);
+        self.ui.update_layout();
+    }
+
     pub fn render_all(
         &self,
         render_context: &mut ForwardPlusRenderer,
@@ -509,7 +604,7 @@ impl World {
         // Update layout
         self.ui.update_layout();
     }
-    
+
     // Get the current text from a text input
     pub fn get_text_input_value(&self, entity_id: u32) -> Option<String> {
         self.ui.text_inputs.get(entity_id).map(|input| input.text.clone())
@@ -560,4 +655,71 @@ impl World {
             input.is_focused = false;
         }
     }
+
+    pub fn get_collision_events(&self) -> &[CollisionEvent] {
+        self.collision.get_collision_events()
+    }
+    
+    pub fn entity_collided_with(&self, entity_id: u32) -> Vec<u32> {
+        self.collision.entity_collided_with(entity_id)
+    }
+    
+    pub fn entities_collided(&self, entity_a: u32, entity_b: u32) -> bool {
+        self.collision.entities_collided(entity_a, entity_b)
+    }
+    
+    // Collision management methods
+    pub fn add_entity_collider(&mut self, entity_id: u32, collider: Collider) {
+        self.collision.add_collider(entity_id, collider);
+    }
+    
+    pub fn remove_entity_collider(&mut self, entity_id: u32) {
+        self.collision.remove_collider(entity_id);
+    }
+    
+    pub fn get_entity_collider(&self, entity_id: u32) -> Option<&Collider> {
+        self.collision.get_collider(entity_id)
+    }
+    
+    pub fn set_collision_layers(&mut self, layer_a: u32, layer_b: u32, can_collide: bool) {
+        self.collision.set_collision_layers(layer_a, layer_b, can_collide);
+    }
+    
+    // Move an entity by a specific amount and handle collisions
+    pub fn move_entity(&mut self, entity_id: u32, delta: Vector3<f32>) {
+        if let Some(coords) = self.movement.get_coords_mut(entity_id) {
+            coords.position += delta;
+        }
+        
+        // You might want to check for collisions after manual movement
+        // This is a simplified approach - in practice you might want predictive collision
+        self.collision.update(&mut self.movement, 0.0);
+    }
+    
+    // Set entity velocity
+    pub fn set_entity_velocity(&mut self, entity_id: u32, velocity: Velocity) {
+        self.movement.add_velocity(entity_id, velocity);
+    }
+    
+    pub fn get_entity_velocity(&mut self, entity_id: u32) -> Option<&Velocity> {
+        self.movement.velocities.get(entity_id)
+    }
+    
+    // Remove entity completely (from all systems)
+    // pub fn remove_entity_completely(&mut self, entity_id: u32) {
+    //     self.entities.remove_entity(entity_id);
+    //     self.movement.coords.remove(entity_id);
+    //     self.movement.velocities.remove(entity_id);
+    //     self.render.renderables.remove(entity_id);
+    //     self.collision.remove_collider(entity_id);
+    //     // Remove from UI systems as needed
+    //     self.ui.transforms.remove(entity_id);
+    //     self.ui.styles.remove(entity_id);
+    //     self.ui.buttons.remove(entity_id);
+    //     self.ui.texts.remove(entity_id);
+    //     self.ui.text_inputs.remove(entity_id);
+    //     self.ui.z_indices.remove(entity_id);
+    //     self.ui.layouts.remove(entity_id);
+    //     self.ui.parents.remove(entity_id);
+    // }
 }

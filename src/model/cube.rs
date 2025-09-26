@@ -17,25 +17,78 @@ pub struct Cube {
 
 impl Cube {
     pub fn new(size: f32, position: Vector3<f32>, rotation: f32, material: Arc<RwLock<Material>>) -> Self {
-        let vertices: [f32; 48] = [//ok so thins cube is weird like most things if no back face and depth its inverse but still whatever
-            // Positions         // Normals or color... it depends on the like shaders... Theoretically though these should just be normals
-            -size + position.x, -size + position.y, -size + position.z,  1.0,  0.0, 1.0,  
-             size + position.x, -size + position.y, -size + position.z,  1.0,  1.0, 1.0,  
-             size + position.x,  size + position.y, -size + position.z,  0.0,  0.0, 1.0,  
-            -size + position.x,  size + position.y, -size + position.z,  0.0,  0.0, 1.0,  
-            -size + position.x, -size + position.y,  size + position.z,  0.0,  1.0,  -1.0,  
-             size + position.x, -size + position.y,  size + position.z,  0.0,  1.0,  -1.0,  
-             size + position.x,  size + position.y,  size + position.z,  0.0,  0.0,  -1.0,  
-            -size + position.x,  size + position.y,  size + position.z,  1.0,  1.0,  1.0,  
+        // let vertices: [f32; 48] = [//ok so thins cube is weird like most things if no back face and depth its inverse but still whatever
+        //     // Positions         // Normals or color... it depends on the like shaders... Theoretically though these should just be normals
+        //     -size + position.x, -size + position.y, -size + position.z,  0.0,  0.0, 1.0,  
+        //      size + position.x, -size + position.y, -size + position.z,  0.0,  0.0, 1.0,  
+        //      size + position.x,  size + position.y, -size + position.z,  0.0,  0.0, 1.0,  
+        //     -size + position.x,  size + position.y, -size + position.z,  0.0,  0.0, 0.0,  
+        //     -size + position.x, -size + position.y,  size + position.z,  0.0,  0.0,  0.0,  
+        //      size + position.x, -size + position.y,  size + position.z,  0.0,  0.0,  0.0,  
+        //      size + position.x,  size + position.y,  size + position.z,  0.0,  0.0,  0.0,  
+        //     -size + position.x,  size + position.y,  size + position.z,  0.0,  0.0,  0.0,  
+        // ];
+
+        // let indices: [i32; 36] = [
+        //     0, 2, 1, 2, 0, 3,  
+        //     1, 6, 5, 6, 1, 2,  
+        //     5, 7, 4, 7, 5, 6,  
+        //     4, 3, 0, 3, 4, 7,  
+        //     3, 6, 2, 6, 3, 7,  
+        //     4, 1, 5, 1, 4, 0   
+        // ];
+
+        let vertices: [f32; 24 * 6] = [
+            // Front face
+            -size + position.x, -size + position.y,  size + position.z,   0.0, 0.0, 1.0,
+            size + position.x, -size + position.y,  size + position.z,   0.0, 0.0, 1.0,
+            size + position.x,  size + position.y,  size + position.z,   0.0, 0.0, 1.0,
+            -size + position.x,  size + position.y,  size + position.z,   0.0, 0.0, 1.0,
+
+            // Back face
+            -size + position.x, -size + position.y, -size + position.z,   0.0, 0.0, -1.0,
+            size + position.x, -size + position.y, -size + position.z,   0.0, 0.0, -1.0,
+            size + position.x,  size + position.y, -size + position.z,   0.0, 0.0, -1.0,
+            -size + position.x,  size + position.y, -size + position.z,   0.0, 0.0, -1.0,
+
+            // Right face
+            size + position.x, -size + position.y, -size + position.z,   1.0, 0.0, 0.0,
+            size + position.x,  size + position.y, -size + position.z,   1.0, 0.0, 0.0,
+            size + position.x,  size + position.y,  size + position.z,   1.0, 0.0, 0.0,
+            size + position.x, -size + position.y,  size + position.z,   1.0, 0.0, 0.0,
+
+            // Left face
+            -size + position.x, -size + position.y, -size + position.z,  -1.0, 0.0, 0.0,
+            -size + position.x,  size + position.y, -size + position.z,  -1.0, 0.0, 0.0,
+            -size + position.x,  size + position.y,  size + position.z,  -1.0, 0.0, 0.0,
+            -size + position.x, -size + position.y,  size + position.z,  -1.0, 0.0, 0.0,
+
+            // Top face
+            -size + position.x,  size + position.y, -size + position.z,   0.0, 1.0, 0.0,
+            size + position.x,  size + position.y, -size + position.z,   0.0, 1.0, 0.0,
+            size + position.x,  size + position.y,  size + position.z,   0.0, 1.0, 0.0,
+            -size + position.x,  size + position.y,  size + position.z,   0.0, 1.0, 0.0,
+
+            // Bottom face
+            -size + position.x, -size + position.y, -size + position.z,   0.0, -1.0, 0.0,
+            size + position.x, -size + position.y, -size + position.z,   0.0, -1.0, 0.0,
+            size + position.x, -size + position.y,  size + position.z,   0.0, -1.0, 0.0,
+            -size + position.x, -size + position.y,  size + position.z,   0.0, -1.0, 0.0,
         ];
 
         let indices: [i32; 36] = [
-            0, 2, 1, 2, 0, 3,  
-            1, 6, 5, 6, 1, 2,  
-            5, 7, 4, 7, 5, 6,  
-            4, 3, 0, 3, 4, 7,  
-            3, 6, 2, 6, 3, 7,  
-            4, 1, 5, 1, 4, 0   
+            // Front face
+            0, 1, 2,  2, 3, 0,
+            // Back face
+            4, 6, 5,  6, 4, 7,
+            // Right face
+            8, 9,10, 10,11, 8,
+            // Left face
+            12,14,13, 14,12,15,
+                // Top face
+            16,18,17, 18,16,19,
+                // Bottom face
+            20,21,22, 22,23,20
         ];
 
         let mesh = Mesh::new(&vertices, &indices);

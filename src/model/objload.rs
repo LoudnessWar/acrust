@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::{Arc, RwLock};
 use cgmath::{Matrix4, Vector3};
-use crate::graphics::camera::Camera;
+//use crate::graphics::camera::Camera;
 use crate::graphics::materials::Material;
 use crate::graphics::texture_manager::TextureManager;
 // use crate::graphics::texture_manager::TextureManager;

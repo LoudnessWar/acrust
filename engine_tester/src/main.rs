@@ -9,6 +9,8 @@ use acrust::graphics::materials::MaterialManager;
 
 use acrust::input::input::{InputSystem, InputEvent, Key, CLICKS};
 
+use acrust::ecs::collision_system::Collider;
+
 use acrust::ecs::UI_components::UILayout;
 use acrust::ecs::UI_components::UITransform;
 use acrust::ecs::UI_components::UIStyle;
@@ -190,7 +192,7 @@ fn main() {
     fpr.initialize_light_culling(720, 720, &shader_manager);
 
     // Initialize the ECS World also a milestone i have come around a little to ecs mainly because i got lazy i still things its slightly erm uuuh dumb
-    let mut world = World::new_with_ui(720.0, 720.0, text_renderer);
+    let mut world = World::new_with_ui_and_collision(720.0, 720.0, text_renderer);
 
     let (main_menu_id, ui_element1_id, ui_element2_id, ui_button_id, ui_text_id) = setup_ui_system(&mut world, texture_id);
     
@@ -214,6 +216,30 @@ fn main() {
     world.render.add_renderable(teddy_entity.id, Renderable {
         model: Box::new(teddy_model)
     });
+
+    let cube = world.create_entity("Cube");
+    let cube_model = Cube::new(
+        4.0, 
+        Vector3::new(15.0, 0.0, 0.0), 
+        0.0,
+        mat_man.get_mat("mat2")
+    );
+
+    world.movement.add_coords(cube.id, WorldCoords::new(5.0, 0.0, 0.0, 0.0));
+    world.movement.add_velocity(cube.id, Velocity {
+        direction: Vector3::new(0.0, 0.0, 0.0),
+        speed: 0.0
+    });
+    world.render.add_renderable(cube.id, Renderable {
+        model: Box::new(cube_model)
+    });
+
+    let wall1 = world.create_static(
+        "Wall1",
+        5.0, 0.0, 0.0,
+        Collider::rectangle(1.0, 10.0).with_layer(2) // Wall layer
+    );
+
     
     // Create a triangle entity
     let triangle_entity = world.create_entity("Triangle");
@@ -235,7 +261,12 @@ fn main() {
     }); 
     
     // AYYY fuck this guy
-    let player_entity = world.spawn_player("MainPlayer", 0.0, 0.0, -10.0, 0.0);
+    // let player_entity = world.spawn_player("MainPlayer", 0.0, 0.0, -10.0, 0.0);
+    let player_entity = world.spawn_player_with_collision(
+        "MainPlayer",
+        0.0, 0.0, -10.0, 0.0,
+        Collider::circle(1.0).with_layer(1) // Player layer
+    );
 
     //skybox lol these take forever to load and have trippled dev time but if they break i will die so i keep dem
     let skybox_faces = [
@@ -356,7 +387,7 @@ fn main() {
         let mouse_clicked = input_system.is_mouse_button_just_pressed(&CLICKS::Left);
 
         //world.update_ui(delta_time, current_mouse_position, mouse_down, mouse_clicked);
-        world.update_ui_with_text_input(delta_time, &mut input_system);
+        world.update_ui_with_text_input_and_collision(delta_time, &mut input_system);
         
         // This is like 3 funcitons deep at this point world -> render -> fpr -> five different fucntions
         world.render(&mut fpr, &camera, 720, 720, &texture_manager);
@@ -368,6 +399,12 @@ fn main() {
         let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
         let projection_matrix = camera.get_p_matrix();
         skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
+
+        for event in world.get_collision_events() {
+            println!("Collision between entities {} and {}", event.entity_a, event.entity_b);
+            println!("Collision point: {:?}", event.collision_point);
+            println!("Penetration: {}", event.penetration);
+        }
 
 
         if show_ui {
