@@ -5,3 +5,5 @@ pub mod objload;
 pub mod triangle;
 pub mod lightobj;
 pub mod scene;
+pub mod sphere;
+pub mod rounded_cube;

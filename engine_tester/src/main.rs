@@ -37,6 +37,8 @@ use acrust::user_interface::text_render::TextRenderer;
 use acrust::user_interface::visitors::TextRenderVisitor;
 
 use acrust::model::cube::Cube;
+use acrust::model::sphere::Sphere;
+use acrust::model::rounded_cube::RoundedCube;
 use acrust::model::triangle::Triangle;
 use acrust::model::objload::load_obj;
 use acrust::model::objload::load_obj_new_normals;
@@ -232,6 +234,25 @@ fn main() {
     });
     world.render.add_renderable(cube.id, Renderable {
         model: Box::new(cube_model)
+    });
+
+    let sphere = world.create_entity("Sphere");
+    let sphere_model = RoundedCube::new(
+        4.0,
+        4.0,
+        4.0,
+        Vector3::new(15.0, 0.0, 0.0), 
+        0.0,
+        mat_man.get_mat("mat2")
+    );
+
+    world.movement.add_coords(sphere.id, WorldCoords::new(5.0, 0.0, 10.0, 0.0));
+    world.movement.add_velocity(sphere.id, Velocity {
+        direction: Vector3::new(0.0, 0.0, 0.0),
+        speed: 0.0
+    });
+    world.render.add_renderable(sphere.id, Renderable {
+        model: Box::new(sphere_model)
     });
 
     let wall1 = world.create_static(
