@@ -236,6 +236,16 @@ fn main() {
         model: Box::new(cube_model)
     });
 
+    //this is rendered without fpr
+    let mut cube = RoundedCube::new(
+        4.0,
+        4.0,
+        4.0,
+        Vector3::new(25.0, 0.0, 5.0), 
+        4.0,
+        mat_man.get_mat("mat1")
+    );
+
     let sphere = world.create_entity("Sphere");
     let sphere_model = RoundedCube::new(
         4.0,
@@ -492,6 +502,11 @@ fn main() {
                 _ => {}
             }
         }
+
+        let transform = camera.get_vp_matrix();
+
+        mat_man.update_uniform("mat1", "transform", &transform);
+        cube.render(&texture_manager);
 
         // This here really demonstates the issue with this because like this should not go after the rendering
         // ok i think i know the issue now, its that the events are being run through and discarded in the pervious while loop

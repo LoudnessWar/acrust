@@ -148,7 +148,7 @@ void main() {
     result += u_diffuseColor.rgb * 0.03;
 
     //4 and 5 are the normal ones
-    int mode = 5;
+    int mode = 9;
 
     switch (mode) {
         case 0:
