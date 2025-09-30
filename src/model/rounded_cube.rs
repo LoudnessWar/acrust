@@ -66,7 +66,8 @@ impl RoundedCube {
             }
         }
 
-        let quads = (size_x * size_y + size_y * size_z + size_z * size_x) * 2.0;
+        // let quads = (size_x * size_y + size_y * size_z + size_z * size_x) * 2.0;
+        let quads = (size_x * size_y + size_x * size_z + size_y * size_z) * 2.0;
         println!("quad count {}", quads);
         let mut triangels = vec![0; (quads as i32 * 6) as usize];
 
@@ -74,8 +75,12 @@ impl RoundedCube {
         let mut t = 0;
         let mut v = 0;
 
+        println!("Vertex count: {}", vertices.len());
+        println!("Triangle array size: {}", triangels.len());
+        println!("Expected triangles to write: {}", quads as i32 * 6);
+
         for y in 0..size_y as i32 { 
-            for q in 0..ring-1 as i32 {
+            for q in 0..ring-1{
 
                 t = RoundedCube::set_quad(&mut triangels, t, v, v+1, v + ring, v + ring + 1);
                 v += 1;
@@ -83,7 +88,12 @@ impl RoundedCube {
             t = RoundedCube::set_quad(&mut triangels, t, v, v - ring + 1, v + ring, v + 1);//sets us back to the first one because we are creating indicies in for the verticies we made we get all the way around and
         //then we try to incriment by one again, that corrisponds to the next row up not the first verticie preventing the completion of a proper loop, so this sets v back to the start by doing - ring then adds one so its back
         //at the start again because v will actually be one short
+            v += 1;
         }
+
+        t = RoundedCube::create_top_face(&mut triangels, t, ring, size_x, size_y, size_z);
+        t = RoundedCube::create_bottom_face(&mut triangels, t, ring, size_x, size_y, size_z, (vertices.len()) as i32);
+
 
         let verts: Vec<f32> = vertices
             .iter()
@@ -97,89 +107,98 @@ impl RoundedCube {
     }
 
     pub fn set_quad(tringles: &mut Vec<i32>, t: usize, v00: i32, v10: i32, v01: i32, v11: i32 ) -> usize{
-                print!("triangles: {:#?}", tringles);
+                //print!("triangles: {:#?}", tringles);
+                if t + 5 >= tringles.len() {
+                    println!("ERROR: About to overflow! t={}, tringles.len()={}", t, tringles.len());
+                    println!("v00={}, v10={}, v01={}, v11={}", v00, v10, v01, v11);
+                    panic!("Stopping here");
+                }
                 tringles[t] = v00;
                 tringles[t + 1] = v01;
-                tringles[t + 4] = v01;
                 tringles[t + 2] = v10;
                 tringles[t + 3] = v10;
+                tringles[t + 4] = v01;
                 tringles[t + 5] = v11;
                 t + 6
     }
 
     #[allow(unused_variables)]
     #[allow(non_snake_case)]
-    pub fn create_top_face(mut tringles: Vec<i32>, mut t: usize, ring: i32, size_x: f32, size_y: f32, size_z: f32) -> usize{
-        let v = ring * size_y as i32;
-        for x in 0..size_x as i32{
-            t = RoundedCube::set_quad(&mut tringles, t, v, v+1, v + ring - 1, v + ring);
+    pub fn create_top_face(tringles: &mut Vec<i32>, mut t: usize, ring: i32, size_x: f32, size_y: f32, size_z: f32) -> usize{
+        let mut v = ring * size_y as i32;
+        for x in 0..size_x as i32 - 1 {
+            t = RoundedCube::set_quad(tringles, t, v, v+1, v + ring - 1, v + ring);
+            v+=1;
         }
-        t = RoundedCube::set_quad(&mut tringles, t, v, v+1, v + ring - 1, v + 2);
+        t = RoundedCube::set_quad(tringles, t, v, v+1, v + ring - 1, v + 2);
 
         let mut vMin = ring * (size_y as i32 + 1) -1;
         let mut vMid = vMin + 1;
         let mut vMax = v + 2;
 
-        for z in 0 .. size_z as i32 -1 {
-            t = RoundedCube::set_quad(&mut tringles, t, vMin, vMid, vMin - 1, vMid + size_x as i32 - 1);
+        for z in 1 .. size_z as i32 -1 {
+            t = RoundedCube::set_quad(tringles, t, vMin, vMid, vMin - 1, vMid + size_x as i32 - 1);
             for x in 1..size_x as i32 -1 {
-                t = RoundedCube::set_quad(&mut tringles, t, vMid, vMid + 1, vMid + size_x as i32 - 1, vMid + size_x as i32);
+                t = RoundedCube::set_quad(tringles, t, vMid, vMid + 1, vMid + size_x as i32 - 1, vMid + size_x as i32);
                 vMid += 1;
             }
-            t = RoundedCube::set_quad(&mut tringles, t, vMid, vMax, vMid + size_x as i32 - 1, vMax + 1);
+            t = RoundedCube::set_quad(tringles, t, vMid, vMax, vMid + size_x as i32 - 1, vMax + 1);
             vMid += 1;
             vMin -= 1;
             vMax += 1;
         }
 
         let mut vTop = vMin - 2;
-        t = RoundedCube::set_quad(&mut tringles, t, vMin, vMid, vTop + 1, vTop);
+        t = RoundedCube::set_quad(tringles, t, vMin, vMid, vTop + 1, vTop);
 
-        for x in 0..size_x as i32 {
-            t = RoundedCube::set_quad(&mut tringles, t, vMid, vMid + 1, vTop, vTop - 1);
+        for x in 1..size_x as i32 - 1 {
+            t = RoundedCube::set_quad(tringles, t, vMid, vMid + 1, vTop, vTop - 1);
             vTop -= 1;
             vMid += 1;
         }
-        t = RoundedCube::set_quad(&mut tringles, t, vMid, vTop - 2, vTop, vTop - 1);
+        t = RoundedCube::set_quad(tringles, t, vMid, vTop - 2, vTop, vTop - 1);
 
         t
     }
 
     #[allow(unused_variables)]
     #[allow(non_snake_case)]
-    pub fn create_bottom_face(mut tringles: Vec<i32>, mut t: usize, ring: i32, size_x: f32, size_y: f32, size_z: f32, len: i32) -> usize{
-        let v = 1;
+    pub fn create_bottom_face(tringles: &mut Vec<i32>, mut t: usize, ring: i32, size_x: f32, size_y: f32, size_z: f32, len: i32) -> usize{
+        let mut v = 1;
         let mut vMid = len - (size_x as i32 - 1) * (size_z as i32 - 1);
-        t = RoundedCube::set_quad(&mut tringles, t, ring - 1, vMid, 0, 1);
+        t = RoundedCube::set_quad(tringles, t, ring - 1, vMid, 0, 1);
         for x in 1..size_x as i32 - 1{
-            t = RoundedCube::set_quad(&mut tringles, t, vMid, vMid + 1, v, v + 1);
+            t = RoundedCube::set_quad(tringles, t, vMid, vMid + 1, v, v + 1);
             vMid += 1;
+            v+=1;
         }
-        t = RoundedCube::set_quad(&mut tringles, t, vMid, v + 2, v, v + 1);
+        t = RoundedCube::set_quad(tringles, t, vMid, v + 2, v, v + 1);
 
         let mut vMin = ring - 2;
         vMid -= size_x as i32 - 2;
         let mut vMax = v + 2;
 
-        for z in 0 .. size_z as i32 -1 {
-            t = RoundedCube::set_quad(&mut tringles, t, vMin, vMid + size_x as i32 - 1, vMin + 1, vMid);
+        for z in 1 .. size_z as i32 -1 {
+            t = RoundedCube::set_quad(tringles, t, vMin, vMid + size_x as i32 - 1, vMin + 1, vMid);
             for x in 1..size_x as i32 -1 {
-                t = RoundedCube::set_quad(&mut tringles, t, vMid + size_x as i32 - 1, vMid + size_x as i32, vMid, vMid + 1);
+                t = RoundedCube::set_quad(tringles, t, vMid + size_x as i32 - 1, vMid + size_x as i32, vMid, vMid + 1);
                 vMid += 1;
             }
-            t = RoundedCube::set_quad(&mut tringles, t, vMid + size_x as i32 - 1, vMax + 1, vMid, vMax);
+            t = RoundedCube::set_quad(tringles, t, vMid + size_x as i32 - 1, vMax + 1, vMid, vMax);
             vMid += 1;
             vMin -= 1;
             vMax += 1;
         }
 
-        let vTop = vMin - 1;
-        t = RoundedCube::set_quad(&mut tringles, t, vTop + 1, vTop, vTop + 2, vMid);
+        let mut vTop = vMin - 1;
+        t = RoundedCube::set_quad(tringles, t, vTop + 1, vTop, vTop + 2, vMid);
 
-        for x in 0..size_x as i32 {
-            t = RoundedCube::set_quad(&mut tringles, t, vTop, vTop - 1, vMid, vMid + 1);
+        for x in 1..size_x as i32 - 1 {
+            t = RoundedCube::set_quad(tringles, t, vTop, vTop - 1, vMid, vMid + 1);
+            vMid += 1;
+            vTop -= 1;
         }
-        t = RoundedCube::set_quad(&mut tringles, t, vTop, vTop - 1, vMid, vTop - 2);
+        t = RoundedCube::set_quad(tringles, t, vTop, vTop - 1, vMid, vTop - 2);
 
         t
     }
