@@ -249,16 +249,16 @@ fn main() {
 
     let sphere = world.create_entity("Sphere");
     let sphere_model = RoundedCube::new(
-        10.0,
-        10.0,
-        10.0,
         5.0,
-        Vector3::new(0.0, 0.0, 0.0), 
+        5.0,
+        10.0,
+        1.0,
+        Vector3::new(0.0, 0.0, 0.0), //todo this is not needed because the ecs handles positions anyway, and like i was giving things cpu side calcs as well but it honestly doesnt matter atm
         0.0,
         mat_man.get_mat("mat2")
     );
 
-    world.movement.add_coords(sphere.id, WorldCoords::new(5.0, 0.0, 10.0, 0.0));
+    world.movement.add_coords(sphere.id, WorldCoords::new(10.0, 0.0, 0.0, 50.23));
     world.movement.add_velocity(sphere.id, Velocity {
         direction: Vector3::new(0.0, 0.0, 0.0),
         speed: 0.0

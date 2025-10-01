@@ -128,12 +128,25 @@ impl RoundedCube {
                 count);
         }
 
-        let mut verts: Vec<f32> = vertices
-            .iter()
-            .flat_map(|k| [k.x as f32, k.y as f32, k.z as f32])
-            .collect();
+        // let mut verts: Vec<f32> = vertices
+        //     .iter()
+        //     .flat_map(|k| [k.x as f32, k.y as f32, k.z as f32])
+        //     .collect();
 
-        let mesh = Mesh::new_just_verticies(&mut verts, &triangels);
+        let mut verts: Vec<f32> = Vec::with_capacity(vertices.len() * 6); // 3 pos + 3 normal + 2 tex
+        for i in 0..vertices.len() {
+            // Position
+            verts.push(vertices[i].x);
+            verts.push(vertices[i].y);
+            verts.push(vertices[i].z);
+            
+            // Normal
+            verts.push(normals[i].x);
+            verts.push(normals[i].y);
+            verts.push(normals[i].z);
+        }
+
+        let mesh = Mesh::new(&mut verts, &triangels);
         let world_coords = WorldCoords::new(position.x, position.y, position.z, rotation);
         let model = Model::new(mesh, world_coords, material);
         RoundedCube { base: model }
@@ -170,22 +183,22 @@ impl RoundedCube {
         vertices[i] = Vector3::new(x as f32, y as f32, z as f32);//genuienly what would happen if you asked it to make like half a thing 
 
         // let roundness = 5.0;
-		if x < roundness as i32{
+		if (x as f32) < (roundness as f32){
 			inner.x = roundness;
 		}
-		else if x > size_x as i32 - roundness as i32{//todo LOL if you look you can clearly see that this is asking for trouble...
+		else if (x as f32) > (size_x - roundness){//todo LOL if you look you can clearly see that this is asking for trouble...
 			inner.x = size_x - roundness;
 		}
-        if y < roundness as i32 {
+        if (y as f32) < roundness {
 			inner.y = roundness;
 		}
-		else if y > (size_y - roundness) as i32 {
+		else if (y as f32) > (size_y - roundness) {
 			inner.y = size_y - roundness;
 		}
-        if z < roundness as i32 {
+        if (z as f32) < roundness {
 			inner.z = roundness;
 		}
-		else if z > (size_z - roundness) as i32 {
+		else if (z as f32) > (size_z - roundness) {
 			inner.z = size_z - roundness;
 		}
 
