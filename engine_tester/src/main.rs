@@ -215,9 +215,9 @@ fn main() {
         direction: Vector3::new(0.0, 0.0, 0.0),
         speed: 0.0
     });
-    world.render.add_renderable(teddy_entity.id, Renderable {
-        model: Box::new(teddy_model)
-    });
+    // world.render.add_renderable(teddy_entity.id, Renderable {
+    //     model: Box::new(teddy_model)
+    // });
 
     let cube = world.create_entity("Cube");
     let cube_model = Cube::new(
@@ -237,7 +237,7 @@ fn main() {
     });
 
     //this is rendered without fpr
-    let mut cube = RoundedCube::new(
+    let mut cube2 = RoundedCube::new(
         4.0,
         4.0,
         4.0,
@@ -506,7 +506,16 @@ fn main() {
         let transform = camera.get_vp_matrix();
 
         mat_man.update_uniform("mat1", "transform", &transform);
-        cube.render(&texture_manager);
+        unsafe {
+            gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
+            gl::Enable(gl::PROGRAM_POINT_SIZE);
+        }
+        cube2.render(&texture_manager);
+        unsafe{
+            gl::PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
+
+            gl::Disable(gl::PROGRAM_POINT_SIZE);
+        }
 
         // This here really demonstates the issue with this because like this should not go after the rendering
         // ok i think i know the issue now, its that the events are being run through and discarded in the pervious while loop

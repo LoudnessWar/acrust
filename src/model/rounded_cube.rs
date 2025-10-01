@@ -95,6 +95,21 @@ impl RoundedCube {
             println!("  v[{}] = {:?}", i, vertices[i]);
         }
 
+        println!("\nwhere it begins ring :");
+        for i in ring as usize..(ring * 3) as usize {
+            println!("  v[{}] = {:?}", i, vertices[i]);
+        }
+
+        println!("\n=== TOP INTERIOR VERTICES ===");
+        for i in 80..=88 {
+            println!("v[{}] = {:?}", i, vertices[i]);
+        }
+
+        println!("\n=== BOTTOM INTERIOR VERTICES ===");
+        for i in 89..=97 {
+            println!("v[{}] = {:?}", i, vertices[i]);
+        }
+
         println!("Vertex count: {}", vertices.len());
         println!("Triangle array size: {}", triangels.len());
         println!("Expected triangles to write: {}", quads as i32 * 6);
@@ -122,6 +137,7 @@ impl RoundedCube {
 
         println!("\nFirst 6 triangle indices: {:?}", &triangels[0..6]);
         println!("Last 6 triangle indices: {:?}", &triangels[570..576]);
+        println!("Last 38-53 triangle indices: {:?}", &triangels[38..53]);
         println!("Top face first 6 indices (at 384): {:?}", &triangels[384..390]);
         println!("Top face last 6 indices: {:?}", &triangels[570..576]);
         println!("Bottom face first 6 indices (at 486): {:?}", &triangels[486..492]);
@@ -164,32 +180,12 @@ impl RoundedCube {
                 count);
         }
 
-        println!("\nVertices used MORE than 6 times (suspicious):");
-        for (vertex_idx, count) in &vertex_usage {
-            if *count > 6 {
-                println!("  Vertex {} at {:?} used {} times", 
-                    vertex_idx, 
-                    vertices[*vertex_idx as usize], 
-                    count);
-            }
-        }
-
-        println!("\nVertices used LESS than 4 times (might be edge cases):");
-        for (vertex_idx, count) in &vertex_usage {
-            if *count < 4 {
-                println!("  Vertex {} at {:?} used {} times", 
-                    vertex_idx, 
-                    vertices[*vertex_idx as usize], 
-                    count);
-            }
-        }
-
         let mut verts: Vec<f32> = vertices
             .iter()
             .flat_map(|k| [k.x as f32, k.y as f32, k.z as f32])
             .collect();
 
-        let mesh = Mesh::new_normals(&mut verts, &triangels);
+        let mesh = Mesh::new_just_verticies(&mut verts, &triangels);
         let world_coords = WorldCoords::new(position.x, position.y, position.z, rotation);
         let model = Model::new(mesh, world_coords, material);
         RoundedCube { base: model }

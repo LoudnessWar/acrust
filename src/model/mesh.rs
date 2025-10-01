@@ -52,7 +52,7 @@ impl Mesh {
 
         vao.unbind();//just to be safe added unbind
 
-            Self {
+        Self {
             vao,
             vbo,
             ebo,
@@ -120,6 +120,37 @@ impl Mesh {
         // }
         //println!("mesh normals:");
         mesh 
+    }
+
+    pub fn new_just_verticies(vertices: &[f32], indices: &[i32]) -> Self {
+        let vao = Vao::new();
+        vao.bind();//
+
+        //verticies buffer object
+        let vbo = BufferObject::new(gl::ARRAY_BUFFER, gl::STATIC_DRAW);
+        vbo.bind();
+        vbo.store_f32_data(vertices);
+
+        //like the incicides buffer object
+        let ebo = BufferObject::new(gl::ELEMENT_ARRAY_BUFFER, gl::STATIC_DRAW);
+        ebo.bind();
+        ebo.store_i32_data(indices);//why is this not u 32?... maybe useful in some weird situation
+
+        // Set vertex attributes
+
+        //this one is like position
+        VertexAttribute::new(0, 3, gl::FLOAT, gl::FALSE, 3 * mem::size_of::<f32>() as i32, ptr::null()).enable();//this is like the important one
+
+        vao.unbind();//just to be safe added unbind
+
+        Self {
+            vao,
+            vbo,
+            ebo,
+            index_count: indices.len() as i32,
+            normals_buffer: None,
+            normals: None,
+        }
     }
 
     pub fn new_normals_flat(vertices: &mut [f32], indices: &[i32]) -> Self {
