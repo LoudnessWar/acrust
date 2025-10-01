@@ -32,7 +32,6 @@ impl RoundedCube {
 
         let mut v = 0;
 
-
         for y in 0..=size_y as i32 {
             //this ppart right here is like if you are drawling a square on a paper and dont pick up your pen like you start bottm left then draw to the right
             for x in 0..=size_x as i32 {
@@ -66,8 +65,6 @@ impl RoundedCube {
             }
         }
 
-
-        // let quads = (size_x * size_y + size_y * size_z + size_z * size_x) * 2.0;
         let quads = (size_x * size_y + size_x * size_z + size_y * size_z) * 2.0;
         println!("quad count {}", quads);
         let mut triangels = vec![0; (quads as i32 * 6) as usize];
@@ -75,44 +72,6 @@ impl RoundedCube {
         let ring = ((size_x + size_z) * 2.0) as i32;//this is to incriment to the next row its the size of one loop around the cube on likea 2d plane
         let mut t = 0;
         let mut v = 0;
-
-        println!("Ring size: {}", ring);
-        println!("Expected vertices per ring: {}", (size_x as i32 + 1) + size_z as i32 + size_x as i32 + (size_z as i32 - 1));
-
-        
-        println!("\n=== VERTEX DEBUG ===");
-        println!("First ring (y=0):");
-        for i in 0..ring as usize {
-            println!("  v[{}] = {:?}", i, vertices[i]);
-        }
-        println!("\nSecond ring (y=1):");
-        for i in ring as usize..(ring * 2) as usize {
-            println!("  v[{}] = {:?}", i, vertices[i]);
-        }
-        println!("\nLast few vertices (top/bottom fill):");
-        let start = vertices.len().saturating_sub(10);
-        for i in start..vertices.len() {
-            println!("  v[{}] = {:?}", i, vertices[i]);
-        }
-
-        println!("\nwhere it begins ring :");
-        for i in ring as usize..(ring * 3) as usize {
-            println!("  v[{}] = {:?}", i, vertices[i]);
-        }
-
-        println!("\n=== TOP INTERIOR VERTICES ===");
-        for i in 80..=88 {
-            println!("v[{}] = {:?}", i, vertices[i]);
-        }
-
-        println!("\n=== BOTTOM INTERIOR VERTICES ===");
-        for i in 89..=97 {
-            println!("v[{}] = {:?}", i, vertices[i]);
-        }
-
-        println!("Vertex count: {}", vertices.len());
-        println!("Triangle array size: {}", triangels.len());
-        println!("Expected triangles to write: {}", quads as i32 * 6);
 
         for y in 0..size_y as i32 { 
             for q in 0..ring-1{
@@ -126,42 +85,10 @@ impl RoundedCube {
             v += 1;
         }
 
-        // t = RoundedCube::create_top_face(&mut triangels, t, ring, size_x, size_y, size_z);
-        // t = RoundedCube::create_bottom_face(&mut triangels, t, ring, size_x, size_y, size_z, (vertices.len()) as i32);
-
-        println!("t after rings: {}", t);
         t = RoundedCube::create_top_face(&mut triangels, t, ring, size_x, size_y, size_z);
-        println!("t after top face: {}", t);
         t = RoundedCube::create_bottom_face(&mut triangels, t, ring, size_x, size_y, size_z, vertices.len() as i32);
-        println!("t after bottom face: {}", t);
 
         println!("\nFirst 6 triangle indices: {:?}", &triangels[0..6]);
-        println!("Last 6 triangle indices: {:?}", &triangels[570..576]);
-        println!("Last 38-53 triangle indices: {:?}", &triangels[38..53]);
-        println!("Top face first 6 indices (at 384): {:?}", &triangels[384..390]);
-        println!("Top face last 6 indices: {:?}", &triangels[570..576]);
-        println!("Bottom face first 6 indices (at 486): {:?}", &triangels[486..492]);
-        println!("Top face indices 384-390: {:?}", &triangels[384..390]);
-        println!("Top face indices 450-456: {:?}", &triangels[450..456]);
-        println!("Top face indices 468-474: {:?}", &triangels[468..474]);
-        println!("Top face indices 474-480: {:?}", &triangels[474..480]);
-        println!("Bottom face indices 480-486: {:?}", &triangels[480..486]);
-        println!("Bottom face indices 486-492: {:?}", &triangels[486..492]);
-        println!("Bottom face indices 570-576: {:?}", &triangels[570..576]);
-
-        println!("\nKey vertices to check:");
-        println!("v[64] (top ring start): {:?}", vertices[64]);
-        println!("v[69] (vMax): {:?}", vertices[69]);
-        println!("v[79] (vMin): {:?}", vertices[79]);
-        println!("v[80] (vMid, first top interior): {:?}", vertices[80]);
-        println!("v[88] (last top interior): {:?}", vertices[88]);
-
-        println!("\nFirst top face quad vertices:");
-        println!("v={} at {:?}", 64, vertices[64]);
-        println!("v+1={} at {:?}", 65, vertices[65]);
-        println!("v+ring-1={} at {:?}", 79, vertices[79]);
-        println!("v+ring={} at {:?}", 80, vertices[80]);
-
         // Count vertex usage
         let mut vertex_usage = std::collections::HashMap::new();
         for &idx in &triangels {
@@ -221,8 +148,6 @@ impl RoundedCube {
     #[allow(non_snake_case)]
     pub fn create_top_face(tringles: &mut Vec<i32>, mut t: usize, ring: i32, size_x: f32, size_y: f32, size_z: f32) -> usize{
         let mut v = ring * size_y as i32;
-        println!("\n=== TOP FACE DEBUG ===");
-        println!("v initial: {}", v);
         for x in 0..size_x as i32 - 1 {
             t = RoundedCube::set_quad(tringles, t, v, v+1, v + ring - 1, v + ring);
             v+=1;
@@ -232,10 +157,6 @@ impl RoundedCube {
         let mut vMin = ring * (size_y as i32 + 1) -1;
         let mut vMid = vMin + 1;
         let mut vMax = v + 2;
-
-        println!("vMin: {}", vMin);
-        println!("vMid: {}", vMid);
-        println!("vMax: {}", vMax);
 
         for z in 1 .. size_z as i32 -1 {
             t = RoundedCube::set_quad(tringles, t, vMin, vMid, vMin - 1, vMid + size_x as i32 - 1);
@@ -257,9 +178,7 @@ impl RoundedCube {
             vTop -= 1;
             vMid += 1;
         }
-        println!("Last top quad: vMid={}, vTop-2={}, vTop={}, vTop-1={}", vMid, vTop - 2, vTop, vTop - 1);
         t = RoundedCube::set_quad(tringles, t, vMid, vTop - 2, vTop, vTop - 1);
-        println!("Top face ACTUAL last 6 indices (at 474): {:?}", &tringles[474..480]);
         t
     }
 
@@ -267,8 +186,6 @@ impl RoundedCube {
     #[allow(non_snake_case)]
     pub fn create_bottom_face(tringles: &mut Vec<i32>, mut t: usize, ring: i32, size_x: f32, size_y: f32, size_z: f32, len: i32) -> usize{
         let mut v = 1;
-        println!("\n=== Bottom FACE DEBUG ===");
-        println!("v initial: {}", v);
         let mut vMid = len - (size_x as i32 - 1) * (size_z as i32 - 1);
         t = RoundedCube::set_quad(tringles, t, ring - 1, vMid, 0, 1);
         for x in 1..size_x as i32 - 1{
@@ -281,11 +198,6 @@ impl RoundedCube {
         let mut vMin = ring - 2;
         vMid -= size_x as i32 - 2;
         let mut vMax = v + 2;
-
-        
-        println!("vMin: {}", vMin);
-        println!("vMid: {}", vMid);
-        println!("vMax: {}", vMax);
 
         for z in 1 .. size_z as i32 -1 {
             t = RoundedCube::set_quad(tringles, t, vMin, vMid + size_x as i32 - 1, vMin + 1, vMid);
@@ -307,7 +219,6 @@ impl RoundedCube {
             vMid += 1;
             vTop -= 1;
         }
-        println!("Last bottom quad: vTop={}, vTop-1={}, vMid={}, vTop-2={}", vTop, vTop - 1, vMid, vTop - 2);
         t = RoundedCube::set_quad(tringles, t, vTop, vTop - 1, vMid, vTop - 2);
 
         t
@@ -340,12 +251,4 @@ impl ModelTrait for RoundedCube{
         //we can have a seperate thing for moving camera ig
         self.base.set_position(position);
     }
-
-    // fn attach_to(&mut self, parent: &WorldCoords) {
-    //     //self.parent = Some(parent as *const WorldCoords);
-    // }
-
-    // fn detach(&mut self) {
-    //     //self.parent = None;
-    // }
 }
