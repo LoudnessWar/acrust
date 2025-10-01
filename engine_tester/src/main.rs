@@ -241,7 +241,8 @@ fn main() {
         4.0,
         4.0,
         4.0,
-        Vector3::new(25.0, 0.0, 5.0), 
+        2.0,
+        Vector3::new(0.0, 0.0, 0.0), 
         4.0,
         mat_man.get_mat("mat1")
     );
@@ -251,7 +252,8 @@ fn main() {
         10.0,
         10.0,
         10.0,
-        Vector3::new(15.0, 0.0, 0.0), 
+        5.0,
+        Vector3::new(0.0, 0.0, 0.0), 
         0.0,
         mat_man.get_mat("mat2")
     );
