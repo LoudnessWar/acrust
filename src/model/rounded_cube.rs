@@ -16,6 +16,9 @@ pub struct RoundedCube {
 }
 
 impl RoundedCube {
+
+    #[allow(unused_variables)]
+    #[allow(non_snake_case)]
     pub fn new(size_x: f32, size_y: f32, size_z: f32, position: Vector3<f32>, rotation: f32, material: Arc<RwLock<Material>>) -> Self {
 
         let corner_verticies = 8;
@@ -26,28 +29,42 @@ impl RoundedCube {
             (size_z as usize - 1) * (size_x as usize - 1)
         ) * 2;
 
-        let mut vertices: Vec<Vector3<i32>> = Vec::with_capacity(//how do  spell verticies vertices ...
-            corner_verticies as usize + edge_verticies as usize + face_verticies as usize
-        );
+        // let mut vertices: Vec<Vector3<f32>> = Vec::with_capacity(//how do  spell verticies vertices ...
+        //     corner_verticies as usize + edge_verticies as usize + face_verticies as usize
+        // );
+
+        //todo go back to push system rn we need the verticies position to call them so this is like lazier but pushes is faster and doesnt require as many reads/look ups
+        //i remeber this from sql also this just looks ugly and feels more error prone now it will crash even if provided an innacurate amount of verticies probably
+        let mut vertices: Vec<Vector3<f32>> = vec![Vector3::new(0.0, 0.0, 0.0); corner_verticies as usize + edge_verticies as usize + face_verticies as usize];
+
+        let mut normals: Vec<Vector3<f32>> = Vec::with_capacity(vertices.len());
 
         let mut v = 0;
 
         for y in 0..=size_y as i32 {
             //this ppart right here is like if you are drawling a square on a paper and dont pick up your pen like you start bottm left then draw to the right
             for x in 0..=size_x as i32 {
-                vertices.push(Vector3::new(x, y, 0));
+                RoundedCube::set_vertex(&mut vertices, &mut normals, v, x, y, 0, size_x, size_y, size_z);
+                v+=1;//todo later this can be made to work with just pushes
+                //vertices.push(Vector3::new(x as, y, 0.0));
             }
             //then you draw up
             for z in 1..=size_z as i32 {
-                vertices.push(Vector3::new(size_x as i32, y, z));
+                RoundedCube::set_vertex(&mut vertices, &mut normals, v, size_x as i32, y, z, size_x, size_y, size_z);
+                v+=1;
+                //vertices.push(Vector3::new(size_x as i32, y, z));
             }
             //then you go to the left
             for x in (0..size_x as i32).rev() {
-                vertices.push(Vector3::new(x, y, size_z as i32));
+                RoundedCube::set_vertex(&mut vertices, &mut normals, v, x, y, size_z as i32, size_x, size_y, size_z);
+                v+=1;
+                //vertices.push(Vector3::new(x, y, size_z as i32));
             }
             //and finally you go back and down and connect to your start
             for z in (1..size_z as i32).rev() {
-                vertices.push(Vector3::new(0, y, z));
+                RoundedCube::set_vertex(&mut vertices, &mut normals, v, 0, y, z, size_x, size_y, size_z);
+                v+=1;
+                //vertices.push(Vector3::new(0, y, z));
             }
             //then since its 3d we can move up a layer and go again like 3d printing or something
         }
@@ -55,13 +72,17 @@ impl RoundedCube {
         //now to fill in the top
         for z in 1..size_z as i32 { //not inclusive because we have already drawn the edges
             for x in 1..size_x as i32 {
-                vertices.push(Vector3::new(x, size_y as i32, z));
+                RoundedCube::set_vertex(&mut vertices, &mut normals, v, x, size_y as i32, z, size_x, size_y, size_z);
+                v+=1;
+                //vertices.push(Vector3::new(x, size_y as i32, z));
             }
         }
         //now the bottom
         for z in 1..size_z as i32 { // again not inclusive because we have already drawn the edges
             for x in 1..size_x as i32 {
-                vertices.push(Vector3::new(x, 0, z));
+                RoundedCube::set_vertex(&mut vertices, &mut normals, v, x, 0, z, size_x, size_y, size_z);
+                v+=1;
+                //vertices.push(Vector3::new(x, 0, z));
             }
         }
 
@@ -142,6 +163,39 @@ impl RoundedCube {
         tringles[t + 4] = v10;
         tringles[t + 5] = v11;
         t + 6
+    }
+
+    pub fn set_vertex(vertices:  &mut Vec<Vector3<f32>>, normals:  &mut Vec<Vector3<f32>>, i: usize, x: i32, y: i32, z: i32, size_x: f32, size_y: f32, size_z: f32) {
+		let mut inner:Vector3<f32> =  Vector3::new(x as f32, y as f32, z as f32);
+        vertices[i] = Vector3::new(x as f32, y as f32, z as f32);//genuienly what would happen if you asked it to make like half a thing 
+
+        let roundness = 5.0;
+		if x < roundness as i32{
+			inner.x = roundness;
+		}
+		else if x > size_x as i32 - roundness as i32{//todo LOL if you look you can clearly see that this is asking for trouble...
+			inner.x = size_x - roundness;
+		}
+        if y < roundness as i32 {
+			inner.y = roundness;
+		}
+		else if y > (size_y - roundness) as i32 {
+			inner.y = size_y - roundness;
+		}
+        if z < roundness as i32 {
+			inner.z = roundness;
+		}
+		else if z > (size_z - roundness) as i32 {
+			inner.z = size_z - roundness;
+		}
+
+		normals.push(RoundedCube::elementwise_subtraction(vertices[i], inner).normalize());
+		vertices[i] = inner + normals[i] * roundness;//todo also just like this could just take the top of the normals vector... which is prolly faster alsowhy can i just add them.... or am i being dumb and its going to concatinate them
+	}
+
+    //https://stackoverflow.com/questions/73225361/how-to-perform-element-wise-subtraction-between-two-vectors
+    pub fn elementwise_subtraction(vec_a: Vector3<f32>, vec_b: Vector3<f32>) -> Vector3<f32> {
+        vec_a.sub_element_wise(vec_b)//add_element_wise(vec_b) //.add_assign_element_wise(vec_b)//zip(vec_b).map(|(a, b)| a - b).collect()
     }
 
     #[allow(unused_variables)]

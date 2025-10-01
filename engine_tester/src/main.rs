@@ -248,9 +248,9 @@ fn main() {
 
     let sphere = world.create_entity("Sphere");
     let sphere_model = RoundedCube::new(
-        4.0,
-        4.0,
-        4.0,
+        10.0,
+        10.0,
+        10.0,
         Vector3::new(15.0, 0.0, 0.0), 
         0.0,
         mat_man.get_mat("mat2")
