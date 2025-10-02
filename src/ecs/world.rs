@@ -27,9 +27,9 @@ pub struct Entity {
 
 // Component systems are separated
 pub trait Component: Any + Send + Sync {}
-impl<T: Any + Send + Sync> Component for T {}
+impl<T: Any + Send + Sync> Component for T {} //this is actaully really cool you can do this
 
-// Generic component storage
+// Generic component storage like wow so intresting keep on reading buddy
 pub struct ComponentStorage<T: Component> {
     components: HashMap<u32, T>,
 }
@@ -70,7 +70,7 @@ impl<T: Component> ComponentStorage<T> {
     }
 }
 
-// Registry for all entities
+// Registry for all entities bro again who cares about this shit
 pub struct EntityRegistry {
     entities: HashMap<u32, Entity>,
     next_id: u32,
@@ -150,6 +150,7 @@ impl MovementSystem {
     }
 }
 
+//this one will eventually give me cancer i can tell, mainly because if we think about it with all scincerity we need multiple render types multiple like fucking render modes, its a hoot and hollah
 pub struct RenderSystem {
     renderables: ComponentStorage<Renderable>,
 }
@@ -183,6 +184,7 @@ impl RenderSystem {
     }
 
     //TODO redo this so its not so much a lot of this just could be stored in the render system ecs system thingy i thinky
+    //TODO i dont know what i was yapping about above, it got twisted uuuh yeah maybe uuh looking at this why is forwardplusrender the only render context like what if we had other render contexts guys... just a thought
     pub fn render(
         &self, 
         render_context: &mut ForwardPlusRenderer,

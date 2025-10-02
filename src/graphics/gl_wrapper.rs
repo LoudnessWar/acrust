@@ -8,27 +8,29 @@ use std::fs::File;
 use std::ptr;
 use std::io::Read;
 use std::rc::Rc;
-use std::thread::panicking;
+// use std::thread::panicking;
 use std::vec;
 // use std::sync::PoisonError;
 use cgmath::*;
 use gl::types::*;
-use gl::TextureParameterfv;
-use gl::SHADER;
+// use gl::TextureParameterfv;
+// use gl::SHADER;
 use std::sync::Mutex;
 use std::sync::Arc;
 
-use crate::model::mesh;
+// use crate::model::mesh;
 use crate::model::mesh::Mesh;
 use crate::model::objload::ModelTrait;
 
-use super::camera;
+// use super::camera;
 use super::camera::Camera;
 use super::texture_manager::TextureManager;
+
 
 macro_rules! gl_check {
     ($call:expr) => {{
         $call;
+        #[allow(unused_unsafe)]
         let err = unsafe { gl::GetError() };
         if err != gl::NO_ERROR {
             panic!("GL Error {:#x} in `{}` at line {}", err, stringify!($call), line!());
@@ -167,7 +169,7 @@ impl BufferObject {
 /// position_attribute.enable()
 /// ```
 pub struct VertexAttribute {
-    index: GLuint,
+    index: GLuint,//lol very bare bones ik
 }
 
 impl VertexAttribute {
@@ -204,7 +206,7 @@ pub struct ShaderProgram {
     uniform_ids: HashMap<String, GLint>,//lol
 }
 
-#[allow(temporary_cstring_as_ptr)]
+// #[allow(temporary_cstring_as_ptr)]
 impl ShaderProgram {
     pub fn new(vertex_shader_path: &str, fragment_shader_path: &str) -> Self {
         println!("created a new shader");
@@ -666,6 +668,7 @@ impl ShaderManager {
 }
 
 pub struct Framebuffer { id: GLuint, depth_texture: Rc<depthTexture> }
+#[allow(non_camel_case_types)]
 pub struct depthTexture { id: GLuint, width: u32, height: u32 }//todo we finna have to deal with the two textures later bro
 
 impl Drop for depthTexture {
@@ -1130,6 +1133,7 @@ impl LightManager {
             let (tile_count_x, tile_count_y) = culling_buffers.get_tile_counts();
             
             // Bind and set up the compute shader
+            #[allow(unused_mut)]//yeah lol this should be mut because i am actually mutating it just in unsafe
             let mut shader = compute_shader.lock().unwrap();
             shader.bind();
             //shader.create_uniform("u_viewProjection");
@@ -1209,6 +1213,7 @@ impl LightManager {
 
             
             // Bind and set up the compute shader
+            #[allow(unused_mut)]//yeah lol this should be mut because i am actually mutating it just in unsafe
             let mut shader = compute_shader.lock().unwrap();
             shader.bind();
             
@@ -1972,6 +1977,7 @@ pub struct LightCullingBuffers {
     max_lights_per_tile: u32,
 }
 
+#[allow(unused_parens)]
 impl LightCullingBuffers {
     pub fn new(width: u32, height: u32, max_lights: u32) -> Self {
         let tile_size = 16; // Tile size, same as in your CPU implementation
