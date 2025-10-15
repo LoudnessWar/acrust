@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::{Arc, RwLock};
-use cgmath::{Matrix4, Vector3};
+use cgmath::{Matrix4, Quaternion, Vector3};
 //use crate::graphics::camera::Camera;
 use crate::graphics::materials::Material;
 use crate::graphics::texture_manager::TextureManager;
@@ -149,7 +149,20 @@ pub trait ModelTrait: Send + Sync {
     fn get_mesh(&self) -> &Mesh;
     fn get_world_coords(&self) -> &WorldCoords;  // Maybe later return by value to avoid lifetime issues
     fn get_material(&self) -> Arc<RwLock<Material>>;    // I mean we have RwLock but like do we need it
-    fn set_position(&mut self, position: Vector3<f32>);
+    fn set_position(&mut self, position: Vector3<f32>); //todo geniuenly what the fuck why did i have this like convience i think i justified it to myself below but it makes i really confusing when you already have an ecs ect 
+    fn set_rotation(&mut self, rotation: f32);
+    fn set_rotation_from_quaternion(&mut self, rotation: Quaternion<f32>);
+    //actually let me fully break it down why its so confusing
+    //the reason is is because we are 1 storing our worldcoords in 2 places the ECS and the model
+    //to make sure that they are in sync I have a funciton in the models render that is called in the update that
+    //just sets the models POSITION righjt now it is only the position
+    //not the rotation or scale... I HAVE NO SCALE ANYWHERE BTW
+    //TODO add scale to world coords
+    //ok anyway so that update sync the world position right
+    //and then the render in the world calls
+    //the fpr render
+    //which calls the worldcoords.get_model_matrix() RIGHT
+    //which doesnt have anything set ideally we just use the ecs model matrix and everyhing... if we can
 }
 
 //I need to add something like a model id or something
@@ -209,6 +222,14 @@ impl ModelTrait for Model {
     fn set_position(&mut self, position: Vector3<f32>){//ok so not everything needs to move but it just will make life easier if its here... I think?
         //we can have a seperate thing for moving camera ig
         self.world_coords.set_position(position);
+    }
+
+    fn set_rotation(&mut self, rotation: f32) {
+        self.world_coords.set_rotation(rotation);
+    }
+
+    fn set_rotation_from_quaternion(&mut self, new_rotation: Quaternion<f32>){
+        self.world_coords.set_rotation_from_quaternion(new_rotation);
     }
 
 

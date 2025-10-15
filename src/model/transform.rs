@@ -65,6 +65,14 @@ impl WorldCoords {
         self.position = new_position;
     }
 
+    pub fn set_rotation(&mut self, new_rotation: f32){
+        self.rotation = Quaternion::from_angle_y(Rad(new_rotation))
+    }
+
+    pub fn set_rotation_from_quaternion(&mut self, new_rotation: Quaternion<f32>){
+        self.rotation = new_rotation
+    }
+
     //this should be a reference, this is because, we have a set position 1 and 2 lets say we have a model or something with world coords
     //right we then want to get the position of that model somewhere else
     //ok so we call get position then again from that model we call it again
@@ -78,6 +86,8 @@ impl WorldCoords {
     pub fn get_position(&self) -> &Vector3<f32>{
         &self.position
     }
+
+    // pub fn get_rotation
 }
 
 //ok so this is like a really dumb but also simple like 

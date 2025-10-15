@@ -227,7 +227,7 @@ fn main() {
         mat_man.get_mat("mat2")
     );
 
-    world.movement.add_coords(cube.id, WorldCoords::new(5.0, 0.0, 0.0, 1.0));
+    world.movement.add_coords(cube.id, WorldCoords::new(5.0, 0.0, 0.0, 0.0));
     world.movement.add_velocity(cube.id, Velocity {
         direction: Vector3::new(0.0, 0.0, 0.0),
         speed: 0.0
@@ -258,7 +258,7 @@ fn main() {
         mat_man.get_mat("mat2")
     );
 
-    world.movement.add_coords(sphere.id, WorldCoords::new(10.0, 0.0, 0.0, 50.23));
+    world.movement.add_coords(sphere.id, WorldCoords::new(10.0, 0.0, 0.0, 0.0));
     world.movement.add_velocity(sphere.id, Velocity {
         direction: Vector3::new(0.0, 0.0, 0.0),
         speed: 0.0
@@ -567,6 +567,10 @@ fn main() {
         // if let Some(coords) = world.movement.get_coords_mut(teddy_entity.id) {
         //     coords.position.y = 5.0 * f32::sin(time);
         // }
+
+        if let Some(coords) = world.movement.get_coords_mut(sphere.id){
+            coords.set_rotation( 0.5 * f32::sin(time));
+        }
 
         fpr.update_light_position(3, vec3(10.0, 5.0 + 5.0 * f32::sin(time), -7.0).into());//dude im stupid and lazy sometimes lol I dont want to convert it inot a vec in the funciton lol
 

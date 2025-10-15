@@ -124,6 +124,15 @@ impl ModelTrait for Cube{
         self.base.set_position(position);
     }
 
+    fn set_rotation(&mut self, rotation: f32) {
+        self.base.set_rotation(rotation);
+    }
+
+    fn set_rotation_from_quaternion(&mut self, rotation: Quaternion<f32>) {
+        self.base.set_rotation_from_quaternion(rotation);
+    }
+
+
     // fn attach_to(&mut self, parent: &WorldCoords) {
     //     //self.parent = Some(parent as *const WorldCoords);
     // }

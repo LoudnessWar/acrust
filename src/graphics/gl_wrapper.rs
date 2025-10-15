@@ -1709,6 +1709,7 @@ impl ForwardPlusRenderer {
         //self.light_shader.lock().expect("temp_light_shader failed to set uniform").debug_print_uniforms();
         // Render each model with its material
         for model in &models_iter {
+            println!("model Matrix {:#?}", &model.get_world_coords().get_model_matrix());
             self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());//lol model matrix , low key needa be finna more accessible
             //model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
             model.get_mesh().draw();

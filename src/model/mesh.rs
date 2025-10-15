@@ -364,6 +364,8 @@ impl Mesh {
 
     //this is just like a generic basic render like thing but like you need to apply textures first so thats
     //why like I will probably add a render trait to model
+    //lol this is like one of most imporant things in this whole page i love how its barried in slop
+    //todo place this somewhere reasonable
     pub fn draw(&self) {
         self.vao.bind();
         unsafe {

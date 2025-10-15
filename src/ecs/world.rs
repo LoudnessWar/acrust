@@ -176,9 +176,15 @@ impl RenderSystem {
 
     pub fn update_transforms(&mut self, movement_system: &MovementSystem) {
         // No borrow conflicts because we borrow from different systems
+        //but also this should just be changed bc the only reason that the models themselves maintain a rendering system is because of situations in which
+        //you are purpousfully avoiding the ecs system...
+        //todo change this
+        //like all it does is it clones position to the fucking models worldpersonal worldcoords
+        //thing 
         for (entity_id, renderable) in self.renderables.iter_mut() {
             if let Some(coords) = movement_system.get_coords(*entity_id) {
                 renderable.model.set_position(coords.position);
+                renderable.model.set_rotation_from_quaternion(coords.rotation);
             }
         }
     }
@@ -193,6 +199,8 @@ impl RenderSystem {
         height: u32,
         texture_manager: &TextureManager,
     ) {
+
+        //todo lol i like... i know that this is incredibly absurd.... i will change i will 
         let models: Vec<&Box<dyn ModelTrait>> = self.renderables
             .iter()
             .map(|(_, r)| &r.model)
