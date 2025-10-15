@@ -227,7 +227,7 @@ fn main() {
         mat_man.get_mat("mat2")
     );
 
-    world.movement.add_coords(cube.id, WorldCoords::new(5.0, 0.0, 0.0, 0.0));
+    world.movement.add_coords(cube.id, WorldCoords::new(5.0, 0.0, 0.0, 1.0));
     world.movement.add_velocity(cube.id, Velocity {
         direction: Vector3::new(0.0, 0.0, 0.0),
         speed: 0.0
