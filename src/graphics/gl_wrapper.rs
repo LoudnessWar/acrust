@@ -1764,6 +1764,8 @@ impl ForwardPlusRenderer {
             for model in &transparent_models {
                 println!("  - Transparent model at: {:?}", model.get_world_coords().get_model_matrix());
             }
+
+            self.weighted_oit.attach_depth_texture(self.framebuffer.get_depth_texture().id);
             
             // Render transparent objects using weighted OIT
             self.weighted_oit.render_transparency(

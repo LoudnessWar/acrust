@@ -28,6 +28,7 @@ pub struct WeightedOIT {
     height: u32,
     fs_quad_vao: GLuint,
     fs_quad_vbo: GLuint,
+    depth_attached: bool,
 }
 
 impl WeightedOIT {
@@ -37,8 +38,8 @@ impl WeightedOIT {
         // let accum = RenderTexture::new(width, height, gl::RGBA16F);
         // let reveal = RenderTexture::new(width, height, gl::R16F);  // R16F or R8; float is safer
 
-    
-        let fbo = OITFramebuffer::new(720, 720);
+        
+        let fbo = OITFramebuffer::new(width, height);
         fbo.bind();
         fbo.clear();
         OITFramebuffer::unbind();
@@ -76,7 +77,34 @@ impl WeightedOIT {
             height,
             fs_quad_vao,
             fs_quad_vbo,
+            depth_attached: false,
         }
+    }
+
+    pub fn attach_depth_texture(&mut self, depth_texture_id: GLuint) {
+        if self.depth_attached {
+            return;  // Already attached
+        }
+        
+        self.fbo.bind();
+        unsafe {
+            gl::FramebufferTexture2D(
+                gl::FRAMEBUFFER,
+                gl::DEPTH_ATTACHMENT,
+                gl::TEXTURE_2D,
+                depth_texture_id,
+                0
+            );
+            
+            let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
+            if status != gl::FRAMEBUFFER_COMPLETE {
+                panic!("OIT Framebuffer incomplete after depth attach! Status: 0x{:X}", status);
+            }
+        }
+        OITFramebuffer::unbind();
+        
+        self.depth_attached = true;
+        println!("Attached depth texture {} to OIT FBO", depth_texture_id);
     }
 
     // pub fn resize(&mut self, width: u32, height: u32) {
