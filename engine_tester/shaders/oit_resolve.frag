@@ -21,15 +21,13 @@ void main() {
     //fragColor = vec4(vec3(reveal), 1.0);
     
     // Test 4: Show inverse reveal (brighter where transparent objects are)
-    fragColor = vec4(vec3(1.0 - reveal), 1.0);
+    //fragColor = vec4(vec3(1.0 - reveal), 1.0);
     //fragColor = vec4(1.0, 1.0, 0.0, 1.0);
     
     // Test 5: Final composite (uncomment when ready)
-    /*
     if (accum.a <= 0.00001) {
         discard;
     }
     vec3 avgColor = accum.rgb / accum.a;
     fragColor = vec4(avgColor, 1.0 - reveal);
-    */
 }

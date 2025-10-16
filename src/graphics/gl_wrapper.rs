@@ -1622,10 +1622,10 @@ impl ForwardPlusRenderer {
         //let models_iter = models.into_iter().collect::<Vec<_>>();//TODO feel like this adds overhead
         let all_models_iter = models.into_iter().collect::<Vec<_>>();
 
-        unsafe{
-            gl::Enable(gl::DEPTH_TEST);
-            gl::Disable(gl::BLEND);
-        }
+        // unsafe{
+        //     gl::Enable(gl::DEPTH_TEST);
+        //     gl::Disable(gl::BLEND);
+        // }
 
         let (models_iter, transparent_models): (Vec<&&Box<dyn ModelTrait>>, Vec<&&Box<dyn ModelTrait>>) = all_models_iter
             .iter()

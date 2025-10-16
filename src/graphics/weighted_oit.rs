@@ -192,9 +192,10 @@ impl WeightedOIT {
         // }
 
         unsafe {
-            gl::Disable(gl::DEPTH_TEST);
+            //gl::Disable(gl::DEPTH_TEST);
             gl::Enable(gl::BLEND);
-            gl::BlendFunc(gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA); // SWAPPED!
+            // This means: final = src * src.a + dst * (1 - src.a)
         }
 
         println!("About to draw fullscreen quad");
