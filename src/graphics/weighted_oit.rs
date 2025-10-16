@@ -1,5 +1,6 @@
 use std::ptr;
 use std::ffi::CString;
+use cgmath::Vector4;
 use gl;
 use gl::types::GLuint;
 use std::rc::Rc;
@@ -7,6 +8,7 @@ use std::rc::Rc;
 use super::gl_wrapper::{Framebuffer, ShaderProgram, depthTexture};//lol depth texture like being just used bc i am 2 lazy
 //todo fix depth texture and text manager to be all one love or make frame buffer take in texture not just depth texture
 use super::camera::Camera;
+use crate::graphics::gl_wrapper::LightManager;
 use crate::graphics::texture_manager::RenderTexture;
 use crate::model::mesh::Mesh;
 use crate::model::objload::ModelTrait;
@@ -18,8 +20,8 @@ use super::texture_manager::TextureManager;
 /// Weighted blended OIT renderer helper.
 pub struct WeightedOIT {
     pub fbo: OITFramebuffer,
-    pub accum_tex: RenderTexture,
-    pub reveal_tex: RenderTexture,
+    // pub accum_tex: RenderTexture,
+    // pub reveal_tex: RenderTexture,
     pub resolve_shader: ShaderProgram,
     pub transparent_shader: ShaderProgram,
     width: u32,
@@ -32,8 +34,8 @@ impl WeightedOIT {
     /// Create new OIT resources. Must be called when GL context is valid.
     pub fn new(width: u32, height: u32) -> Self {
         // Create textures
-        let accum = RenderTexture::new(width, height, gl::RGBA16F);
-        let reveal = RenderTexture::new(width, height, gl::R16F);  // R16F or R8; float is safer
+        // let accum = RenderTexture::new(width, height, gl::RGBA16F);
+        // let reveal = RenderTexture::new(width, height, gl::R16F);  // R16F or R8; float is safer
 
     
         let fbo = OITFramebuffer::new(720, 720);
@@ -48,12 +50,14 @@ impl WeightedOIT {
         );
         
         oit_transparent_shader.bind();//lol just create the uniforms here
-        oit_transparent_shader.create_uniforms(vec!["view", "projection", "model"]);
+        oit_transparent_shader.create_uniforms(vec!["view", "projection", "model", "u_diffuseColor", "u_alpha"]);
 
         let mut oit_resolve_shader = ShaderProgram::new(
             "shaders/oit_resolve.vert",
             "shaders/oit_resolve.frag"
         );
+
+        println!("Resolve shader program ID: {:?}", oit_resolve_shader.get_program_handle());
 
         oit_resolve_shader.bind();//lol just create the uniforms here
         oit_resolve_shader.create_uniforms(vec!["u_accumTex", "u_revealTex"]);
@@ -64,8 +68,8 @@ impl WeightedOIT {
 
         Self {
             fbo,
-            accum_tex: accum,
-            reveal_tex: reveal,
+            // accum_tex: accum,
+            // reveal_tex: reveal,
             resolve_shader: oit_resolve_shader,
             transparent_shader: oit_transparent_shader,
             width,
@@ -92,6 +96,7 @@ impl WeightedOIT {
         transparent_models: impl IntoIterator<Item = &'a Box<dyn ModelTrait>>,
         camera: &Camera,
         texture_manager: &TextureManager,
+        light_manager: &LightManager,
     ) {
         // 1) Bind OIT FBO and clear (accum=0, revealage=1)
         self.fbo.bind();
@@ -103,7 +108,7 @@ impl WeightedOIT {
 
             // Clear revealage to 1.0
             gl::DrawBuffer(gl::COLOR_ATTACHMENT1);
-            gl::ClearColor(1.0, 1.0, 1.0, 1.0); // stored as float in R
+            gl::ClearColor(1.0, 1.0, 1.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
             // Make sure both buffers are the draw buffers again
@@ -114,56 +119,170 @@ impl WeightedOIT {
         // 2) Setup blending for weighted blended OIT
         unsafe {
             gl::Enable(gl::BLEND);
-            // Additive for accum (RGB): ONE, ONE
-            // Revealage (alpha channel) uses: ZERO, ONE_MINUS_SRC_ALPHA (see shader outputs)
-            gl::BlendFuncSeparate(gl::ONE, gl::ONE, gl::ZERO, gl::ONE_MINUS_SRC_ALPHA);
-
-            // We don't want transparent geometry to write to the depth buffer (we still want depth test)
+            
+            // For MRT 0 (accum): additive
+            gl::BlendFuncSeparatei(0, gl::ONE, gl::ONE, gl::ONE, gl::ONE);
+            
+            // For MRT 1 (reveal): multiplicative  
+            gl::BlendFuncSeparatei(1, gl::ZERO, gl::ONE_MINUS_SRC_COLOR, gl::ZERO, gl::ONE_MINUS_SRC_COLOR);
+            
             gl::DepthMask(gl::FALSE);
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthFunc(gl::LESS);
         }
 
-        // 3) Render all transparent geometry using the transparent shader to MRTs
-        let mut t_shader = &self.transparent_shader; //mut here bc it is actually being mut gpu side so this helps organize things even though im pretty sure i shouldnt do this...
+        // 3) Render all transparent geometry
+        let t_shader = &self.transparent_shader;
         t_shader.bind();
+        
         t_shader.set_matrix4fv_uniform("view", camera.get_view());
         t_shader.set_matrix4fv_uniform("projection", camera.get_p_matrix());
-        // Provide any uniforms your transparent shader expects (lights, etc.)
-        // Optionally bind depth texture from opaque pass to discard fragments behind opaque geometry:
-        // t_shader.set_uniform1i("u_sceneDepth", 0); bind depth texture to TEXTURE0 before draw.
+        t_shader.set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
+        t_shader.set_uniform1f("u_alpha", 0.5);
 
         for model in transparent_models.into_iter() {
             t_shader.set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
-            // bind material maps via texture_manager if needed...
-            // model.get_material().write().unwrap().apply(texture_manager, &model.get_world_coords().get_model_matrix());
             model.get_mesh().draw();
         }
 
         // 4) Restore GL state
         unsafe {
+            gl::Disable(gl::DEPTH_TEST);
             gl::DepthMask(gl::TRUE);
             gl::Disable(gl::BLEND);
         }
 
+        // Debug output
+        unsafe {
+            let mut pixel: [f32; 4] = [0.0; 4];
+            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+            gl::ReadPixels(360, 360, 1, 1, gl::RGBA, gl::FLOAT, pixel.as_mut_ptr() as *mut _);
+            println!("Accum pixel at center: {:?}", pixel);
+            
+            let mut reveal_pixel: [f32; 1] = [0.0];
+            gl::ReadBuffer(gl::COLOR_ATTACHMENT1);
+            gl::ReadPixels(360, 360, 1, 1, gl::RED, gl::FLOAT, reveal_pixel.as_mut_ptr() as *mut _);
+            println!("Reveal pixel at center: {:?}", reveal_pixel);
+        }
+
         Framebuffer::unbind();
 
+        // 5) Resolve pass - composite onto screen
         self.resolve_shader.bind();
 
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, self.accum_tex.id);
+            gl::BindTexture(gl::TEXTURE_2D, self.fbo.accum_tex.id);
             gl::ActiveTexture(gl::TEXTURE1);
-            gl::BindTexture(gl::TEXTURE_2D, self.reveal_tex.id);
+            gl::BindTexture(gl::TEXTURE_2D, self.fbo.reveal_tex.id);
         }
+
         self.resolve_shader.set_uniform1i("u_accumTex", &0);
         self.resolve_shader.set_uniform1i("u_revealTex", &1);
 
+        // Enable blending for compositing transparent result over opaque scene
+        // unsafe {
+        //     gl::Disable(gl::DEPTH_TEST);
+        //     gl::Disable(gl::BLEND);
+        //     //gl::BlendFunc(gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA);
+        //     //gl::ClearColor(1.0, 0.0, 0.0, 1.0);
+
+        //     gl::ClearColor(0.0, 0.0, 0.0, 0.0);
+        //     gl::Clear(gl::COLOR_BUFFER_BIT);
+        // }
+
+        unsafe {
+            gl::Disable(gl::DEPTH_TEST);
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::ONE_MINUS_SRC_ALPHA, gl::SRC_ALPHA);
+        }
+
+        println!("About to draw fullscreen quad");
+        unsafe {
+            let mut current_fbo: i32 = 0;
+            gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, &mut current_fbo);
+            println!("Current FBO bound: {}", current_fbo); // Should be 0 (default framebuffer)
+        }
+
+        unsafe {
+            // Verify textures are valid
+            println!("Accum texture ID: {}", self.fbo.accum_tex.id);
+            println!("Reveal texture ID: {}", self.fbo.reveal_tex.id);
+            
+            // Check if textures are actually bound
+            let mut bound_tex_0: i32 = 0;
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut bound_tex_0);
+            println!("Texture bound to unit 0: {}", bound_tex_0);
+            
+            let mut bound_tex_1: i32 = 0;
+            gl::ActiveTexture(gl::TEXTURE1);
+            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut bound_tex_1);
+            println!("Texture bound to unit 1: {}", bound_tex_1);
+        }
+
+        unsafe {
+            let mut viewport: [i32; 4] = [0; 4];
+            gl::GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
+            println!("Viewport: x={}, y={}, w={}, h={}", 
+                    viewport[0], viewport[1], viewport[2], viewport[3]);
+            
+            // Make sure viewport is set correctly
+            gl::Viewport(0, 0, 720 as i32, 720 as i32);
+        }
+
+        unsafe {
+            let mut error = gl::GetError();
+            while error != gl::NO_ERROR {
+                println!("GL Error before quad: 0x{:X}", error);
+                error = gl::GetError();
+            }
+        }
+
+        unsafe {
+            // Check and disable face culling
+            let mut cull_enabled: u8 = 0;
+            gl::GetBooleanv(gl::CULL_FACE, &mut cull_enabled);
+            println!("Face culling enabled: {}", cull_enabled);
+            
+            if cull_enabled != 0 {
+                let mut cull_mode: i32 = 0;
+                gl::GetIntegerv(gl::CULL_FACE_MODE, &mut cull_mode);
+                println!("Cull face mode: 0x{:X}", cull_mode);
+            }
+            
+            // Disable it just in case
+            gl::Disable(gl::CULL_FACE);
+            
+            // Also check polygon mode
+            let mut poly_mode: [i32; 2] = [0; 2];
+            gl::GetIntegerv(gl::POLYGON_MODE, poly_mode.as_mut_ptr());
+            println!("Polygon mode: 0x{:X}", poly_mode[0]);
+        }
+
+
         self.draw_fullscreen_quad();
+
+
+        println!("Finished drawing fullscreen quad");
+
+        unsafe {
+            let mut error = gl::GetError();
+            while error != gl::NO_ERROR {
+                println!("GL Error after quad: 0x{:X}", error);
+                error = gl::GetError();
+            }
+        }
+
+        unsafe {
+            //gl::Disable(gl::BLEND);
+            // gl::Disable(gl::BLEND);
+            gl::Enable(gl::DEPTH_TEST);
+            gl::Disable(gl::BLEND);
+        }
 
         ShaderProgram::unbind();
 
-        // Unbind textures to keep state clean
         unsafe {
             gl::ActiveTexture(gl::TEXTURE1); gl::BindTexture(gl::TEXTURE_2D, 0);
             gl::ActiveTexture(gl::TEXTURE0); gl::BindTexture(gl::TEXTURE_2D, 0);
@@ -201,7 +320,19 @@ impl WeightedOIT {
 
     fn draw_fullscreen_quad(&self) {
         unsafe {
+            println!("Drawing quad with VAO: {}", self.fs_quad_vao);
+            
+            // Check if VAO is valid
+            let is_vao = gl::IsVertexArray(self.fs_quad_vao);
+            println!("Is valid VAO: {}", is_vao);
+            
             gl::BindVertexArray(self.fs_quad_vao);
+            
+            // Check what's actually bound
+            let mut bound_vao: i32 = 0;
+            gl::GetIntegerv(gl::VERTEX_ARRAY_BINDING, &mut bound_vao);
+            println!("Actually bound VAO: {}", bound_vao);
+            
             gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
             gl::BindVertexArray(0);
         }

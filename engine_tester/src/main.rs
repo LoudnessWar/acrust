@@ -107,10 +107,15 @@ fn main() {
     let mat_man = MaterialManager::new();
     let material = mat_man.load_material("mat1", &shader_manager, "Basic");
     let material = mat_man.load_material("mat2", &shader_manager, "generic");
+    let material = mat_man.load_material("mat3", &shader_manager, "generic");
     
     mat_man.init_uniform("mat2", "model");
     mat_man.init_uniform("mat2", "view");
     mat_man.init_uniform("mat2", "projection");
+
+    mat_man.init_uniform("mat3", "model");
+    mat_man.init_uniform("mat3", "view");
+    mat_man.init_uniform("mat3", "projection");
 
     mat_man.set_alpha("mat2", 1.0);
     mat_man.init_uniform("mat1", "transform");
@@ -135,6 +140,10 @@ fn main() {
     mat_man.update_uniform("mat2", "lightDir", UniformValue::Vector3(vec3(0.0, 10.0, 0.0)));
     mat_man.update_uniform("mat2", "lightColor", UniformValue::Vector3(vec3(0.0, 1.0, 1.0)));
     mat_man.update_uniform("mat2", "objectColor", UniformValue::Vector3(vec3(1.0, 1.0, 1.0)));
+
+    mat_man.update_uniform("mat3", "lightDir", UniformValue::Vector3(vec3(0.0, 10.0, 0.0)));
+    mat_man.update_uniform("mat3", "lightColor", UniformValue::Vector3(vec3(0.0, 1.0, 1.0)));
+    mat_man.update_uniform("mat3", "objectColor", UniformValue::Vector3(vec3(1.0, 1.0, 1.0)));
 
     let mut texture_manager = TextureManager::new();
     let texture_id = texture_manager.load_texture("textures/right.jpg")
@@ -205,7 +214,7 @@ fn main() {
     let teddy_model = Model::new(
         load_obj_new_normals("models/teddy.obj"), 
         WorldCoords::new(0.0, 0.0, 0.0, 0.0), 
-        mat_man.get_mat("mat2")
+        mat_man.get_mat("mat3")
     );
     
     // Add components to the teddy bear, also this is why i dont fw ecs because like... do you see how many like hoops i had to jump throught to add one thing
@@ -226,7 +235,7 @@ fn main() {
         4.0, 
         Vector3::new(15.0, 0.0, 0.0), 
         0.0,
-        mat_man.get_mat("mat2")
+        mat_man.get_mat("mat3")
     );
 
     world.movement.add_coords(cube.id, WorldCoords::new(5.0, 0.0, 0.0, 0.0));
@@ -257,7 +266,7 @@ fn main() {
         1.0,
         Vector3::new(0.0, 0.0, 0.0), //todo this is not needed because the ecs handles positions anyway, and like i was giving things cpu side calcs as well but it honestly doesnt matter atm
         0.0,
-        mat_man.get_mat("mat2")
+        mat_man.get_mat("mat3")
     );
 
     world.movement.add_coords(sphere.id, WorldCoords::new(10.0, 0.0, 0.0, 0.0));
@@ -433,7 +442,7 @@ fn main() {
 
         let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
         let projection_matrix = camera.get_p_matrix();
-        skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
+        // skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
 
         for event in world.get_collision_events() {
             println!("Collision between entities {} and {}", event.entity_a, event.entity_b);

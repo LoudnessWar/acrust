@@ -1622,6 +1622,11 @@ impl ForwardPlusRenderer {
         //let models_iter = models.into_iter().collect::<Vec<_>>();//TODO feel like this adds overhead
         let all_models_iter = models.into_iter().collect::<Vec<_>>();
 
+        unsafe{
+            gl::Enable(gl::DEPTH_TEST);
+            gl::Disable(gl::BLEND);
+        }
+
         let (models_iter, transparent_models): (Vec<&&Box<dyn ModelTrait>>, Vec<&&Box<dyn ModelTrait>>) = all_models_iter
             .iter()
             .partition(|model| {
@@ -1754,12 +1759,18 @@ impl ForwardPlusRenderer {
         if !transparent_models.is_empty() {
             // Resize OIT buffers if needed
             //self.weighted_oit.resize(width, height);
+
+            println!("Rendering {} transparent models", transparent_models.len());
+            for model in &transparent_models {
+                println!("  - Transparent model at: {:?}", model.get_world_coords().get_model_matrix());
+            }
             
             // Render transparent objects using weighted OIT
             self.weighted_oit.render_transparency(
                 transparent_models.into_iter().map(|&model| model),
                 camera,
                 texture_manager,
+                &self.light_manager
             );
         }
     }
