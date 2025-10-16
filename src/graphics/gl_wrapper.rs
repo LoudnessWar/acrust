@@ -18,6 +18,7 @@ use gl::types::*;
 use std::sync::Mutex;
 use std::sync::Arc;
 
+use crate::graphics::weighted_oit::WeightedOIT;
 // use crate::model::mesh;
 use crate::model::mesh::Mesh;
 use crate::model::objload::ModelTrait;
@@ -1565,6 +1566,7 @@ pub struct ForwardPlusRenderer {
     light_shader: Arc<Mutex<ShaderProgram>>,
     light_manager: LightManager,
     framebuffer: Framebuffer,
+    pub weighted_oit: WeightedOIT,
 }
 
 impl ForwardPlusRenderer {
@@ -1578,12 +1580,14 @@ impl ForwardPlusRenderer {
         let light_manager = LightManager::new();
 
         let framebuffer = Framebuffer::new_depth_only(720, 720);//TODO add a method to update this later
+        let weighted_oit = WeightedOIT::new(720, 720);
         
         Self {
             depth_shader,
             light_shader,
             light_manager,
             framebuffer,
+            weighted_oit,
         }
     }
 
@@ -1597,12 +1601,14 @@ impl ForwardPlusRenderer {
         let light_manager = LightManager::new();
 
         let framebuffer = Framebuffer::new_depth_only(720, 720);
+        let weighted_oit = WeightedOIT::new(720, 720);
         
         Self {
             depth_shader,
             light_shader,
             light_manager,
             framebuffer,
+            weighted_oit
         }
     }
     
@@ -1613,7 +1619,30 @@ impl ForwardPlusRenderer {
         height: u32,
         texture_manager: &TextureManager
     ) {
-        let models_iter = models.into_iter().collect::<Vec<_>>();//TODO feel like this adds overhead
+        //let models_iter = models.into_iter().collect::<Vec<_>>();//TODO feel like this adds overhead
+        let all_models_iter = models.into_iter().collect::<Vec<_>>();
+
+        let (models_iter, transparent_models): (Vec<&&Box<dyn ModelTrait>>, Vec<&&Box<dyn ModelTrait>>) = all_models_iter
+            .iter()
+            .partition(|model| {
+                // Check if material has alpha/transparency enabled
+                !model.get_material().read().unwrap().is_transparent()
+                // Or if you have a direct alpha bool:
+                // !model.get_material().read().unwrap().alpha
+            });
+
+            //lol maybe switch to this for readability
+            // let mut opaque_models: Vec<&Box<dyn ModelTrait>> = Vec::new();
+            // let mut transparent_models: Vec<&Box<dyn ModelTrait>> = Vec::new();
+
+            // for model in &models_iter {
+            //     if model.get_material().read().unwrap().is_transparent() {
+            //         // Or check your alpha bool
+            //         transparent_models.push(model);
+            //     } else {
+            //         opaque_models.push(model);
+            //     }
+            // }
 
         // let framebuffer = Framebuffer::new_depth_only(width, height);
         let meshes: Vec<&Mesh> = models_iter.iter().map(|model| model.get_mesh()).collect();
@@ -1721,6 +1750,18 @@ impl ForwardPlusRenderer {
         }
         
         ShaderProgram::unbind();
+
+        if !transparent_models.is_empty() {
+            // Resize OIT buffers if needed
+            //self.weighted_oit.resize(width, height);
+            
+            // Render transparent objects using weighted OIT
+            self.weighted_oit.render_transparency(
+                transparent_models.into_iter().map(|&model| model),
+                camera,
+                texture_manager,
+            );
+        }
     }
 
     // pub fn render_test<T: ModelTrait>(&mut self, 

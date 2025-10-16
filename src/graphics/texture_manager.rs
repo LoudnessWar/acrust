@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use gl::types::{GLenum, GLuint};
 use image::GenericImageView;
 
 pub struct TextureManager {
@@ -60,5 +61,56 @@ impl TextureManager {
 
     pub fn get_texture(&self, file_path: &str) -> Option<u32> {
         self.textures.get(file_path).copied()
+    }
+}
+
+pub struct RenderTexture {
+    pub id: GLuint,
+    pub width: u32,
+    pub height: u32,
+    pub format: GLenum,
+}
+
+impl RenderTexture {
+    pub fn new(width: u32, height: u32, format: GLenum) -> Self {
+        let mut id: GLuint = 0;
+        unsafe {
+            gl::GenTextures(1, &mut id);
+            gl::BindTexture(gl::TEXTURE_2D, id);
+            
+            // Determine the correct format and type based on internal format
+            let (data_format, data_type) = match format {
+                gl::RGBA16F => (gl::RGBA, gl::FLOAT),
+                gl::R16F | gl::R8 => (gl::RED, gl::FLOAT),
+                _ => (gl::RGBA, gl::FLOAT), // default fallback
+            };
+            
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                format as i32,
+                width as i32,
+                height as i32,
+                0,
+                data_format,  // Changed from always gl::RGBA
+                data_type,
+                std::ptr::null(),
+            );
+
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+        }
+
+        Self { id, width, height, format }
+    }
+}
+
+impl Drop for RenderTexture {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteTextures(1, &self.id);
+        }
     }
 }

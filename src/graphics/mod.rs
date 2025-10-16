@@ -8,3 +8,4 @@ pub mod lightmanager;
 // pub mod lightManager;//idk why tf is this like imma crashout basically this is not the file name
 pub mod api_trait;
 pub mod vlk_wrapper;
+pub mod weighted_oit;

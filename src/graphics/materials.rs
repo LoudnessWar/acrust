@@ -29,6 +29,7 @@ pub struct Material {
     shader: Arc<Mutex<ShaderProgram>>, // Reference to shader stored in ShaderManager
     uniforms: HashMap<String, UniformValue>, //dude why tf did i use String and not &str
     texture_names: HashMap<String, String>, // Maps uniform name to texture file path
+    alpha: f32,//hmmmm should i just make i8
 }
 
 impl Material {
@@ -37,6 +38,7 @@ impl Material {
             shader,
             uniforms: HashMap::new(),
             texture_names: HashMap::new(),
+            alpha: -1.0,
         }
     }
 
@@ -45,6 +47,7 @@ impl Material {
             shader: Arc::new(Mutex::new(shader)),
             uniforms: HashMap::new(),
             texture_names: HashMap::new(),
+            alpha: -1.0,
         }
     }
 
@@ -53,7 +56,21 @@ impl Material {
             shader: smader.get_shader(shader).unwrap(),
             uniforms: HashMap::new(),
             texture_names: HashMap::new(),
+            alpha: -1.0,
         }
+    }
+
+    pub fn set_alpha(&mut self, new_alpha: f32){
+        if new_alpha.signum() != 1.0 {
+            println!("FAILED TO SET ALPHA INVALID VALUE REMAINING OPAQUE");
+            return;
+        }
+
+        self.alpha = new_alpha; 
+    }
+
+    pub fn is_transparent(&self) -> bool{
+        self.alpha.signum() == 1.0
     }
 
 
@@ -290,6 +307,13 @@ impl MaterialManager {
         // } else {
         //     panic!("Shader '{}' not found in ShaderManager!", shader_name);
         // }
+    }
+
+    pub fn set_alpha(&self, name: &str, alpha: f32)
+    {
+        if let Some(mat) = self.materials.read().unwrap().get(name){//bruh nnnaaaaaahhhhhh
+            mat.write().unwrap().set_alpha(alpha);
+        }
     }
 
     pub fn init_uniform(&self, name: &str, key: &str)

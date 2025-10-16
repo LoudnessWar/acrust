@@ -101,7 +101,7 @@ fn main() {
     ui_shader.create_uniform("color");
     ui_shader.create_uniform("useTexture");
 
-    ShaderManager::enable_backface_culling();//these should just be enabled by default tbh like the user should have to disable them iof they dont want them on bc like
+    //ShaderManager::enable_backface_culling();//these should just be enabled by default tbh like the user should have to disable them iof they dont want them on bc like
     ShaderManager::enable_depth();//who tf turning off depth like nah i just want everything on 1
 
     let mat_man = MaterialManager::new();
@@ -111,6 +111,8 @@ fn main() {
     mat_man.init_uniform("mat2", "model");
     mat_man.init_uniform("mat2", "view");
     mat_man.init_uniform("mat2", "projection");
+
+    mat_man.set_alpha("mat2", 1.0);
     mat_man.init_uniform("mat1", "transform");
 
     // I should probably add player to the ecs
