@@ -1189,6 +1189,10 @@ impl LightManager {
                 gl_check!(gl::ActiveTexture(gl::TEXTURE0));
                 gl::BindTexture(gl::TEXTURE_2D, 0);
                 //gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+                //todo lol got rid of this because it was clearing the skybox when we replaced in the in the transparent pass
+                //this might be needed in fact idk
+                //i forgot why it was here but im pretty sure it was just a saftey mesure
+                //TODO yeah look at this
             }
 
             
