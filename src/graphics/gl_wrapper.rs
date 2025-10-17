@@ -775,8 +775,9 @@ impl Framebuffer {
 
 pub fn run_depth_prepass(
     depth_shader: &ShaderProgram,
+    models_iter: &Vec<&&Box<dyn ModelTrait>>,
     framebuffer: Rc<depthTexture>,
-    scene_objects: &Vec<&Mesh>,
+    //scene_objects: &Vec<&Mesh>,
     light_manager: &mut LightManager,//idk why this isnt just a return tbh
     width: u32,
     height: u32,
@@ -802,7 +803,9 @@ pub fn run_depth_prepass(
 
     }
 
-    for mesh in scene_objects {
+    for model in models_iter {
+        depth_shader.set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
+        let mesh = model.get_mesh();
         mesh.draw();//like this is better it might be a little diff thought we will see
     }
 
@@ -1654,7 +1657,7 @@ impl ForwardPlusRenderer {
             // }
 
         // let framebuffer = Framebuffer::new_depth_only(width, height);
-        let meshes: Vec<&Mesh> = models_iter.iter().map(|model| model.get_mesh()).collect();
+        //let meshes: Vec<&Mesh> = models_iter.iter().map(|model| model.get_mesh()).collect();
         
         let depth_shader_guard = self.depth_shader.lock().expect("failed to bind depth shader");
         depth_shader_guard.bind();
@@ -1665,18 +1668,28 @@ impl ForwardPlusRenderer {
 
         self.framebuffer.bind();
         
-        for model in &models_iter {
-            depth_shader_guard.set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
+        //for model in &models_iter {
+            //TODO see how this is running the whole prepass twice... literally not what we want
+            //its creating a super intresting but i know what i did wrong but i dont know why the output that i am getting
+            //is being caused
+            //mainly because its in consistennt.
+            //i think it figured it out
+            //its likely because right it is based off what comes first in the iterorator the moving object or th static one
+            //i need to move model into the run depth prepass so it will not use the some model matrix for all the models and will
+            //instead use them on a per model basis
+            //println!("model Matrix {:#?}", &model.get_world_coords().get_model_matrix());
+            //depth_shader_guard.set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
 
             run_depth_prepass(
                 &depth_shader_guard,
+                &models_iter,
                 self.framebuffer.get_depth_texture(),
-                &meshes,
+                //&meshes,
                 &mut self.light_manager,
                 width,
                 height,
             );
-        }
+        //}
 
         ShaderProgram::unbind();
         Framebuffer::unbind();
