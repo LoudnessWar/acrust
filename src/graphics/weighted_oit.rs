@@ -51,7 +51,7 @@ impl WeightedOIT {
         );
         
         oit_transparent_shader.bind();//lol just create the uniforms here
-        oit_transparent_shader.create_uniforms(vec!["view", "projection", "model", "u_diffuseColor", "u_alpha"]);
+        oit_transparent_shader.create_uniforms(vec!["view", "projection", "model", "u_diffuseColor", "u_alpha", "u_specularPower", "u_lightCount", "u_tileCountX"]);
 
         let mut oit_resolve_shader = ShaderProgram::new(
             "shaders/oit_resolve.vert",
@@ -167,6 +167,13 @@ impl WeightedOIT {
         t_shader.set_matrix4fv_uniform("projection", camera.get_p_matrix());
         t_shader.set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
         t_shader.set_uniform1f("u_alpha", 0.5);
+        t_shader.set_uniform1f("u_specularPower", 32.0);
+        t_shader.set_uniform1i("u_lightCount", &(light_manager.lights.len() as i32));
+
+        if let Some(culling_buffers) = &light_manager.culling_buffers {
+            let (tile_count_x, _) = culling_buffers.get_tile_counts();
+            t_shader.set_uniform1i("u_tileCountX", &(tile_count_x as i32));
+        }
 
         for model in transparent_models.into_iter() {
             t_shader.set_matrix4fv_uniform("model", &model.get_world_coords().get_model_matrix());
@@ -175,7 +182,7 @@ impl WeightedOIT {
 
         // 4) Restore GL state
         unsafe {
-            gl::Disable(gl::DEPTH_TEST);
+            //gl::Disable(gl::DEPTH_TEST);//TODO i removed this as a test but this might have been a mistake
             gl::DepthMask(gl::TRUE);
             gl::Disable(gl::BLEND);
         }
@@ -268,26 +275,26 @@ impl WeightedOIT {
             }
         }
 
-        unsafe {
-            // Check and disable face culling
-            let mut cull_enabled: u8 = 0;
-            gl::GetBooleanv(gl::CULL_FACE, &mut cull_enabled);
-            println!("Face culling enabled: {}", cull_enabled);
+        // unsafe {
+        //     // Check and disable face culling
+        //     let mut cull_enabled: u8 = 0;
+        //     gl::GetBooleanv(gl::CULL_FACE, &mut cull_enabled);
+        //     println!("Face culling enabled: {}", cull_enabled);
             
-            if cull_enabled != 0 {
-                let mut cull_mode: i32 = 0;
-                gl::GetIntegerv(gl::CULL_FACE_MODE, &mut cull_mode);
-                println!("Cull face mode: 0x{:X}", cull_mode);
-            }
+        //     if cull_enabled != 0 {
+        //         let mut cull_mode: i32 = 0;
+        //         gl::GetIntegerv(gl::CULL_FACE_MODE, &mut cull_mode);
+        //         println!("Cull face mode: 0x{:X}", cull_mode);
+        //     }
             
-            // Disable it just in case
-            gl::Disable(gl::CULL_FACE);
+        //     // Disable it just in case
+        //     gl::Disable(gl::CULL_FACE);
             
-            // Also check polygon mode
-            let mut poly_mode: [i32; 2] = [0; 2];
-            gl::GetIntegerv(gl::POLYGON_MODE, poly_mode.as_mut_ptr());
-            println!("Polygon mode: 0x{:X}", poly_mode[0]);
-        }
+        //     // Also check polygon mode
+        //     let mut poly_mode: [i32; 2] = [0; 2];
+        //     gl::GetIntegerv(gl::POLYGON_MODE, poly_mode.as_mut_ptr());
+        //     println!("Polygon mode: 0x{:X}", poly_mode[0]);
+        // }
 
 
         self.draw_fullscreen_quad();

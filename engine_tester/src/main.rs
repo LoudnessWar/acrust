@@ -101,7 +101,7 @@ fn main() {
     ui_shader.create_uniform("color");
     ui_shader.create_uniform("useTexture");
 
-    //ShaderManager::enable_backface_culling();//these should just be enabled by default tbh like the user should have to disable them iof they dont want them on bc like
+    ShaderManager::enable_backface_culling();//these should just be enabled by default tbh like the user should have to disable them iof they dont want them on bc like
     ShaderManager::enable_depth();//who tf turning off depth like nah i just want everything on 1
 
     let mat_man = MaterialManager::new();
@@ -442,7 +442,7 @@ fn main() {
 
         let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
         let projection_matrix = camera.get_p_matrix();
-        // skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
+        skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
 
         for event in world.get_collision_events() {
             println!("Collision between entities {} and {}", event.entity_a, event.entity_b);

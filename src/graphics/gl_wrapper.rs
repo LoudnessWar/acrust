@@ -1749,10 +1749,7 @@ impl ForwardPlusRenderer {
             model.get_mesh().draw();
         }
 
-        unsafe{//just a precaution
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
-		    gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, 0);
-        }
+
         
         ShaderProgram::unbind();
 
@@ -1774,6 +1771,11 @@ impl ForwardPlusRenderer {
                 texture_manager,
                 &self.light_manager
             );
+        }
+
+        unsafe{//just a precaution
+            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
+		    gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 2, 0);
         }
     }
 
