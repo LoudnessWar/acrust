@@ -48,25 +48,22 @@ float attenuate(vec3 lightDirection, float radius) {
 }
 
 void main() {
-    // Calculate tile information
     ivec2 location = ivec2(gl_FragCoord.xy);
     ivec2 tileID = location / ivec2(16, 16);
     int tileIndex = tileID.y * u_tileCountX + tileID.x;
     int tileOffset = tileIndex * 256;
 
-    // Prepare lighting variables
     vec3 normal = normalize(vertex_out.normalVector);
     vec3 fragPos = vertex_out.fragmentPosition;
     vec3 viewDir = normalize(-fragPos);
-
-    // Flip normal if facing away
-    if (dot(normal, viewDir) < 0.0)
-        normal = -normal;
+    
+    // Ensure normal faces camera for transparent surfaces
+    normal = faceforward(normal, -viewDir, normal);
 
     vec3 diffuse = vec3(0.0);
     vec3 specular = vec3(0.0);
 
-    // Process each visible light in this tile
+    // Process lights
     for (int i = 0; i < u_lightCount; ++i) {
         int lightIndex = visibleLightIndicesBuffer.data[tileOffset + i].index;
         if (lightIndex < 0 || lightIndex >= lightBuffer.lights.length()) break;
@@ -81,41 +78,38 @@ void main() {
         float attenuation = attenuate(lightVec, light.radius);
         vec3 lightDir = normalize(lightVec);
 
-        // Diffuse lighting
-        float diff = max(dot(normal, lightDir), 0.0);
-        diffuse += light.color * diff * attenuation;
+        // Diffuse (reduced for glass - mostly specular)
+        float diff = abs(dot(normal, lightDir));  // abs() for two-sided
+        diffuse += light.color * diff * attenuation * 0.3;  // Reduced diffuse
 
-        // Specular lighting
+        // Specular (main reflection for glass)
         vec3 reflectDir = reflect(-lightDir, normal);
-        float shininess = clamp(u_specularPower, 1.0, 64.0);
+        float shininess = clamp(u_specularPower, 1.0, 128.0);  // Higher for glass
         float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
-
-        /*
-        // Energy conservation
-        spec *= (1.0 - diff);
-
-        // Fresnel term
         
-        float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 5.0);
-        fresnel = mix(0.1, 1.0, fresnel);
-        spec *= fresnel;
-        */
-
         specular += light.color * spec * attenuation;
     }
 
-    // Combine lighting
-    vec3 result = (diffuse * u_diffuseColor.rgb) + specular;
-    result += u_diffuseColor.rgb * 0.03;  // Ambient
+    // Glass properties
+    vec3 baseColor = u_diffuseColor.rgb;
+    vec3 result = (diffuse * baseColor * 0.5) + (specular * 1.5);  // More specular
+    result += baseColor * 0.02;  // Minimal ambient
 
-    // Apply alpha
-    vec4 color = vec4(result, u_alpha);
+    // Fresnel for transparency
+    float fresnel = pow(1.0 - abs(dot(viewDir, normal)), 3.0);
+    float edgeAlpha = mix(u_alpha, min(1.0, u_alpha * 2.0), fresnel);
+    
+    // Absorption (optional - for colored glass)
+    float thickness = 1.0 - abs(dot(viewDir, normal));
+    vec3 absorption = pow(vec3(0.95, 0.97, 1.0), vec3(thickness));
+    result *= absorption;
 
-    // Calculate weight for OIT
+    vec4 color = vec4(result, edgeAlpha);
+
+    // OIT weight calculation
     float z = gl_FragCoord.z;
     float weight = color.a * max(0.01, min(3000.0, 10.0 / (0.00001 + pow(z / 200.0, 4.0))));
 
-    // Output to MRTs
     accumColor = vec4(color.rgb * color.a, color.a) * weight;
     revealage = color.a;
 }

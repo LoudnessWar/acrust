@@ -432,6 +432,11 @@ fn main() {
 
         //world.update_ui(delta_time, current_mouse_position, mouse_down, mouse_clicked);
         world.update_ui_with_text_input_and_collision(delta_time, &mut input_system);
+
+        let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
+        let projection_matrix = camera.get_p_matrix();
+        skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
+
         
         // This is like 3 funcitons deep at this point world -> render -> fpr -> five different fucntions
         world.render(&mut fpr, &camera, 720, 720, &texture_manager);
@@ -440,9 +445,6 @@ fn main() {
         //BRO ITS SO SLOW HELP!!! I think I was lowkey just adding stuff back, nah i figured it out btw it was a memory leak in the lighting where i was calling the
         //spam creating a buffer and it was filling up vram
 
-        let view_matrix = skybox.get_skybox_view_matrix(&camera.get_view());
-        let projection_matrix = camera.get_p_matrix();
-        skybox.render(&mut skybox_material, &texture_manager, &view_matrix, &projection_matrix);
 
         for event in world.get_collision_events() {
             println!("Collision between entities {} and {}", event.entity_a, event.entity_b);

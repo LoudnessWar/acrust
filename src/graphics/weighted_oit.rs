@@ -182,7 +182,7 @@ impl WeightedOIT {
 
         // 4) Restore GL state
         unsafe {
-            //gl::Disable(gl::DEPTH_TEST);//TODO i removed this as a test but this might have been a mistake
+            gl::Disable(gl::DEPTH_TEST);//TODO i removed this as a test but this might have been a mistake
             gl::DepthMask(gl::TRUE);
             gl::Disable(gl::BLEND);
         }

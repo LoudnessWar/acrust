@@ -1188,7 +1188,7 @@ impl LightManager {
             unsafe {
                 gl_check!(gl::ActiveTexture(gl::TEXTURE0));
                 gl::BindTexture(gl::TEXTURE_2D, 0);
-                gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+                //gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             }
 
             
