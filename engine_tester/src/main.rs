@@ -249,7 +249,7 @@ fn main() {
 
     world.collision.add_collider(
         cube.id,
-        Collider::rectangle(4.0, 4.0).with_layer(3)
+        Collider::bounding_box(4.0, 4.0, 4.0).with_layer(3)
     );
 
     //this is rendered without fpr
@@ -314,7 +314,9 @@ fn main() {
     let player_entity = world.spawn_player_with_collision(
         "MainPlayer",
         0.0, 0.0, -10.0, 0.0,
-        Collider::circle(10.0).with_layer(1) // Player layer
+        Collider::sphere(3.0).with_layer(1)
+        //Collider::bounding_box(5.0, 5.0, 5.0).with_layer(1)
+        //Collider::circle(1.0).with_layer(1) // Player layer
     );
 
     //skybox lol these take forever to load and have trippled dev time but if they break i will die so i keep dem

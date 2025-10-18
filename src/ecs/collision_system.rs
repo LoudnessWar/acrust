@@ -149,7 +149,7 @@ impl CollisionSystem {
                     
                     // Only resolve collision if neither is a trigger
                     if !collider_a.is_trigger && !collider_b.is_trigger {
-                        //self.resolve_collision(movement_system, &collision);
+                        self.resolve_collision(movement_system, &collision);
                     }
                 }
             }
@@ -377,6 +377,106 @@ impl CollisionSystem {
                         entity_b,
                         collision_point: Vector3::new(closest_x, closest_y, pos_b.z),
                         normal: Vector3::new(-normal.x, -normal.y, 0.0), // Flip normal since entity_a is the rectangle
+                        penetration,
+                    })
+                } else {
+                    None
+                }
+            },
+
+            (CollisionShape::Sphere { radius: r1 }, CollisionShape::Box { width: w2, height: h2, depth: d2 }) => {
+                // Sphere vs AABB collision detection
+                let half_w = w2 / 2.0;
+                let half_h = h2 / 2.0;
+                let half_d = d2 / 2.0;
+                
+                // Find the closest point on the box to the sphere's center
+                let closest_x = pos_a.x.max(pos_b.x - half_w).min(pos_b.x + half_w);
+                let closest_y = pos_a.y.max(pos_b.y - half_h).min(pos_b.y + half_h);
+                let closest_z = pos_a.z.max(pos_b.z - half_d).min(pos_b.z + half_d);
+                
+                // Calculate distance from sphere center to this closest point
+                let dx = pos_a.x - closest_x;
+                let dy = pos_a.y - closest_y;
+                let dz = pos_a.z - closest_z;
+                let distance_squared = dx * dx + dy * dy + dz * dz;
+                
+                if distance_squared < r1 * r1 {
+                    let distance = distance_squared.sqrt();
+                    let penetration = r1 - distance;
+                    
+                    let normal = if distance > 0.0 {
+                        Vector3::new(dx, dy, dz).normalize()
+                    } else {
+                        // Sphere center is inside box, push out along closest axis
+                        let dx_edge = (pos_a.x - pos_b.x).abs() - half_w;
+                        let dy_edge = (pos_a.y - pos_b.y).abs() - half_h;
+                        let dz_edge = (pos_a.z - pos_b.z).abs() - half_d;
+                        
+                        if dx_edge <= dy_edge && dx_edge <= dz_edge {
+                            Vector3::new(if pos_a.x > pos_b.x { 1.0 } else { -1.0 }, 0.0, 0.0)
+                        } else if dy_edge <= dz_edge {
+                            Vector3::new(0.0, if pos_a.y > pos_b.y { 1.0 } else { -1.0 }, 0.0)
+                        } else {
+                            Vector3::new(0.0, 0.0, if pos_a.z > pos_b.z { 1.0 } else { -1.0 })
+                        }
+                    };
+
+                    Some(CollisionEvent {
+                        entity_a,
+                        entity_b,
+                        collision_point: Vector3::new(closest_x, closest_y, closest_z),
+                        normal,
+                        penetration,
+                    })
+                } else {
+                    None
+                }
+            },
+
+            (CollisionShape::Box { width: w2, height: h2, depth: d2 }, CollisionShape::Sphere { radius: r1 }) => {
+                // Sphere vs AABB collision detection
+                let half_w = w2 / 2.0;
+                let half_h = h2 / 2.0;
+                let half_d = d2 / 2.0;
+                
+                // Find the closest point on the box to the sphere's center
+                let closest_x = pos_a.x.max(pos_b.x - half_w).min(pos_b.x + half_w);
+                let closest_y = pos_a.y.max(pos_b.y - half_h).min(pos_b.y + half_h);
+                let closest_z = pos_a.z.max(pos_b.z - half_d).min(pos_b.z + half_d);
+                
+                // Calculate distance from sphere center to this closest point
+                let dx = pos_a.x - closest_x;
+                let dy = pos_a.y - closest_y;
+                let dz = pos_a.z - closest_z;
+                let distance_squared = dx * dx + dy * dy + dz * dz;
+                
+                if distance_squared < r1 * r1 {
+                    let distance = distance_squared.sqrt();
+                    let penetration = r1 - distance;
+                    
+                    let normal = if distance > 0.0 {
+                        Vector3::new(dx, dy, dz).normalize()
+                    } else {
+                        // Sphere center is inside box, push out along closest axis
+                        let dx_edge = (pos_a.x - pos_b.x).abs() - half_w;
+                        let dy_edge = (pos_a.y - pos_b.y).abs() - half_h;
+                        let dz_edge = (pos_a.z - pos_b.z).abs() - half_d;
+                        
+                        if dx_edge <= dy_edge && dx_edge <= dz_edge {
+                            Vector3::new(if pos_a.x > pos_b.x { 1.0 } else { -1.0 }, 0.0, 0.0)
+                        } else if dy_edge <= dz_edge {
+                            Vector3::new(0.0, if pos_a.y > pos_b.y { 1.0 } else { -1.0 }, 0.0)
+                        } else {
+                            Vector3::new(0.0, 0.0, if pos_a.z > pos_b.z { 1.0 } else { -1.0 })
+                        }
+                    };
+
+                    Some(CollisionEvent {
+                        entity_a,
+                        entity_b,
+                        collision_point: Vector3::new(closest_x, closest_y, closest_z),
+                        normal,
                         penetration,
                     })
                 } else {
