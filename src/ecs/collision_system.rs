@@ -133,6 +133,9 @@ impl CollisionSystem {
                 let (entity_a, pos_a, collider_a) = entities_with_collision[i];
                 let (entity_b, pos_b, collider_b) = entities_with_collision[j];
                 
+
+                print!("comparing {} and {}\n", entity_a, entity_b);
+                print!("positions: {:?} and {:?}\n", pos_a, pos_b);
                 // Check if these layers can collide
                 if !self.can_collide(collider_a.layer, collider_b.layer) {
                     continue;
@@ -146,7 +149,7 @@ impl CollisionSystem {
                     
                     // Only resolve collision if neither is a trigger
                     if !collider_a.is_trigger && !collider_b.is_trigger {
-                        self.resolve_collision(movement_system, &collision);
+                        //self.resolve_collision(movement_system, &collision);
                     }
                 }
             }
@@ -293,8 +296,95 @@ impl CollisionSystem {
                     None
                 }
             },
+
+            (CollisionShape::Circle { radius }, CollisionShape::Rectangle { width, height }) => {
+                let half_w = width / 2.0;
+                let half_h = height / 2.0;
+                
+                // Find the closest point on the rectangle to the circle's center
+                let closest_x = pos_a.x.max(pos_b.x - half_w).min(pos_b.x + half_w);
+                let closest_y = pos_a.y.max(pos_b.y - half_h).min(pos_b.y + half_h);
+                
+                // Calculate distance from circle center to this closest point
+                let dx = pos_a.x - closest_x;
+                let dy = pos_a.y - closest_y;
+                let distance_squared = dx * dx + dy * dy;
+                
+                if distance_squared < radius * radius {
+                    let distance = distance_squared.sqrt();
+                    let penetration = radius - distance;
+                    
+                    let normal = if distance > 0.0 {
+                        Vector2::new(dx, dy).normalize()
+                    } else {
+                        // Circle center is inside rectangle, push out along closest axis
+                        let dx_edge = (pos_a.x - pos_b.x).abs() - half_w;
+                        let dy_edge = (pos_a.y - pos_b.y).abs() - half_h;
+                        
+                        if dx_edge > dy_edge {
+                            Vector2::new(if pos_a.x > pos_b.x { 1.0 } else { -1.0 }, 0.0)
+                        } else {
+                            Vector2::new(0.0, if pos_a.y > pos_b.y { 1.0 } else { -1.0 })
+                        }
+                    };
+                    
+                    Some(CollisionEvent {
+                        entity_a,
+                        entity_b,
+                        collision_point: Vector3::new(closest_x, closest_y, pos_a.z),
+                        normal: Vector3::new(normal.x, normal.y, 0.0),
+                        penetration,
+                    })
+                } else {
+                    None
+                }
+            },
+
+            // Rectangle vs Circle (2D) - just swap the entities
+            (CollisionShape::Rectangle { width, height }, CollisionShape::Circle { radius }) => {
+                let half_w = width / 2.0;
+                let half_h = height / 2.0;
+                
+                // Find the closest point on the rectangle to the circle's center
+                let closest_x = pos_b.x.max(pos_a.x - half_w).min(pos_a.x + half_w);
+                let closest_y = pos_b.y.max(pos_a.y - half_h).min(pos_a.y + half_h);
+                
+                // Calculate distance from circle center to this closest point
+                let dx = pos_b.x - closest_x;
+                let dy = pos_b.y - closest_y;
+                let distance_squared = dx * dx + dy * dy;
+                
+                if distance_squared < radius * radius {
+                    let distance = distance_squared.sqrt();
+                    let penetration = radius - distance;
+                    
+                    let normal = if distance > 0.0 {
+                        Vector2::new(dx, dy).normalize()
+                    } else {
+                        // Circle center is inside rectangle, push out along closest axis
+                        let dx_edge = (pos_b.x - pos_a.x).abs() - half_w;
+                        let dy_edge = (pos_b.y - pos_a.y).abs() - half_h;
+                        
+                        if dx_edge > dy_edge {
+                            Vector2::new(if pos_b.x > pos_a.x { 1.0 } else { -1.0 }, 0.0)
+                        } else {
+                            Vector2::new(0.0, if pos_b.y > pos_a.y { 1.0 } else { -1.0 })
+                        }
+                    };
+                    
+                    Some(CollisionEvent {
+                        entity_a,
+                        entity_b,
+                        collision_point: Vector3::new(closest_x, closest_y, pos_b.z),
+                        normal: Vector3::new(-normal.x, -normal.y, 0.0), // Flip normal since entity_a is the rectangle
+                        penetration,
+                    })
+                } else {
+                    None
+                }
+            },
             
-            // Mixed shape collisions could be added here
+            // need to add all the mixed collision types later
             _ => None, // Unsupported collision pair
         }
     }

@@ -233,12 +233,12 @@ fn main() {
     let cube = world.create_entity("Cube");
     let cube_model = Cube::new(
         4.0, 
-        Vector3::new(15.0, 0.0, 0.0), 
+        Vector3::new(0.0, 0.0, 0.0), //nah explain why this actually does something for the cube
         0.0,
         mat_man.get_mat("mat3")
     );
 
-    world.movement.add_coords(cube.id, WorldCoords::new(5.0, 0.0, 0.0, 0.0));
+    world.movement.add_coords(cube.id, WorldCoords::new(0.0, 0.0, 0.0, 0.0));
     world.movement.add_velocity(cube.id, Velocity {
         direction: Vector3::new(0.0, 0.0, 0.0),
         speed: 0.0
@@ -246,6 +246,11 @@ fn main() {
     world.render.add_renderable(cube.id, Renderable {
         model: Box::new(cube_model)
     });
+
+    world.collision.add_collider(
+        cube.id,
+        Collider::rectangle(4.0, 4.0).with_layer(3)
+    );
 
     //this is rendered without fpr
     let mut cube2 = RoundedCube::new(
@@ -278,11 +283,11 @@ fn main() {
         model: Box::new(sphere_model)
     });
 
-    let wall1 = world.create_static(
-        "Wall1",
-        5.0, 0.0, 0.0,
-        Collider::rectangle(1.0, 10.0).with_layer(2) // Wall layer
-    );
+    // let wall1 = world.create_static(
+    //     "Wall1",
+    //     5.0, 0.0, 0.0,
+    //     Collider::rectangle(10.0, 10.0).with_layer(2) // Wall layer
+    // );
 
     
     // Create a triangle entity
@@ -309,7 +314,7 @@ fn main() {
     let player_entity = world.spawn_player_with_collision(
         "MainPlayer",
         0.0, 0.0, -10.0, 0.0,
-        Collider::circle(1.0).with_layer(1) // Player layer
+        Collider::circle(10.0).with_layer(1) // Player layer
     );
 
     //skybox lol these take forever to load and have trippled dev time but if they break i will die so i keep dem

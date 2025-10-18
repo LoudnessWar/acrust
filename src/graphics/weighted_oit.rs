@@ -60,7 +60,7 @@ impl WeightedOIT {
             "shaders/oit_resolve.frag"
         );
 
-        println!("Resolve shader program ID: {:?}", oit_resolve_shader.get_program_handle());
+        //println!("Resolve shader program ID: {:?}", oit_resolve_shader.get_program_handle());
 
         oit_resolve_shader.bind();//lol just create the uniforms here
         oit_resolve_shader.create_uniforms(vec!["u_accumTex", "u_revealTex"]);
@@ -106,7 +106,7 @@ impl WeightedOIT {
         OITFramebuffer::unbind();
         
         self.depth_attached = true;
-        println!("Attached depth texture {} to OIT FBO", depth_texture_id);
+        //println!("Attached depth texture {} to OIT FBO", depth_texture_id);
     }
 
     // pub fn resize(&mut self, width: u32, height: u32) {
@@ -194,17 +194,17 @@ impl WeightedOIT {
         }
 
         // Debug output
-        unsafe {
-            let mut pixel: [f32; 4] = [0.0; 4];
-            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
-            gl::ReadPixels(360, 360, 1, 1, gl::RGBA, gl::FLOAT, pixel.as_mut_ptr() as *mut _);
-            println!("Accum pixel at center: {:?}", pixel);
+        // unsafe {
+        //     let mut pixel: [f32; 4] = [0.0; 4];
+        //     gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+        //     gl::ReadPixels(360, 360, 1, 1, gl::RGBA, gl::FLOAT, pixel.as_mut_ptr() as *mut _);
+        //     println!("Accum pixel at center: {:?}", pixel);
             
-            let mut reveal_pixel: [f32; 1] = [0.0];
-            gl::ReadBuffer(gl::COLOR_ATTACHMENT1);
-            gl::ReadPixels(360, 360, 1, 1, gl::RED, gl::FLOAT, reveal_pixel.as_mut_ptr() as *mut _);
-            println!("Reveal pixel at center: {:?}", reveal_pixel);
-        }
+        //     let mut reveal_pixel: [f32; 1] = [0.0];
+        //     gl::ReadBuffer(gl::COLOR_ATTACHMENT1);
+        //     gl::ReadPixels(360, 360, 1, 1, gl::RED, gl::FLOAT, reveal_pixel.as_mut_ptr() as *mut _);
+        //     println!("Reveal pixel at center: {:?}", reveal_pixel);
+        // }
 
         Framebuffer::unbind();
 
@@ -239,39 +239,39 @@ impl WeightedOIT {
             // This means: final = src * src.a + dst * (1 - src.a)
         }
 
-        println!("About to draw fullscreen quad");
-        unsafe {
-            let mut current_fbo: i32 = 0;
-            gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, &mut current_fbo);
-            println!("Current FBO bound: {}", current_fbo); // Should be 0 (default framebuffer)
-        }
+        // println!("About to draw fullscreen quad");
+        // unsafe {
+        //     let mut current_fbo: i32 = 0;
+        //     gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, &mut current_fbo);
+        //     println!("Current FBO bound: {}", current_fbo); // Should be 0 (default framebuffer)
+        // }
 
-        unsafe {
-            // Verify textures are valid
-            println!("Accum texture ID: {}", self.fbo.accum_tex.id);
-            println!("Reveal texture ID: {}", self.fbo.reveal_tex.id);
+        // unsafe {
+        //     // Verify textures are valid
+        //     println!("Accum texture ID: {}", self.fbo.accum_tex.id);
+        //     println!("Reveal texture ID: {}", self.fbo.reveal_tex.id);
             
-            // Check if textures are actually bound
-            let mut bound_tex_0: i32 = 0;
-            gl::ActiveTexture(gl::TEXTURE0);
-            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut bound_tex_0);
-            println!("Texture bound to unit 0: {}", bound_tex_0);
+        //     // Check if textures are actually bound
+        //     let mut bound_tex_0: i32 = 0;
+        //     gl::ActiveTexture(gl::TEXTURE0);
+        //     gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut bound_tex_0);
+        //     println!("Texture bound to unit 0: {}", bound_tex_0);
             
-            let mut bound_tex_1: i32 = 0;
-            gl::ActiveTexture(gl::TEXTURE1);
-            gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut bound_tex_1);
-            println!("Texture bound to unit 1: {}", bound_tex_1);
-        }
+        //     let mut bound_tex_1: i32 = 0;
+        //     gl::ActiveTexture(gl::TEXTURE1);
+        //     gl::GetIntegerv(gl::TEXTURE_BINDING_2D, &mut bound_tex_1);
+        //     println!("Texture bound to unit 1: {}", bound_tex_1);
+        // }
 
-        unsafe {
-            let mut viewport: [i32; 4] = [0; 4];
-            gl::GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
-            println!("Viewport: x={}, y={}, w={}, h={}", 
-                    viewport[0], viewport[1], viewport[2], viewport[3]);
+        // unsafe {
+        //     let mut viewport: [i32; 4] = [0; 4];
+        //     gl::GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
+        //     println!("Viewport: x={}, y={}, w={}, h={}", 
+        //             viewport[0], viewport[1], viewport[2], viewport[3]);
             
-            // Make sure viewport is set correctly
-            gl::Viewport(0, 0, 720 as i32, 720 as i32);
-        }
+        //     // Make sure viewport is set correctly
+        //     gl::Viewport(0, 0, 720 as i32, 720 as i32);
+        // }
 
         unsafe {
             let mut error = gl::GetError();
@@ -306,7 +306,7 @@ impl WeightedOIT {
         self.draw_fullscreen_quad();
 
 
-        println!("Finished drawing fullscreen quad");
+        //println!("Finished drawing fullscreen quad");
 
         unsafe {
             let mut error = gl::GetError();
@@ -362,18 +362,18 @@ impl WeightedOIT {
 
     fn draw_fullscreen_quad(&self) {
         unsafe {
-            println!("Drawing quad with VAO: {}", self.fs_quad_vao);
+            //println!("Drawing quad with VAO: {}", self.fs_quad_vao);
             
             // Check if VAO is valid
             let is_vao = gl::IsVertexArray(self.fs_quad_vao);
-            println!("Is valid VAO: {}", is_vao);
+            //println!("Is valid VAO: {}", is_vao);
             
             gl::BindVertexArray(self.fs_quad_vao);
             
             // Check what's actually bound
             let mut bound_vao: i32 = 0;
             gl::GetIntegerv(gl::VERTEX_ARRAY_BINDING, &mut bound_vao);
-            println!("Actually bound VAO: {}", bound_vao);
+            //println!("Actually bound VAO: {}", bound_vao);
             
             gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
             gl::BindVertexArray(0);
