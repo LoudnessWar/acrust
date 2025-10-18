@@ -1,6 +1,6 @@
 use std::ptr;
 use std::ffi::CString;
-use cgmath::Vector4;
+use cgmath::{Vector3, Vector4};
 use gl;
 use gl::types::GLuint;
 use std::rc::Rc;
@@ -51,7 +51,9 @@ impl WeightedOIT {
         );
         
         oit_transparent_shader.bind();//lol just create the uniforms here
-        oit_transparent_shader.create_uniforms(vec!["view", "projection", "model", "u_diffuseColor", "u_alpha", "u_specularPower", "u_lightCount", "u_tileCountX"]);
+        oit_transparent_shader.create_uniforms(vec!["view", "projection", "model", "u_diffuseColor", "u_alpha", "u_lightCount", "u_tileCountX"]);
+
+        oit_transparent_shader.create_uniforms(vec!["u_ior", "u_roughness"]);
 
         let mut oit_resolve_shader = ShaderProgram::new(
             "shaders/oit_resolve.vert",
@@ -167,8 +169,12 @@ impl WeightedOIT {
         t_shader.set_matrix4fv_uniform("projection", camera.get_p_matrix());
         t_shader.set_uniform4f("u_diffuseColor", &Vector4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 });
         t_shader.set_uniform1f("u_alpha", 0.5);
-        t_shader.set_uniform1f("u_specularPower", 32.0);
+        //t_shader.set_uniform1f("u_specularPower", 32.0);
         t_shader.set_uniform1i("u_lightCount", &(light_manager.lights.len() as i32));
+
+                t_shader.set_uniform1f("u_ior", 1.52);
+                t_shader.set_uniform1f("u_roughness",  0.1);
+                //t_shader.set_uniform3f("u_tintColor", &Vector3::new(1.0, 1.0, 1.0));
 
         if let Some(culling_buffers) = &light_manager.culling_buffers {
             let (tile_count_x, _) = culling_buffers.get_tile_counts();

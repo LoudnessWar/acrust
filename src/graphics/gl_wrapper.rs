@@ -1729,6 +1729,9 @@ impl ForwardPlusRenderer {
 
         //self.light_shader.lock().expect("failed bind").bind();
 
+        //TODO make this more dynamic and ofc this will take time as i add more things and such. For example though what if I wanted to handle like ice with a different shader then glass because they would need different shaders what would I do there. Well I always have the matiral
+        //shader that is attached to the model. That could be the basis for a first run or something idk.
+
         //idk gonna do like vertex stuff here
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("view", &camera.get_view());
         self.light_shader.lock().expect("temp_light_shader failed to set uniform").set_matrix4fv_uniform("projection", &camera.get_p_matrix());
