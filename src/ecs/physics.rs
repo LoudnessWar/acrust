@@ -1,3 +1,11 @@
+use cgmath::{Vector3, InnerSpace};
+use serde::{Serialize, Deserialize};
+use std::collections::HashMap;
+
+use crate::model::transform::WorldCoords;
+use super::collision_system::{Collider, CollisionShape, CollisionEvent};
+use super::components::Velocity;
+use super::world::{MovementSystem, ComponentStorage};
 
 //lol these are just to start
 pub enum physicsType {
@@ -60,6 +68,8 @@ pub struct physicsEntity { //this is more like physics entity data doe btw
     //todo 
 }
 
+
+//bascially just pattern mathcing
 impl physicsEntity {
     pub fn static_body(name: &str, position: Vector3<f32>, collider: ColliderData) -> Self {
         Self {
@@ -73,7 +83,7 @@ impl physicsEntity {
             angular_velocity: None,
             restitution: Some(0.0),
             friction: Some(0.5),
-            is_kinematic: false,
+            is_kinematic: false, 
         }
     }
     
