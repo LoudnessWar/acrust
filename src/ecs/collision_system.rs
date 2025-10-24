@@ -174,7 +174,7 @@ impl CollisionSystem {
         
         for (entity_id, collider) in &self.colliders {
             if let Some(coords) = movement_system.get_coords(*entity_id) {
-                entities_with_collision.push((*entity_id, coords.position  + collider.offset, collider));//no rotation or scaling yet
+                entities_with_collision.push((*entity_id, coords.position + collider.offset, collider));//no rotation or scaling yet
                 //todo add
             }
         }

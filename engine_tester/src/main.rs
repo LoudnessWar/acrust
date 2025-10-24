@@ -265,10 +265,10 @@ fn main() {
     );
 
     world.movement.add_coords(ground.id, WorldCoords::new(0.0, 0.0, 0.0, 0.0));
-    // world.movement.add_velocity(ground.id, Velocity {
-    //     direction: Vector3::new(0.0, 0.0, 0.0),
-    //     speed: 0.0
-    // });
+    world.movement.add_velocity(ground.id, Velocity {
+        direction: Vector3::new(0.0, 0.0, 0.0),
+        speed: 0.0
+    });
     world.render.add_renderable(ground.id, Renderable {
         model: Box::new(ground_model)
     });
@@ -309,8 +309,10 @@ fn main() {
 
     world.physics.add_rigidbody(
         drop_test.id,
-        PhysicsEntity::new(3.0)
+        PhysicsEntity::new(30.0).with_restitution(0.8).with_friction(0.3)
     );
+
+    world.physics.gravity = Vector3::new(0.0, -30.0, 0.0);
 
 
     //this is rendered without fpr

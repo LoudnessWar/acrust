@@ -355,7 +355,7 @@ impl PhysicsSystem {
             let mut new_velocity = current_velocity;
             
             if !rigidbody.is_kinematic {
-                print!("Applying physics to entity {}\n", entity_id);
+                //print!("Applying physics to entity {}\n", entity_id);
                 // Apply gravity when the grav is tea..... lowkey doe we need a floor dont we so things dont just fall forever
                 let gravity_force = self.gravity * rigidbody.mass;
                 rigidbody.apply_force(gravity_force);
@@ -483,20 +483,42 @@ impl PhysicsSystem {
         
         // Apply impulses
         if inv_mass_a > 0.0 {
-            if let Some(rb) = self.rigidbodies.get_mut(collision.entity_a) {
-                rb.apply_impulse(impulse);
+            if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
+                let velocity_change = impulse * inv_mass_a;
+                let current_vel = vel.direction * vel.speed;
+                let new_vel = current_vel + velocity_change;
+                
+                let speed = new_vel.magnitude();
+                if speed > 0.001 {
+                    vel.direction = new_vel.normalize();
+                    vel.speed = speed;
+                } else {
+                    vel.direction = Vector3::new(0.0, 0.0, 0.0);
+                    vel.speed = 0.0;
+                }
             }
         }
-        
+
         if inv_mass_b > 0.0 {
-            if let Some(rb) = self.rigidbodies.get_mut(collision.entity_b) {
-                rb.apply_impulse(-impulse);
+            if let Some(vel) = movement_system.get_velocity_mut(collision.entity_b) {
+                let velocity_change = -impulse * inv_mass_b;
+                let current_vel = vel.direction * vel.speed;
+                let new_vel = current_vel + velocity_change;
+                
+                let speed = new_vel.magnitude();
+                if speed > 0.001 {
+                    vel.direction = new_vel.normalize();
+                    vel.speed = speed;
+                } else {
+                    vel.direction = Vector3::new(0.0, 0.0, 0.0);
+                    vel.speed = 0.0;
+                }
             }
         }
         
         // === FRICTION ===
         let friction = (fric_a + fric_b) / 2.0;
-        
+
         if friction > 0.001 {
             // Recalculate relative velocity after impulse
             let vel_a = movement_system.get_velocity_mut(collision.entity_a)
@@ -519,16 +541,32 @@ impl PhysicsSystem {
                 let friction_impulse_scalar = -relative_velocity.dot(tangent) / total_inv_mass;
                 let friction_impulse = tangent * friction_impulse_scalar * friction;
                 
-                // Apply friction impulses
+                // Apply friction impulses DIRECTLY to velocity
                 if inv_mass_a > 0.0 {
-                    if let Some(rb) = self.rigidbodies.get_mut(collision.entity_a) {
-                        rb.apply_impulse(friction_impulse * 0.5); // Split friction between objects
+                    if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
+                        let velocity_change = friction_impulse * 0.5 * inv_mass_a;
+                        let current_vel = vel.direction * vel.speed;
+                        let new_vel = current_vel + velocity_change;
+                        
+                        let speed = new_vel.magnitude();
+                        if speed > 0.001 {
+                            vel.direction = new_vel.normalize();
+                            vel.speed = speed;
+                        }
                     }
                 }
                 
                 if inv_mass_b > 0.0 {
-                    if let Some(rb) = self.rigidbodies.get_mut(collision.entity_b) {
-                        rb.apply_impulse(-friction_impulse * 0.5);
+                    if let Some(vel) = movement_system.get_velocity_mut(collision.entity_b) {
+                        let velocity_change = -friction_impulse * 0.5 * inv_mass_b;
+                        let current_vel = vel.direction * vel.speed;
+                        let new_vel = current_vel + velocity_change;
+                        
+                        let speed = new_vel.magnitude();
+                        if speed > 0.001 {
+                            vel.direction = new_vel.normalize();
+                            vel.speed = speed;
+                        }
                     }
                 }
             }
