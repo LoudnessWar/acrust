@@ -262,6 +262,16 @@ impl PhysicsEntity {
         self.linear_damping = damping.clamp(0.0, 1.0);
         self
     }
+
+    pub fn with_kinematic(mut self, is_kinematic: bool) -> Self {
+        self.is_kinematic = is_kinematic;
+        self
+    }
+
+    pub fn lock_x_axis(mut self) -> Self {
+        self.lock_axis.x = true;
+        self
+    }
     
     pub fn lock_y_axis(mut self) -> Self {
         self.lock_axis.y = true;
@@ -323,14 +333,20 @@ impl PhysicsSystem {
     
     /// Main physics update - applies forces and integrates velocity
     pub fn update(&mut self, movement_system: &mut MovementSystem, delta_time: f32) {
+
+        //print!("Physics Update Start\n");
         for (entity_id, rigidbody) in self.rigidbodies.iter_mut() {
+
+            //println!("Updating rigidbody for entity {}: {:?}", entity_id, rigidbody);
             if rigidbody.is_static() {
+                //print!("Skipping static rigidbody for entity {}\n", entity_id);
                 continue;
             }
             
             // Get velocity component (create if doesn't exist for dynamic bodies)
             let velocity = movement_system.get_velocity_mut(*entity_id);//todo mmee eeh mee heeheh jh he like i dont like gettign mut here... 
             if velocity.is_none() {
+                print!("No velocity component for entity {}, skipping physics update\n", entity_id);
                 continue;
             }
             let velocity = velocity.unwrap();
@@ -339,6 +355,7 @@ impl PhysicsSystem {
             let mut new_velocity = current_velocity;
             
             if !rigidbody.is_kinematic {
+                print!("Applying physics to entity {}\n", entity_id);
                 // Apply gravity when the grav is tea..... lowkey doe we need a floor dont we so things dont just fall forever
                 let gravity_force = self.gravity * rigidbody.mass;
                 rigidbody.apply_force(gravity_force);
@@ -388,6 +405,7 @@ impl PhysicsSystem {
         
         // If neither has a rigidbody, use simple position separation
         if rb_a.is_none() && rb_b.is_none() {
+            print!("using simple collision resolution\n");
             self.simple_position_resolution(movement_system, collision);
             return;
         }
@@ -396,17 +414,20 @@ impl PhysicsSystem {
         let (inv_mass_a, rest_a, fric_a, is_static_a) = if let Some(rb) = rb_a {
             (rb.inverse_mass, rb.restitution, rb.friction, rb.is_static())
         } else {
+            print!("object A has no rigidbody\n");
             (0.0, 0.0, 0.5, true) // No rigidbody = static
         };
         
         let (inv_mass_b, rest_b, fric_b, is_static_b) = if let Some(rb) = rb_b {
             (rb.inverse_mass, rb.restitution, rb.friction, rb.is_static())
         } else {
+            print!("object B has no rigidbody\n");
             (0.0, 0.0, 0.5, true)
         };
         
         // Both static/kinematic - just separate positions
         if inv_mass_a == 0.0 && inv_mass_b == 0.0 {
+            print!("both objects static - using simple collision resolution\n");
             self.simple_position_resolution(movement_system, collision);
             return;
         }

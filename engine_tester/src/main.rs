@@ -46,6 +46,7 @@ use acrust::model::objload::load_obj_new_normals;
 use acrust::ecs::player::Player;
 use acrust::ecs::world::{World, Entity};
 use acrust::ecs::components::{Renderable, Velocity};
+use acrust::ecs::physics::{PhysicsEntity, PhysicsType};
 
 use acrust::graphics::gl_wrapper;
 
@@ -276,6 +277,41 @@ fn main() {
         Collider::bounding_box(50.0, 5.0, 50.0).with_layer(3).with_offset(Vector3::new(25.0, 2.5, 25.0))
     );
 
+    world.physics.add_rigidbody(
+        ground.id,
+        PhysicsEntity::static_body()
+    );
+
+
+    let drop_test = world.create_entity("drop_test");
+    let drop_test_model = RoundedCube::new(
+        5.0,
+        5.0,
+        5.0,
+        1.0,//this needs to be like a number
+        Vector3::new(0.0, 0.0, 0.0), //todo this is not needed because the ecs handles positions anyway, and like i was giving things cpu side calcs as well but it honestly doesnt matter atm
+        0.0,
+        mat_man.get_mat("mat3")
+    );
+
+    world.movement.add_coords(drop_test.id, WorldCoords::new(10.0, 30.0, 10.0, 0.0));
+    world.movement.add_velocity(drop_test.id, Velocity {
+        direction: Vector3::new(0.0, 0.0, 0.0),
+        speed: 0.0
+    });
+    world.render.add_renderable(drop_test.id, Renderable {
+        model: Box::new(drop_test_model)
+    });
+    world.collision.add_collider(
+        drop_test.id,
+        Collider::bounding_box(5.0, 5.0, 5.0).with_layer(3).with_offset(Vector3::new(2.5, 2.5, 2.5))
+    );
+
+    world.physics.add_rigidbody(
+        drop_test.id,
+        PhysicsEntity::new(3.0)
+    );
+
 
     //this is rendered without fpr
     let mut cube2 = RoundedCube::new(
@@ -480,11 +516,11 @@ fn main() {
         //spam creating a buffer and it was filling up vram
 
 
-        for event in world.get_collision_events() {
-            println!("Collision between entities {} and {}", event.entity_a, event.entity_b);
-            println!("Collision point: {:?}", event.collision_point);
-            println!("Penetration: {}", event.penetration);
-        }
+        // for event in world.get_collision_events() {
+        //     println!("Collision between entities {} and {}", event.entity_a, event.entity_b);
+        //     println!("Collision point: {:?}", event.collision_point);
+        //     println!("Penetration: {}", event.penetration);
+        // }
 
 
         if show_ui {
@@ -561,7 +597,7 @@ fn main() {
             gl::Disable(gl::DEPTH_TEST);
         }
         cube2.render(&texture_manager);
-        world.collision.draw_colliders(&world.movement);
+        //world.collision.draw_colliders(&world.movement);
         unsafe{
             gl::PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
             gl::Enable(gl::DEPTH_TEST);
