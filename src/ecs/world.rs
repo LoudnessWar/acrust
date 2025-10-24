@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::any::{Any};
-use cgmath::{Vector2, Vector3, Vector4};
+use cgmath::{InnerSpace, Vector2, Vector3, Vector4};
 
+use crate::ecs::physics::{PhysicsEntityData, PhysicsSystem, PhysicsType, PhysicsEntity};
 use crate::graphics::camera::Camera;
 use crate::graphics::gl_wrapper::ForwardPlusRenderer;
 use crate::graphics::texture_manager::TextureManager;
@@ -130,6 +131,14 @@ impl MovementSystem {
         self.velocities.insert(entity_id, velocity);
     }
 
+    pub fn get_velocity(&self, entity_id: u32) -> Option<&Velocity> {
+        self.velocities.get(entity_id)
+    }
+
+    pub fn get_velocity_mut(&mut self, entity_id: u32) -> Option<&mut Velocity> {
+        self.velocities.get_mut(entity_id)
+    }
+
     pub fn get_coords(&self, entity_id: u32) -> Option<&WorldCoords> {
         self.coords.get(entity_id)
     }
@@ -217,6 +226,7 @@ pub struct World {
     pub render: RenderSystem,
     pub ui: UISystem,
     pub collision: CollisionSystem,
+    pub physics: PhysicsSystem,
 }
 
 impl World {
@@ -245,6 +255,7 @@ impl World {
             render: RenderSystem::new(),
             ui: UISystem::new(screen_width, screen_height, text_renderer),
             collision: CollisionSystem::new(),
+            physics: PhysicsSystem::new(),
         }
     }
 
@@ -465,25 +476,58 @@ impl World {
         self.ui.update_layout();
     }   
 
-    pub fn update_ui_with_collision(&mut self, delta_time: f32, mouse_pos: (f64, f64), mouse_down: bool, mouse_clicked: bool) {
-        // Update movement
+    // pub fn update_ui_with_collision(&mut self, delta_time: f32, mouse_pos: (f64, f64), mouse_down: bool, mouse_clicked: bool) {
+    //     // Update movement
+    //     self.movement.update(delta_time);
+        
+    //     // Update collisions
+    //     self.collision.update(&mut self.movement, delta_time);
+        
+    //     // Update renderables
+    //     self.render.update_transforms(&self.movement);
+        
+    //     // Update UI
+    //     self.ui.update_input(mouse_pos, mouse_down, mouse_clicked);
+    //     self.ui.update_layout();
+    // }
+
+    pub fn update_with_physics(&mut self, delta_time: f32) {
+        // 1. Apply forces and integrate physics
+        self.physics.update(&mut self.movement, delta_time);
+        
+        // 2. Update movement (velocity -> position)
         self.movement.update(delta_time);
         
-        // Update collisions
-        self.collision.update(&mut self.movement, delta_time);
+        // 3. Check and resolve collisions
+        self.collision.update(&mut self.movement, &mut self.physics, delta_time);
         
-        // Update renderables
+        // 4. Update renderables
+        self.render.update_transforms(&self.movement);
+    }
+
+    pub fn update_with_physics_and_ui(&mut self, delta_time: f32, input_system: &mut crate::input::input::InputSystem) {
+        // Physics and collision
+        self.physics.update(&mut self.movement, delta_time);
+        self.movement.update(delta_time);
+        self.collision.update(&mut self.movement, &mut self.physics, delta_time);
         self.render.update_transforms(&self.movement);
         
-        // Update UI
+        // UI
+        let mouse_pos = input_system.get_mouse_position();
+        let mouse_down = input_system.is_mouse_button_held(&crate::input::input::CLICKS::Left);
+        let mouse_clicked = input_system.is_mouse_button_just_pressed(&crate::input::input::CLICKS::Left);
+        
         self.ui.update_input(mouse_pos, mouse_down, mouse_clicked);
+        self.ui.update_text_input(input_system);
+        self.ui.update_text_inputs(delta_time);
         self.ui.update_layout();
     }
 
     pub fn update_ui_with_text_input_and_collision(&mut self, delta_time: f32, input_system: &mut crate::input::input::InputSystem) {
         // Update movement and collision
         self.movement.update(delta_time);
-        self.collision.update(&mut self.movement, delta_time);
+        self.collision.update(&mut self.movement,  &mut self.physics, delta_time);
+        //self.collision.update_no_physics(&mut self.movement, delta_time);
         self.render.update_transforms(&self.movement);
         
         // Update regular UI input
@@ -696,15 +740,16 @@ impl World {
     }
     
     // Move an entity by a specific amount and handle collisions
-    pub fn move_entity(&mut self, entity_id: u32, delta: Vector3<f32>) {
-        if let Some(coords) = self.movement.get_coords_mut(entity_id) {
-            coords.position += delta;
-        }
+    //todo add back later
+    // pub fn move_entity(&mut self, entity_id: u32, delta: Vector3<f32>) {
+    //     if let Some(coords) = self.movement.get_coords_mut(entity_id) {
+    //         coords.position += delta;
+    //     }
         
-        // You might want to check for collisions after manual movement
-        // This is a simplified approach - in practice you might want predictive collision
-        self.collision.update(&mut self.movement, 0.0);
-    }
+    //     // might want to check for collisions after manual movement
+    //     // This is a simplified approach - in practice might want predictive collision
+    //     self.collision.update(&mut self.movement, 0.0);
+    // }
     
     // Set entity velocity
     pub fn set_entity_velocity(&mut self, entity_id: u32, velocity: Velocity) {
@@ -713,6 +758,152 @@ impl World {
     
     pub fn get_entity_velocity(&mut self, entity_id: u32) -> Option<&Velocity> {
         self.movement.velocities.get(entity_id)
+    }
+
+    pub fn spawn_physics_entity(&mut self, data: PhysicsEntityData) -> Entity {
+        let entity = self.create_entity(&data.name);
+        
+        let coords = WorldCoords::new(
+            data.position.x,
+            data.position.y,
+            data.position.z,
+            data.rotation
+        );
+        self.movement.add_coords(entity.id, coords);
+        
+        let collider = data.collider;
+        self.collision.add_collider(entity.id, collider);
+        
+        match data.phys_type {
+            PhysicsType::Static => {
+                // Static bodies don't move
+                let rb = PhysicsEntity::static_body()
+                    .with_restitution(data.restitution.unwrap_or(0.0))
+                    .with_friction(data.friction.unwrap_or(0.5));
+                self.physics.add_rigidbody(entity.id, rb);
+            }
+            
+            PhysicsType::Dynamic => {
+                let velocity = Velocity {
+                    direction: data.velocity.unwrap_or(Vector3::new(0.0, 0.0, 0.0)).normalize(),
+                    speed: data.velocity.unwrap_or(Vector3::new(0.0, 0.0, 0.0)).magnitude(),
+                };
+                self.movement.add_velocity(entity.id, velocity);
+                
+                let rb = PhysicsEntity::new(data.mass.unwrap_or(1.0))
+                    .with_restitution(data.restitution.unwrap_or(0.3))
+                    .with_friction(data.friction.unwrap_or(0.5));
+                self.physics.add_rigidbody(entity.id, rb);
+            }
+            
+            PhysicsType::Kinematic => {
+                let velocity = Velocity {
+                    direction: data.velocity.unwrap_or(Vector3::new(0.0, 0.0, 0.0)).normalize(),
+                    speed: data.velocity.unwrap_or(Vector3::new(0.0, 0.0, 0.0)).magnitude(),
+                };
+                self.movement.add_velocity(entity.id, velocity);
+                
+                let rb = PhysicsEntity::kinematic();
+                self.physics.add_rigidbody(entity.id, rb);
+            }
+            
+            PhysicsType::Trigger => {
+                // Triggers don't need physics
+            }
+        }
+        
+        entity
+    }
+
+    pub fn spawn_static_box(&mut self, name: &str, position: Vector3<f32>, size: Vector3<f32>) -> Entity {
+        self.spawn_physics_entity(PhysicsEntityData::static_body(
+            name,
+            position,
+            Collider {
+                shape: CollisionShape::Box {
+                    width: size.x,
+                    height: size.y,
+                    depth: size.z,
+                },
+                is_trigger: false,
+                layer: 0,
+                offset: Vector3::new(0.0, 0.0, 0.0),
+            }
+        ))
+    }
+    
+    /// Spawn a dynamic sphere (ball, player, etc.)
+    pub fn spawn_dynamic_sphere(&mut self, name: &str, position: Vector3<f32>, radius: f32, mass: f32) -> Entity {
+        self.spawn_physics_entity(PhysicsEntityData::dynamic_body(
+            name,
+            position,
+            Collider {
+                shape: CollisionShape::Sphere { radius },
+                is_trigger: false,
+                layer: 0,
+                offset: Vector3::new(0.0, 0.0, 0.0),
+            },
+            mass
+        ))
+    }
+    
+    /// Spawn a dynamic box with physics
+    pub fn spawn_dynamic_box(&mut self, name: &str, position: Vector3<f32>, size: Vector3<f32>, mass: f32) -> Entity {
+        self.spawn_physics_entity(PhysicsEntityData::dynamic_body(
+            name,
+            position,
+            Collider {
+                shape: CollisionShape::Box {
+                    width: size.x,
+                    height: size.y,
+                    depth: size.z,
+                },
+                is_trigger: false,
+                layer: 0,
+                offset: Vector3::new(0.0, 0.0, 0.0),
+            },
+            mass
+        ))
+    }
+    
+    /// Spawn a bouncy ball (high restitution)
+    pub fn spawn_bouncy_ball(&mut self, name: &str, position: Vector3<f32>, radius: f32, mass: f32) -> Entity {
+        self.spawn_physics_entity(
+            PhysicsEntityData::dynamic_body(
+                name,
+                position,
+                Collider {
+                    shape: CollisionShape::Sphere { radius },
+                    is_trigger: false,
+                    layer: 0,
+                    offset: Vector3::new(0.0, 0.0, 0.0),
+                },
+                mass
+            )
+            .with_restitution(0.9)  // Very bouncy
+            .with_friction(0.1)     // Low friction
+        )
+    }
+    
+    /// Spawn a kinematic platform (moves but not affected by physics)
+    pub fn spawn_kinematic_platform(&mut self, name: &str, position: Vector3<f32>, size: Vector3<f32>, velocity: Vector3<f32>) -> Entity {
+        self.spawn_physics_entity(
+            PhysicsEntityData::kinematic_body(
+                name,
+                position,
+                Collider {
+                    shape: CollisionShape::Box {
+                        width: size.x,
+                        height: size.y,
+                        depth: size.z,
+                    },
+                    is_trigger: false,
+                    layer: 0,
+                    offset: Vector3::new(0.0, 0.0, 0.0),
+                },
+            )
+            .with_velocity(velocity)
+        )
     }
     
     // Remove entity completely (from all systems)

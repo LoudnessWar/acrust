@@ -249,8 +249,33 @@ fn main() {
 
     world.collision.add_collider(
         cube.id,
-        Collider::bounding_box(4.0, 4.0, 4.0).with_layer(3)
+        Collider::bounding_box(8.0, 8.0, 8.0).with_layer(3)
     );
+
+    let ground = world.create_entity("ground");
+    let ground_model = RoundedCube::new(
+        50.0,
+        5.0,
+        50.0,
+        1.0,//this needs to be like a number
+        Vector3::new(0.0, 0.0, 0.0), //todo this is not needed because the ecs handles positions anyway, and like i was giving things cpu side calcs as well but it honestly doesnt matter atm
+        0.0,
+        mat_man.get_mat("mat3")
+    );
+
+    world.movement.add_coords(ground.id, WorldCoords::new(0.0, 0.0, 0.0, 0.0));
+    // world.movement.add_velocity(ground.id, Velocity {
+    //     direction: Vector3::new(0.0, 0.0, 0.0),
+    //     speed: 0.0
+    // });
+    world.render.add_renderable(ground.id, Renderable {
+        model: Box::new(ground_model)
+    });
+    world.collision.add_collider(
+        ground.id,
+        Collider::bounding_box(50.0, 5.0, 50.0).with_layer(3).with_offset(Vector3::new(25.0, 2.5, 25.0))
+    );
+
 
     //this is rendered without fpr
     let mut cube2 = RoundedCube::new(
@@ -314,7 +339,7 @@ fn main() {
     let player_entity = world.spawn_player_with_collision(
         "MainPlayer",
         0.0, 0.0, -10.0, 0.0,
-        Collider::sphere(3.0).with_layer(1)
+        Collider::sphere(2.5).with_layer(1).with_offset(Vector3::new(0.0, 0.0, 1.5))
         //Collider::bounding_box(5.0, 5.0, 5.0).with_layer(1)
         //Collider::circle(1.0).with_layer(1) // Player layer
     );
@@ -399,6 +424,8 @@ fn main() {
                 coords.position = *player.get_position();
             }
         }
+
+        //todo there is a strage glitch where if i hold shift and control and try to move back and only back with w i dont move back and continue moving down
         if input_system.is_key_pressed(&Key::LShift) {
             player.move_down();
             if let Some(coords) = world.movement.get_coords_mut(player_entity.id) {
@@ -531,11 +558,13 @@ fn main() {
         unsafe {
             gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
             gl::Enable(gl::PROGRAM_POINT_SIZE);
+            gl::Disable(gl::DEPTH_TEST);
         }
         cube2.render(&texture_manager);
+        world.collision.draw_colliders(&world.movement);
         unsafe{
             gl::PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
-
+            gl::Enable(gl::DEPTH_TEST);
             gl::Disable(gl::PROGRAM_POINT_SIZE);
         }
 

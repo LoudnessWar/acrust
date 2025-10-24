@@ -4,6 +4,7 @@ use std::f64::consts::E;
 use std::mem;
 use std::ptr;
 
+use cgmath::Vector3;
 use gl::types::GLfloat;
 use gl::types::GLvoid;
 
@@ -377,6 +378,121 @@ impl Mesh {
             );
         }
     }
+
+    pub fn create_sphere(radius: f32, sector_count: u32, stack_count: u32, position: Vector3<f32>) -> (Vec<f32>, Vec<i32>) {
+        let mut vertices: Vec<f32> = Vec::new();
+        let mut indices: Vec<i32> = Vec::new();
+
+        for i in 0..=stack_count {
+            let stack_angle = f32::consts::PI / 2.0 - i as f32 * f32::consts::PI / stack_count as f32; // from pi/2 to -pi/2
+            let xy = radius * stack_angle.cos();
+            let z = radius * stack_angle.sin();
+
+            for j in 0..=sector_count {
+                let sector_angle = j as f32 * 2.0 * f32::consts::PI / sector_count as f32; // from 0 to 2pi
+
+                let x = xy * sector_angle.cos();
+                let y = xy * sector_angle.sin();
+
+                // Position (with offset)
+                vertices.push(x + position.x);
+                vertices.push(y + position.y);
+                vertices.push(z + position.z);
+
+                // Normal (normalized position without offset, since normals are direction vectors)
+                let length = (x * x + y * y + z * z).sqrt();
+                vertices.push(x / length);
+                vertices.push(y / length);
+                vertices.push(z / length);
+            }
+        }
+
+        for i in 0..stack_count {
+            let k1 = i * (sector_count + 1);
+            let k2 = k1 + sector_count + 1;
+
+            for j in 0..sector_count {
+                if i != 0 {
+                    indices.push((k1 + j) as i32);
+                    indices.push((k2 + j) as i32);
+                    indices.push((k1 + j + 1) as i32);
+                }
+
+                if i != (stack_count - 1) {
+                    indices.push((k1 + j + 1) as i32);
+                    indices.push((k2 + j) as i32);
+                    indices.push((k2 + j + 1) as i32);
+                }
+            }
+        }
+
+        (vertices, indices)
+    }
+
+
+    //lol i should add this to model so i can actually use it
+    //todo same thing for the box below btw
+    pub fn create_box(width: f32, height: f32, depth: f32, position: Vector3<f32>) -> (Vec<f32>, Vec<i32>) {
+        let w = width / 2.0;
+        let h = height / 2.0;
+        let d = depth / 2.0;
+
+        let vertices: [f32; 24 * 6] = [
+            // Front face
+            -w + position.x, -h + position.y,  d + position.z,   0.0, 0.0, 1.0,
+            w + position.x, -h + position.y,  d + position.z,   0.0, 0.0, 1.0,
+            w + position.x,  h + position.y,  d + position.z,   0.0, 0.0, 1.0,
+            -w + position.x,  h + position.y,  d + position.z,   0.0, 0.0, 1.0,
+
+            // Back face
+            -w + position.x, -h + position.y, -d + position.z,   0.0, 0.0, -1.0,
+            w + position.x, -h + position.y, -d + position.z,   0.0, 0.0, -1.0,
+            w + position.x,  h + position.y, -d + position.z,   0.0, 0.0, -1.0,
+            -w + position.x,  h + position.y, -d + position.z,   0.0, 0.0, -1.0,
+
+            // Right face
+            w + position.x, -h + position.y, -d + position.z,   1.0, 0.0, 0.0,
+            w + position.x,  h + position.y, -d + position.z,   1.0, 0.0, 0.0,
+            w + position.x,  h + position.y,  d + position.z,   1.0, 0.0, 0.0,
+            w + position.x, -h + position.y,  d + position.z,   1.0, 0.0, 0.0,
+
+            // Left face
+            -w + position.x, -h + position.y, -d + position.z,  -1.0, 0.0, 0.0,
+            -w + position.x,  h + position.y, -d + position.z,  -1.0, 0.0, 0.0,
+            -w + position.x,  h + position.y,  d + position.z,  -1.0, 0.0, 0.0,
+            -w + position.x, -h + position.y,  d + position.z,  -1.0, 0.0, 0.0,
+
+            // Top face
+            -w + position.x,  h + position.y, -d + position.z,   0.0, 1.0, 0.0,
+            w + position.x,  h + position.y, -d + position.z,   0.0, 1.0, 0.0,
+            w + position.x,  h + position.y,  d + position.z,   0.0, 1.0, 0.0,
+            -w + position.x,  h + position.y,  d + position.z,   0.0, 1.0, 0.0,
+
+            // Bottom face
+            -w + position.x, -h + position.y, -d + position.z,   0.0, -1.0, 0.0,
+            w + position.x, -h + position.y, -d + position.z,   0.0, -1.0, 0.0,
+            w + position.x, -h + position.y,  d + position.z,   0.0, -1.0, 0.0,
+            -w + position.x, -h + position.y,  d + position.z,   0.0, -1.0, 0.0,
+        ];
+
+        let indices: [i32; 36] = [
+            // Front face
+            0, 1, 2,  2, 3, 0,
+            // Back face
+            4, 6, 5,  6, 4, 7,
+            // Right face
+            8, 9, 10, 10, 11, 8,
+            // Left face
+            12, 14, 13, 14, 12, 15,
+            // Top face
+            16, 18, 17, 18, 16, 19,
+            // Bottom face
+            20, 21, 22, 22, 23, 20
+        ];
+        
+        (vertices.to_vec(), indices.to_vec())
+    }
+            
 
     pub fn calculate_normals(&mut self, vertices: &mut [f32], indices: &[i32]) {
         print!("ye");

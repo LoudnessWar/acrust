@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use cgmath::{Vector2, Vector3, InnerSpace};
+use crate::ecs::physics::PhysicsSystem;
 use crate::model::transform::WorldCoords;
 use super::components::Velocity;
 use super::world::MovementSystem;
@@ -18,6 +19,7 @@ pub struct Collider {
     pub shape: CollisionShape,
     pub is_trigger: bool, // If true, doesn't prevent movement but still fires events
     pub layer: u32, // For collision filtering
+    pub offset: Vector3<f32>,
 }
 
 impl Collider {
@@ -26,6 +28,7 @@ impl Collider {
             shape: CollisionShape::Circle { radius },
             is_trigger: false,
             layer: 0,
+            offset: Vector3::new(0.0, 0.0, 0.0),
         }
     }
     
@@ -34,6 +37,7 @@ impl Collider {
             shape: CollisionShape::Rectangle { width, height },
             is_trigger: false,
             layer: 0,
+            offset: Vector3::new(0.0, 0.0, 0.0),
         }
     }
     
@@ -42,6 +46,7 @@ impl Collider {
             shape: CollisionShape::Sphere { radius },
             is_trigger: false,
             layer: 0,
+            offset: Vector3::new(0.0, 0.0, 0.0),
         }
     }
     
@@ -50,6 +55,7 @@ impl Collider {
             shape: CollisionShape::Box { width, height, depth },
             is_trigger: false,
             layer: 0,
+            offset: Vector3::new(0.0, 0.0, 0.0),
         }
     }
     
@@ -60,6 +66,11 @@ impl Collider {
     
     pub fn with_layer(mut self, layer: u32) -> Self {
         self.layer = layer;
+        self
+    }
+
+    pub fn with_offset(mut self, offset: Vector3<f32>) -> Self {
+        self.offset = offset;
         self
     }
 }
@@ -115,7 +126,7 @@ impl CollisionSystem {
         self.collision_matrix.get(&(layer_a, layer_b)).copied().unwrap_or(true)
     }
     
-    pub fn update(&mut self, movement_system: &mut MovementSystem, delta_time: f32) {
+    pub fn update_no_physics(&mut self, movement_system: &mut MovementSystem, delta_time: f32) {
         self.collision_events.clear();
         
         // Get all entities with both colliders and positions
@@ -123,7 +134,7 @@ impl CollisionSystem {
         
         for (entity_id, collider) in &self.colliders {
             if let Some(coords) = movement_system.get_coords(*entity_id) {
-                entities_with_collision.push((*entity_id, coords.position, collider));
+                entities_with_collision.push((*entity_id, coords.position + collider.offset, collider));
             }
         }
         
@@ -150,6 +161,42 @@ impl CollisionSystem {
                     // Only resolve collision if neither is a trigger
                     if !collider_a.is_trigger && !collider_b.is_trigger {
                         self.resolve_collision(movement_system, &collision);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn update(&mut self, movement_system: &mut MovementSystem, physics_system: &mut PhysicsSystem, delta_time: f32) {
+        self.collision_events.clear();
+        
+        let mut entities_with_collision: Vec<(u32, Vector3<f32>, &Collider)> = Vec::new();
+        
+        for (entity_id, collider) in &self.colliders {
+            if let Some(coords) = movement_system.get_coords(*entity_id) {
+                entities_with_collision.push((*entity_id, coords.position  + collider.offset, collider));//no rotation or scaling yet
+                //todo add
+            }
+        }
+        
+        for i in 0..entities_with_collision.len() {
+            for j in (i + 1)..entities_with_collision.len() {
+                let (entity_a, pos_a, collider_a) = entities_with_collision[i];
+                let (entity_b, pos_b, collider_b) = entities_with_collision[j];
+                
+                if !self.can_collide(collider_a.layer, collider_b.layer) {
+                    continue;
+                }
+                
+                if let Some(collision) = self.check_collision(
+                    entity_a, pos_a, collider_a,
+                    entity_b, pos_b, collider_b
+                ) {
+                    self.collision_events.push(collision.clone());
+                    
+                    if !collider_a.is_trigger && !collider_b.is_trigger {
+                        // Use physics system for resolution
+                        physics_system.resolve_collision(movement_system, &collision);
                     }
                 }
             }
@@ -531,5 +578,55 @@ impl CollisionSystem {
             (event.entity_a == entity_a && event.entity_b == entity_b) ||
             (event.entity_a == entity_b && event.entity_b == entity_a)
         })
+    }
+
+    fn get_collider_as_mesh(&self, entity_id: u32, coords: &WorldCoords) -> Option<crate::model::mesh::Mesh> {
+        let collider = self.get_collider(entity_id)?;
+        match &collider.shape {
+            CollisionShape::Sphere { radius } => {
+                Some({
+                    let (vertices, indices) = crate::model::mesh::Mesh::create_sphere(*radius, 16, 16, *coords.get_position() + collider.offset);//16 was arbitrary choice for segments
+                    crate::model::mesh::Mesh::new(&vertices, &indices)
+                })
+            },
+            CollisionShape::Box { width, height, depth } => {
+                Some({
+                    let (vertices, indices) = crate::model::mesh::Mesh::create_box(*width, *height, *depth, *coords.get_position()  + collider.offset);//16 was arbitrary choice for segments
+                    crate::model::mesh::Mesh::new(&vertices, &indices)
+                })
+            },
+            _ => None, // I am not really sure how to go about 2d shapes as meshes if i would even want to do that
+        }
+    }
+
+    // pub fn draw_colliders(&self, movement_system: &MovementSystem, shader_program: &crate::graphics::gl_wrapper::ShaderProgram, view_matrix: &cgmath::Matrix4<f32>, projection_matrix: &cgmath::Matrix4<f32>) {
+    //     for (entity_id, _) in &self.colliders {
+    //         if let Some(collider_mesh) = self.get_collider_as_mesh(*entity_id) {
+    //             //if let Some(coords) = movement_system.get_coords(*entity_id) {
+    //                 //let model_matrix = coords.get_model_matrix();
+    //                 //let mvp_matrix = *projection_matrix * *view_matrix * model_matrix;
+                    
+    //                 //shader_program.set_uniform_matrix4("u_MVP", &mvp_matrix);
+                    
+    //                 collider_mesh.draw();
+    //             //}
+    //         }
+    //     }
+    // }
+
+    pub fn draw_colliders(&self, movement_system: &MovementSystem) {
+        for (entity_id, _) in &self.colliders {
+            if let Some(coords) = movement_system.get_coords(*entity_id) {
+                if let Some(collider_mesh) = self.get_collider_as_mesh(*entity_id, coords) {
+                
+                    //let model_matrix = coords.get_model_matrix();
+                    //let mvp_matrix = *projection_matrix * *view_matrix * model_matrix;
+                    
+                    //shader_program.set_uniform_matrix4("u_MVP", &mvp_matrix);
+                    
+                    collider_mesh.draw();
+                }
+            }
+        }
     }
 }
