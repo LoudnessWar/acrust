@@ -469,7 +469,7 @@ impl PhysicsSystem {
         let relative_velocity = vel_a - vel_b;
         let velocity_along_normal = relative_velocity.dot(collision.normal);
         
-        // Don't resolve if velocities are separating
+        // Don't resolve if velocities are separating which is like hmmm
         if velocity_along_normal > 0.0 {
             return;
         }
