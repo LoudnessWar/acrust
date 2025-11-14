@@ -396,67 +396,131 @@ impl PhysicsSystem {
     
     /// Resolve collision with proper physics (called by collision system)
     pub fn resolve_collision(
-        &mut self,
-        movement_system: &mut MovementSystem,
-        collision: &CollisionEvent,
-    ) {
-        let rb_a = self.rigidbodies.get(collision.entity_a);
-        let rb_b = self.rigidbodies.get(collision.entity_b);
+    &mut self,
+    movement_system: &mut MovementSystem,
+    collision: &CollisionEvent,
+) {
+    let rb_a = self.rigidbodies.get(collision.entity_a);
+    let rb_b = self.rigidbodies.get(collision.entity_b);
+    
+    // If neither has a rigidbody, use simple position separation
+    if rb_a.is_none() && rb_b.is_none() {
+        print!("using simple collision resolution\n");
+        self.simple_position_resolution(movement_system, collision);
+        return;
+    }
+    
+    // Get rigidbody data
+    let (inv_mass_a, rest_a, fric_a, is_static_a) = if let Some(rb) = rb_a {
+        (rb.inverse_mass, rb.restitution, rb.friction, rb.is_static())
+    } else {
+        print!("object A has no rigidbody\n");
+        (0.0, 0.0, 0.5, true) // No rigidbody = static
+    };
+    
+    let (inv_mass_b, rest_b, fric_b, is_static_b) = if let Some(rb) = rb_b {
+        (rb.inverse_mass, rb.restitution, rb.friction, rb.is_static())
+    } else {
+        print!("object B has no rigidbody\n");
+        (0.0, 0.0, 0.5, true)
+    };
+    
+    // Both static/kinematic - just separate positions
+    if inv_mass_a == 0.0 && inv_mass_b == 0.0 {
+        print!("both objects static - using simple collision resolution\n");
+        self.simple_position_resolution(movement_system, collision);
+        return;
+    }
+    
+    // === POSITION CORRECTION (prevent sinking) ===
+    let total_inv_mass = inv_mass_a + inv_mass_b;
+    if total_inv_mass > 0.0 {
+        let correction_percent = 1.0; // How much to correct (0-1)
+        let slop = 0.01; // Allowed penetration (prevents jitter)
         
-        // If neither has a rigidbody, use simple position separation
-        if rb_a.is_none() && rb_b.is_none() {
-            print!("using simple collision resolution\n");
-            self.simple_position_resolution(movement_system, collision);
-            return;
-        }
+        let correction_magnitude = (collision.penetration - slop).max(0.0) / total_inv_mass * correction_percent;
+        let correction = collision.normal * correction_magnitude;
         
-        // Get rigidbody data
-        let (inv_mass_a, rest_a, fric_a, is_static_a) = if let Some(rb) = rb_a {
-            (rb.inverse_mass, rb.restitution, rb.friction, rb.is_static())
-        } else {
-            print!("object A has no rigidbody\n");
-            (0.0, 0.0, 0.5, true) // No rigidbody = static
-        };
-        
-        let (inv_mass_b, rest_b, fric_b, is_static_b) = if let Some(rb) = rb_b {
-            (rb.inverse_mass, rb.restitution, rb.friction, rb.is_static())
-        } else {
-            print!("object B has no rigidbody\n");
-            (0.0, 0.0, 0.5, true)
-        };
-        
-        // Both static/kinematic - just separate positions
-        if inv_mass_a == 0.0 && inv_mass_b == 0.0 {
-            print!("both objects static - using simple collision resolution\n");
-            self.simple_position_resolution(movement_system, collision);
-            return;
-        }
-        
-        // === POSITION CORRECTION (prevent sinking) ===
-        let total_inv_mass = inv_mass_a + inv_mass_b;
-        if total_inv_mass > 0.0 {
-            let correction_percent = 0.8; // How much to correct (0-1)
-            let slop = 0.01; // Allowed penetration (prevents jitter)
-            
-            let correction_magnitude = (collision.penetration - slop).max(0.0) / total_inv_mass * correction_percent;
-            let correction = collision.normal * correction_magnitude;
-            
-            if inv_mass_a > 0.0 {
-                if let Some(coords) = movement_system.get_coords_mut(collision.entity_a) {
-                    coords.position += correction * inv_mass_a;
-                }
-            }
-            
-            if inv_mass_b > 0.0 {
-                if let Some(coords) = movement_system.get_coords_mut(collision.entity_b) {
-                    coords.position -= correction * inv_mass_b;
-                }
+        if inv_mass_a > 0.0 {
+            if let Some(coords) = movement_system.get_coords_mut(collision.entity_a) {
+                coords.position += correction * inv_mass_a;
             }
         }
         
-        // === VELOCITY RESOLUTION (impulse-based) ===
+        if inv_mass_b > 0.0 {
+            if let Some(coords) = movement_system.get_coords_mut(collision.entity_b) {
+                coords.position -= correction * inv_mass_b;
+            }
+        }
+    }
+    
+    // === VELOCITY RESOLUTION (impulse-based) ===
+    
+    // Get velocities
+    let vel_a = movement_system.get_velocity_mut(collision.entity_a)
+        .map(|v| v.direction * v.speed)
+        .unwrap_or(Vector3::new(0.0, 0.0, 0.0));
         
-        // Get velocities
+    let vel_b = movement_system.get_velocity_mut(collision.entity_b)
+        .map(|v| v.direction * v.speed)
+        .unwrap_or(Vector3::new(0.0, 0.0, 0.0));
+    
+    // Relative velocity
+    let relative_velocity = vel_a - vel_b;
+    let velocity_along_normal = relative_velocity.dot(collision.normal);
+    
+    // Don't resolve if velocities are separating
+    if velocity_along_normal > 0.01 && collision.penetration < 0.02 {
+        return;
+    }
+    
+    // Calculate restitution (use minimum for more stable collisions)
+    let restitution = rest_a.min(rest_b);
+    
+    // Calculate impulse scalar
+    let impulse_scalar = -(1.0 + restitution) * velocity_along_normal / total_inv_mass;
+    let impulse = collision.normal * impulse_scalar;
+    
+    // Apply impulses to BOTH entities
+    if inv_mass_a > 0.0 {
+        if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
+            let velocity_change = impulse * inv_mass_a;  // POSITIVE impulse for entity A
+            let current_vel = vel.direction * vel.speed;
+            let new_vel = current_vel + velocity_change;
+            
+            let speed = new_vel.magnitude();
+            if speed > 0.001 {
+                vel.direction = new_vel.normalize();
+                vel.speed = speed;
+            } else {
+                vel.direction = Vector3::new(0.0, 0.0, 0.0);
+                vel.speed = 0.0;
+            }
+        }
+    }
+    
+    if inv_mass_b > 0.0 {
+        if let Some(vel) = movement_system.get_velocity_mut(collision.entity_b) {
+            let velocity_change = -impulse * inv_mass_b;  // NEGATIVE impulse for entity B
+            let current_vel = vel.direction * vel.speed;
+            let new_vel = current_vel + velocity_change;
+            
+            let speed = new_vel.magnitude();
+            if speed > 0.001 {
+                vel.direction = new_vel.normalize();
+                vel.speed = speed;
+            } else {
+                vel.direction = Vector3::new(0.0, 0.0, 0.0);
+                vel.speed = 0.0;
+            }
+        }
+    }
+    
+    // === FRICTION ===
+    let friction = (fric_a + fric_b) / 2.0;
+
+    if friction > 0.001 {
+        // Recalculate relative velocity after impulse
         let vel_a = movement_system.get_velocity_mut(collision.entity_a)
             .map(|v| v.direction * v.speed)
             .unwrap_or(Vector3::new(0.0, 0.0, 0.0));
@@ -465,113 +529,49 @@ impl PhysicsSystem {
             .map(|v| v.direction * v.speed)
             .unwrap_or(Vector3::new(0.0, 0.0, 0.0));
         
-        // Relative velocity
         let relative_velocity = vel_a - vel_b;
-        let velocity_along_normal = relative_velocity.dot(collision.normal);
         
-        // Don't resolve if velocities are separating which is like hmmm
-        if velocity_along_normal > 0.0 {
-            return;
-        }
+        // Get tangent (perpendicular to normal)
+        let tangent = relative_velocity - collision.normal * relative_velocity.dot(collision.normal);
         
-        // Calculate restitution (use minimum for more stable collisions)
-        let restitution = rest_a.min(rest_b);
-        
-        // Calculate impulse scalar
-        let impulse_scalar = -(1.0 + restitution) * velocity_along_normal / total_inv_mass;
-        let impulse = collision.normal * impulse_scalar;
-        
-        // Apply impulses
-        if inv_mass_a > 0.0 {
-            if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
-                let velocity_change = impulse * inv_mass_a;
-                let current_vel = vel.direction * vel.speed;
-                let new_vel = current_vel + velocity_change;
-                
-                let speed = new_vel.magnitude();
-                if speed > 0.001 {
-                    vel.direction = new_vel.normalize();
-                    vel.speed = speed;
-                } else {
-                    vel.direction = Vector3::new(0.0, 0.0, 0.0);
-                    vel.speed = 0.0;
-                }
-            }
-        }
-
-        if inv_mass_b > 0.0 {
-            if let Some(vel) = movement_system.get_velocity_mut(collision.entity_b) {
-                let velocity_change = -impulse * inv_mass_b;
-                let current_vel = vel.direction * vel.speed;
-                let new_vel = current_vel + velocity_change;
-                
-                let speed = new_vel.magnitude();
-                if speed > 0.001 {
-                    vel.direction = new_vel.normalize();
-                    vel.speed = speed;
-                } else {
-                    vel.direction = Vector3::new(0.0, 0.0, 0.0);
-                    vel.speed = 0.0;
-                }
-            }
-        }
-        
-        // === FRICTION ===
-        let friction = (fric_a + fric_b) / 2.0;
-
-        if friction > 0.001 {
-            // Recalculate relative velocity after impulse
-            let vel_a = movement_system.get_velocity_mut(collision.entity_a)
-                .map(|v| v.direction * v.speed)
-                .unwrap_or(Vector3::new(0.0, 0.0, 0.0));
-                
-            let vel_b = movement_system.get_velocity_mut(collision.entity_b)
-                .map(|v| v.direction * v.speed)
-                .unwrap_or(Vector3::new(0.0, 0.0, 0.0));
+        if tangent.magnitude() > 0.001 {
+            let tangent = tangent.normalize();
             
-            let relative_velocity = vel_a - vel_b;
+            // Calculate friction impulse
+            let friction_impulse_scalar = -relative_velocity.dot(tangent) / total_inv_mass;
+            let friction_impulse = tangent * friction_impulse_scalar * friction;
             
-            // Get tangent (perpendicular to normal)
-            let tangent = relative_velocity - collision.normal * relative_velocity.dot(collision.normal);
-            
-            if tangent.magnitude() > 0.001 {
-                let tangent = tangent.normalize();
-                
-                // Calculate friction impulse
-                let friction_impulse_scalar = -relative_velocity.dot(tangent) / total_inv_mass;
-                let friction_impulse = tangent * friction_impulse_scalar * friction;
-                
-                // Apply friction impulses DIRECTLY to velocity
-                if inv_mass_a > 0.0 {
-                    if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
-                        let velocity_change = friction_impulse * 0.5 * inv_mass_a;
-                        let current_vel = vel.direction * vel.speed;
-                        let new_vel = current_vel + velocity_change;
-                        
-                        let speed = new_vel.magnitude();
-                        if speed > 0.001 {
-                            vel.direction = new_vel.normalize();
-                            vel.speed = speed;
-                        }
+            // Apply friction impulses DIRECTLY to velocity
+            if inv_mass_a > 0.0 {
+                if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
+                    let velocity_change = friction_impulse * inv_mass_a;
+                    let current_vel = vel.direction * vel.speed;
+                    let new_vel = current_vel + velocity_change;
+                    
+                    let speed = new_vel.magnitude();
+                    if speed > 0.001 {
+                        vel.direction = new_vel.normalize();
+                        vel.speed = speed;
                     }
                 }
-                
-                if inv_mass_b > 0.0 {
-                    if let Some(vel) = movement_system.get_velocity_mut(collision.entity_b) {
-                        let velocity_change = -friction_impulse * 0.5 * inv_mass_b;
-                        let current_vel = vel.direction * vel.speed;
-                        let new_vel = current_vel + velocity_change;
-                        
-                        let speed = new_vel.magnitude();
-                        if speed > 0.001 {
-                            vel.direction = new_vel.normalize();
-                            vel.speed = speed;
-                        }
+            }
+            
+            if inv_mass_b > 0.0 {
+                if let Some(vel) = movement_system.get_velocity_mut(collision.entity_b) {
+                    let velocity_change = -friction_impulse * inv_mass_b;
+                    let current_vel = vel.direction * vel.speed;
+                    let new_vel = current_vel + velocity_change;
+                    
+                    let speed = new_vel.magnitude();
+                    if speed > 0.001 {
+                        vel.direction = new_vel.normalize();
+                        vel.speed = speed;
                     }
                 }
             }
         }
     }
+}
     
     /// Simple position-based resolution (fallback for objects without rigidbodies)
     fn simple_position_resolution(&self, movement_system: &mut MovementSystem, collision: &CollisionEvent) {
