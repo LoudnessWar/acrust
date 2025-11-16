@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use cgmath::{Vector2, Vector3, InnerSpace};
+use cgmath::{InnerSpace, Quaternion, Rotation, Vector2, Vector3, Zero};
 use crate::ecs::physics::PhysicsSystem;
 use crate::model::transform::WorldCoords;
 use super::components::Velocity;
@@ -12,6 +12,7 @@ pub enum CollisionShape {
     Rectangle { width: f32, height: f32 },
     Sphere { radius: f32 },
     Box { width: f32, height: f32, depth: f32 },
+    OBB {half_extents: Vector3<f32>, rotation: Quaternion<f32>}, // Oriented Bounding Box the half_extents is just like how far the wall of the box is from the center
 }
 
 #[derive(Debug, Clone)]
@@ -58,6 +59,15 @@ impl Collider {
             offset: Vector3::new(0.0, 0.0, 0.0),
         }
     }
+
+    pub fn obb(half_extents: Vector3<f32>, rotation: Quaternion<f32>) -> Self {
+        Self {
+            shape: CollisionShape::OBB {half_extents, rotation },
+            is_trigger: false,
+            layer: 0,
+            offset: Vector3::new(0.0, 0.0, 0.0),
+        }
+    }
     
     pub fn as_trigger(mut self) -> Self {
         self.is_trigger = true;
@@ -72,6 +82,13 @@ impl Collider {
     pub fn with_offset(mut self, offset: Vector3<f32>) -> Self {
         self.offset = offset;
         self
+    }
+
+     pub fn as_obb(&self) -> Option<(&Vector3<f32>, &Quaternion<f32>)> {
+        match &self.shape {
+            CollisionShape::OBB{half_extents, rotation} => Some((half_extents, rotation)),
+            _ => None,
+        }
     }
 }
 
@@ -125,6 +142,133 @@ impl CollisionSystem {
     fn can_collide(&self, layer_a: u32, layer_b: u32) -> bool {
         self.collision_matrix.get(&(layer_a, layer_b)).copied().unwrap_or(true)
     }
+    
+
+
+    //https://research.ncl.ac.uk/game/mastersdegree/gametechnologies/previousinformation/physics4collisiondetection/2017%20Tutorial%204%20-%20Collision%20Detection.pdf
+    //Ok below I am goign to talk ig about SAT or like full name Seperate Axis Theorem. The idea behind it is that two convex objects do not collide if there exists a line(in 2d) or a plane(in 3d) that
+    // passes betweeen the two objects without intersecing them. IE a lot simpler if you can draw a line that spereates them.
+    //THE REASON I NEED TO USE THIS IS FOR BOX ES AND rectangles specifically oriented bounding boxes
+
+    //ok but then the next question is how do I detemine if this line or plane exists.
+    //it actually pretty intuitive imo. ok lets start like imagining in 2d space
+    //right imagine a rectangle and a triangle or some simple polygon.
+
+    //they are places onto a coordinate plane or whatever right at angles. ok now first we are going to ommit a step right this wont work probably first time but you will undserstand why you need to do this step if we do it like this
+    //right first off, our goal here is simple it is to see if on the x or y axis there is a gap between the two shapes. Right so we take the biggest and smallest x and y vales of our two shapes then we see if they fall into the range
+    //of each other. if they overlap on both the x and the y that means that they are colliding. if there is a gap that means they are not ok. that seems like it works what the problem. 
+
+    //the issue is is that the axis of the shape is not aligned with the world axis(our grid). imagine a diamnond or a roatated square. Another shap on a normal coordinate system will apprear to be colliding if we just looked at the x and y if it has a point that
+    //falls into one of the trianlges that form if you turn a diamond into a square by drawlng triangles to fill in its corners.
+
+    //now ill be honset i am having a hard time wrapping my head around why we need to do the cross products of the edges... but basically i think if you use faces right
+    //you dont get all the possible like ways to go about it ie like if something is angled you dont capture every possible like way to go about each face basically, so you could a project every angle of the face which uuh doesnt really work or find orthangonals from the edges
+    //which ig is the same as find the normals in the 2d plane
+
+    pub fn check_obb_collision(
+        obb_a: &Collider,
+        center_a: Vector3<f32>,
+        obb_b: &Collider,
+        center_b: Vector3<f32>,
+    ) -> Option<(Vector3<f32>, f32)> {
+
+    let (obb_data_a, obb_data_b) = match (&obb_a.shape, &obb_b.shape) {
+        (CollisionShape::OBB { half_extents: half_a, rotation: rot_a }, 
+         CollisionShape::OBB { half_extents: half_b, rotation: rot_b }) => {
+            ((half_a, rot_a), (half_b, rot_b))
+        },
+        _ => return None,
+    };
+    
+
+        let axes_a = Self::get_axes(obb_data_a.1);
+        let axes_b = Self::get_axes( obb_data_b.1);
+        
+        let mut min_penetration = f32::MAX;
+        let mut collision_normal = Vector3::zero();
+        
+        let mut test_axes = Vec::with_capacity(15);
+        test_axes.extend_from_slice(&axes_a);
+        test_axes.extend_from_slice(&axes_b);
+        
+        for i in 0..3 {
+            for j in 0..3 {
+                let axis = axes_a[i].cross(axes_b[j]);
+                if axis.magnitude2() > 0.0001 {
+                    test_axes.push(axis.normalize());
+                }
+            }
+        }
+        
+        for axis in test_axes {
+            let (min_a, max_a) = Self::project_obb_onto_axis(obb_data_a, center_a, axis);
+            let (min_b, max_b) = Self::project_obb_onto_axis(obb_data_b, center_b, axis);
+            
+            match Self::ranges_overlap(min_a, max_a, min_b, max_b) {
+                None => return None,
+                Some(penetration) => {
+                    if penetration < min_penetration {
+                        min_penetration = penetration;
+                        collision_normal = axis;
+                        
+                        let center_diff = center_b - center_a;
+                        if collision_normal.dot(center_diff) < 0.0 {
+                            collision_normal = -collision_normal;
+                        }
+                    }
+                }
+            }
+        }
+        
+        Some((collision_normal, min_penetration))
+    }
+
+    fn ranges_overlap(min1: f32, max1: f32, min2: f32, max2: f32) -> Option<f32> {
+        if max1 < min2 || max2 < min1 {
+            None
+        } else {
+            let overlap = (max1 - min2).min(max2 - min1);
+            Some(overlap)
+        }
+    }
+
+    fn project_obb_onto_axis(data: (&Vector3<f32>, &Quaternion<f32>), center: Vector3<f32>, axis: Vector3<f32>) -> (f32, f32) {
+        let corners = Self::get_corners(data, &center);
+        let mut min = axis.dot(corners[0]);
+        let mut max = min;
+        
+        for i in 1..8 {
+            let projection = axis.dot(corners[i]);
+            min = min.min(projection);
+            max = max.max(projection);
+        }
+        
+        (min, max)
+    }
+
+    pub fn get_axes(rotation: &Quaternion<f32>) -> [Vector3<f32>; 3] {
+        [
+            rotation.rotate_vector(Vector3::new(1.0, 0.0, 0.0)),
+            rotation.rotate_vector(Vector3::new(0.0, 1.0, 0.0)),
+            rotation.rotate_vector(Vector3::new(0.0, 0.0, 1.0)),
+        ]
+    }
+
+    pub fn get_corners(data: (&Vector3<f32>, &Quaternion<f32>), center: &Vector3<f32>) -> [Vector3<f32>; 8] {
+        let axes = Self::get_axes(data.1);
+        let e = data.0; //this is left over code 
+        [
+            center + axes[0] * e.x + axes[1] * e.y + axes[2] * e.z,
+            center + axes[0] * e.x + axes[1] * e.y - axes[2] * e.z,
+            center + axes[0] * e.x - axes[1] * e.y + axes[2] * e.z,
+            center + axes[0] * e.x - axes[1] * e.y - axes[2] * e.z,
+            center - axes[0] * e.x + axes[1] * e.y + axes[2] * e.z,
+            center - axes[0] * e.x + axes[1] * e.y - axes[2] * e.z,
+            center - axes[0] * e.x - axes[1] * e.y + axes[2] * e.z,
+            center - axes[0] * e.x - axes[1] * e.y - axes[2] * e.z,
+        ]
+    }
+
     
     pub fn update_no_physics(&mut self, movement_system: &mut MovementSystem, delta_time: f32) {
         self.collision_events.clear();
