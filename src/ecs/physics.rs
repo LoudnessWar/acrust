@@ -400,12 +400,6 @@ impl PhysicsSystem {
         movement_system: &mut MovementSystem,
         collision: &CollisionEvent,
     ) {
-
-        println!("\n=== COLLISION DETECTED ===");
-        println!("Entity A: {}, Entity B: {}", collision.entity_a, collision.entity_b);
-        println!("Penetration: {:.4}, Normal: ({:.2}, {:.2}, {:.2})", 
-                collision.penetration, collision.normal.x, collision.normal.y, collision.normal.z);
-        
         let rb_a = self.rigidbodies.get(collision.entity_a);
         let rb_b = self.rigidbodies.get(collision.entity_b);
         
@@ -430,11 +424,6 @@ impl PhysicsSystem {
             print!("object B has no rigidbody\n");
             (0.0, 0.0, 0.5, true)
         };
-
-            println!("Entity A - inv_mass: {:.4}, restitution: {:.2}, static: {}", 
-                inv_mass_a, rest_a, is_static_a);
-        println!("Entity B - inv_mass: {:.4}, restitution: {:.2}, static: {}", 
-                inv_mass_b, rest_b, is_static_b);
         
         // Both static/kinematic - just separate positions
         if inv_mass_a == 0.0 && inv_mass_b == 0.0 {
@@ -476,17 +465,9 @@ impl PhysicsSystem {
             .map(|v| v.direction * v.speed)
             .unwrap_or(Vector3::new(0.0, 0.0, 0.0));
 
-        println!("Vel A before: ({:.2}, {:.2}, {:.2})", vel_a.x, vel_a.y, vel_a.z);
-        println!("Vel B before: ({:.2}, {:.2}, {:.2})", vel_b.x, vel_b.y, vel_b.z);
-        
         // Relative velocity
         let relative_velocity = vel_a - vel_b;
         let velocity_along_normal = relative_velocity.dot(collision.normal);
-
-            println!("Relative velocity: ({:.2}, {:.2}, {:.2})", 
-                relative_velocity.x, relative_velocity.y, relative_velocity.z);
-        println!("Velocity along normal: {:.4}", velocity_along_normal);
-        
         
         // Don't resolve if velocities are separating
         if velocity_along_normal > 0.01 && collision.penetration < 0.01 {
@@ -502,22 +483,14 @@ impl PhysicsSystem {
         let impulse_scalar = -(1.0 + restitution) * velocity_along_normal / total_inv_mass;
         let impulse = collision.normal * impulse_scalar;
 
-        println!("Restitution: {:.2}, Total inv mass: {:.4}", restitution, total_inv_mass);
-        println!("Impulse scalar: {:.4}", impulse_scalar);
-        println!("Impulse vector: ({:.2}, {:.2}, {:.2})", impulse.x, impulse.y, impulse.z);
-        
         
         // Apply impulses to BOTH entities
         if inv_mass_a > 0.0 {
             if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
                 let velocity_change = impulse * inv_mass_a;
-                println!("Velocity change A: ({:.2}, {:.2}, {:.2})", 
-                        velocity_change.x, velocity_change.y, velocity_change.z);
                 
                 let current_vel = vel.direction * vel.speed;
                 let new_vel = current_vel + velocity_change;
-                
-                println!("New vel A: ({:.2}, {:.2}, {:.2})", new_vel.x, new_vel.y, new_vel.z);
                 
                 let speed = new_vel.magnitude();
                 if speed > 0.001 {
@@ -602,8 +575,6 @@ impl PhysicsSystem {
                 }
             }
         }
-
-        println!("=== COLLISION RESOLVED ===\n");
     }
     
     /// Simple position-based resolution (fallback for objects without rigidbodies)

@@ -204,6 +204,7 @@ impl CollisionSystem {
     }
     
     //really im going to be honest, i have like no memory of how to do collision so i hope that this is correct
+    //btw it was not and it was really wrong... its fixed now but yeah
     fn check_collision(
         &self,
         entity_a: u32, pos_a: Vector3<f32>, collider_a: &Collider,
@@ -585,6 +586,7 @@ impl CollisionSystem {
         match &collider.shape {
             CollisionShape::Sphere { radius } => {
                 Some({
+                    //lol so these have position so that I dont have to create a new shader for them and impliment a model matrix i am just plopping the position in here
                     let (vertices, indices) = crate::model::mesh::Mesh::create_sphere(*radius, 16, 16, *coords.get_position() + collider.offset);//16 was arbitrary choice for segments
                     crate::model::mesh::Mesh::new(&vertices, &indices)
                 })
@@ -595,7 +597,7 @@ impl CollisionSystem {
                     crate::model::mesh::Mesh::new(&vertices, &indices)
                 })
             },
-            _ => None, // I am not really sure how to go about 2d shapes as meshes if i would even want to do that
+            _ => None, // I am not really sure how to go about 2d shapes as meshes if i would even want to do that well let me rephrase this bc duh ofc they are meshes what i mean actually is i am lazy and they would need a different renderer and idk how they should look
         }
     }
 

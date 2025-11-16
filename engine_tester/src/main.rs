@@ -264,7 +264,7 @@ fn main() {
         mat_man.get_mat("mat3")
     );
 
-    world.movement.add_coords(ground.id, WorldCoords::new(0.0, 0.0, 0.0, 0.0));
+    world.movement.add_coords(ground.id, WorldCoords::new(0.0, 0.0, 0.0, 0.0).with_pitch_yaw_roll(0.0, 0.0, 0.0));
     world.movement.add_velocity(ground.id, Velocity {
         direction: Vector3::new(0.0, 0.0, 0.0),
         speed: 0.0
@@ -288,7 +288,7 @@ fn main() {
         5.0,
         5.0,
         5.0,
-        1.0,//this needs to be like a number
+        2.0,//this needs to be like a number
         Vector3::new(0.0, 0.0, 0.0), //todo this is not needed because the ecs handles positions anyway, and like i was giving things cpu side calcs as well but it honestly doesnt matter atm
         0.0,
         mat_man.get_mat("mat3")
@@ -304,7 +304,8 @@ fn main() {
     });
     world.collision.add_collider(
         drop_test.id,
-        Collider::bounding_box(5.0, 5.0, 5.0).with_layer(3).with_offset(Vector3::new(2.5, 2.5, 2.5))
+        Collider::sphere(2.5).with_layer(1).with_offset(Vector3::new(2.5, 2.5, 2.5))
+        //Collider::bounding_box(5.0, 5.0, 5.0).with_layer(3).with_offset(Vector3::new(2.5, 2.5, 2.5))
     );
 
     world.physics.add_rigidbody(
@@ -599,7 +600,7 @@ fn main() {
             gl::Disable(gl::DEPTH_TEST);
         }
         cube2.render(&texture_manager);
-        //world.collision.draw_colliders(&world.movement);
+        world.collision.draw_colliders(&world.movement);
         unsafe{
             gl::PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
             gl::Enable(gl::DEPTH_TEST);

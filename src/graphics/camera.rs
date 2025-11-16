@@ -67,7 +67,7 @@ impl Camera {
         let (global_position, target) = match self.mode {
             CameraMode::FirstPerson => {
                 if let Some(parent) = self.parent {
-                    let parent_transform = unsafe { &*parent };
+                    let parent_transform = unsafe { &*parent };//todo remove all the parent stuff no longer being used bc of ecs
                     let position = parent_transform.position;
                     let forward = self.transform.get_forward_vector();//maybe this needs inverse?
                     let target = position + forward;

@@ -10,7 +10,7 @@ impl WorldCoords {
     pub fn new(x: f32, y: f32, z: f32, rotation: f32) -> Self {//do not need f32 for all these prolly lets be honest
         WorldCoords {
             position: Vector3::new(x, y, z),
-            rotation: Quaternion::from_angle_y(Rad(rotation)),
+            rotation: Quaternion::from_angle_y(Rad(rotation)),//this is only rotation on the y axis... 
             scale: Vector3::new(1.0, 1.0, 1.0),
         }
     }
@@ -85,6 +85,29 @@ impl WorldCoords {
     //nice option so this is more flexible in this case
     pub fn get_position(&self) -> &Vector3<f32>{
         &self.position
+    }
+
+    pub fn get_rotation(&self) -> &Quaternion<f32>{
+        &self.rotation
+    }
+
+
+    //lol this namming is kinda bad bc it always has quaternion rotation it cant be an option really either bc in fact even if it is just the identity quaternion it still like is needed to calculate rotation
+    //todo i guess a small optimation would be to make it an option but im not sure if it would actually be better
+    pub fn with_quaternion_rotation(mut self, new_rotation: Quaternion<f32>) -> Self {
+        self.rotation = new_rotation;
+        self
+    }
+
+
+    //i am going to be honset and make it clear that quaternions are very confusing to me and i dont really know what i am doing...
+    //but i think this should work
+    pub fn with_pitch_yaw_roll(mut self, pitch: f32, yaw: f32, roll: f32) -> Self {
+        let q_pitch = Quaternion::from_angle_x(Rad(pitch));
+        let q_yaw = Quaternion::from_angle_y(Rad(yaw));
+        let q_roll = Quaternion::from_angle_z(Rad(roll));
+        self.rotation = q_yaw * q_pitch * q_roll;
+        self
     }
 
     // pub fn get_rotation

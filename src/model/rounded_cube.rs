@@ -295,6 +295,7 @@ impl RoundedCube {
     //uuggghhhh Idk if like
     //Arc and Rwlock was the right move guys
     //this would be better actually though if I just passed material manager
+    //i think this has no model bc i threw it toghether quickly to test something but i honesty forget
     pub fn render(&self, texture_manager: &TextureManager) {
         self.get_material().read().unwrap().apply_no_model(texture_manager);
         self.get_mesh().draw();
