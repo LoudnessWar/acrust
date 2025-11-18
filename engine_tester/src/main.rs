@@ -207,6 +207,7 @@ fn main() {
 
     // Initialize the ECS World also a milestone i have come around a little to ecs mainly because i got lazy i still things its slightly erm uuuh dumb
     let mut world = World::new_with_ui_and_collision(720.0, 720.0, text_renderer);
+    world.init_collision_shader();
 
     let (main_menu_id, ui_element1_id, ui_element2_id, ui_button_id, ui_text_id) = setup_ui_system(&mut world, texture_id);
     
@@ -274,7 +275,8 @@ fn main() {
     });
     world.collision.add_collider(
         ground.id,
-        Collider::bounding_box(50.0, 5.0, 50.0).with_layer(3).with_offset(Vector3::new(25.0, 2.5, 25.0))
+        Collider::obb(Vector3::new(25.0, 5.0, 25.0), Quaternion::new(0.0, 0.0, 0.0, 0.0)).with_layer(1).with_offset(Vector3::new(25.0, 2.5, 25.0))
+        //Collider::bounding_box(50.0, 5.0, 50.0).with_layer(3).with_offset(Vector3::new(25.0, 2.5, 25.0))
     );
 
     world.physics.add_rigidbody(
@@ -304,7 +306,8 @@ fn main() {
     });
     world.collision.add_collider(
         drop_test.id,
-        Collider::sphere(2.5).with_layer(1).with_offset(Vector3::new(2.5, 2.5, 2.5))
+        Collider::obb(Vector3::new(2.5, 2.5, 2.5), Quaternion::new(0.0, 0.0, 0.0, 0.0)).with_layer(1).with_offset(Vector3::new(2.5, 2.5, 2.5))
+        //Collider::sphere(2.5).with_layer(1).with_offset(Vector3::new(2.5, 2.5, 2.5))
         //Collider::bounding_box(5.0, 5.0, 5.0).with_layer(3).with_offset(Vector3::new(2.5, 2.5, 2.5))
     );
 
@@ -600,7 +603,7 @@ fn main() {
             gl::Disable(gl::DEPTH_TEST);
         }
         cube2.render(&texture_manager);
-        world.collision.draw_colliders(&world.movement);
+        world.collision.draw_colliders_2(&world.movement, camera.get_view(), camera.get_p_matrix());
         unsafe{
             gl::PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
             gl::Enable(gl::DEPTH_TEST);

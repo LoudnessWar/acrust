@@ -858,13 +858,13 @@ impl CollisionSystem {
             CollisionShape::Sphere { radius } => {
                 Some({
                     //lol so these have position so that I dont have to create a new shader for them and impliment a model matrix i am just plopping the position in here
-                    let (vertices, indices) = crate::model::mesh::Mesh::create_sphere(*radius, 16, 16, *coords.get_position() + collider.offset);//16 was arbitrary choice for segments
+                    let (vertices, indices) = crate::model::mesh::Mesh::create_sphere(*radius, 16, 16, collider.offset);//16 was arbitrary choice for segments
                     crate::model::mesh::Mesh::new(&vertices, &indices)
                 })
             },
             CollisionShape::Box { width, height, depth } => {
                 Some({
-                    let (vertices, indices) = crate::model::mesh::Mesh::create_box(*width, *height, *depth, *coords.get_position()  + collider.offset);//16 was arbitrary choice for segments
+                    let (vertices, indices) = crate::model::mesh::Mesh::create_box(*width, *height, *depth, collider.offset);//16 was arbitrary choice for segments
                     crate::model::mesh::Mesh::new(&vertices, &indices)
                 })
             },
@@ -873,7 +873,7 @@ impl CollisionSystem {
                 let height = half_extents.y * 2.0;
                 let depth = half_extents.z * 2.0;
                 Some({
-                    let (vertices, indices) = crate::model::mesh::Mesh::create_box(width, height, depth, *coords.get_position()  + collider.offset);//16 was arbitrary choice for segments
+                    let (vertices, indices) = crate::model::mesh::Mesh::create_box(width, height, depth, collider.offset);//16 was arbitrary choice for segments
                     crate::model::mesh::Mesh::new(&vertices, &indices)
                 })
             },
@@ -913,25 +913,32 @@ impl CollisionSystem {
     }
 
     pub fn draw_colliders_2(&mut self, movement_system: &MovementSystem, view_matrix: &cgmath::Matrix4<f32>, projection_matrix: &cgmath::Matrix4<f32>) {
-        if let Some(shader) = self.collision_shader.as_mut(){
+        if self.collision_shader.is_none() {
+            print!("No collision shader available for drawing colliders.\n");
+            return;
+        }
+        
+        // Set view and projection first lol i realized that i couldnt put everthing in the if let because then i wouldnt be able to call self.get_collider_as_mesh inside it 
+        if let Some(shader) = self.collision_shader.as_mut() {
             shader.bind();
             shader.set_matrix4fv_uniform("view", view_matrix);
             shader.set_matrix4fv_uniform("projection", projection_matrix);
-            for (entity_id, _) in &self.colliders {
-                if let Some(coords) = movement_system.get_coords(*entity_id) {
-                    if let Some(collider_mesh) = self.get_collider_as_mesh(*entity_id, coords) {
+        }
+        
+        // Now we can borrow self again
+        for (entity_id, _) in &self.colliders {
+            if let Some(coords) = movement_system.get_coords(*entity_id) {
+                if let Some(collider_mesh) = self.get_collider_as_mesh(*entity_id, coords) {
+                    let model_matrix = coords.get_model_matrix();
                     
-                        let model_matrix = coords.get_model_matrix();
-                        //let mvp_matrix = *projection_matrix * *view_matrix * model_matrix;
-                        
+                    // Get shader again for each iteration
+                    if let Some(shader) = self.collision_shader.as_mut() {
                         shader.set_matrix4fv_uniform("model", &model_matrix);
-                        
-                        collider_mesh.draw();
                     }
+                    
+                    collider_mesh.draw();
                 }
             }
-        } else {
-            print!("No collision shader available for drawing colliders.\n");
         }
     }
 }

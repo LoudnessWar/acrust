@@ -56,7 +56,7 @@ impl Vao {
         unsafe {
             gl::GenVertexArrays(1, &mut id);
         }
-        println!("new VAO made");
+        //println!("new VAO made");
         Vao { id }
     }
 
@@ -99,7 +99,7 @@ impl BufferObject {
                 panic!("GL Error during GenBuffers: 0x{:x}", err);
             }
         }
-        println!("new buffer made");
+        //println!("new buffer made");
         BufferObject { id, r#type, usage }
     }
 
@@ -185,7 +185,7 @@ impl VertexAttribute {
         unsafe {
             gl::VertexAttribPointer(index, size, r#type, normalized, stride, pointer);
         }
-        println!("new VertexAttribute made");
+        //println!("new VertexAttribute made");
         VertexAttribute { index }
     }
 

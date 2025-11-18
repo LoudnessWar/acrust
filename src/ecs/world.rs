@@ -967,6 +967,10 @@ impl World {
     pub fn set_gravity(&mut self, gravity: Vector3<f32>) {
         self.physics.gravity = gravity;
     }
+
+    pub fn init_collision_shader(&mut self) {
+        self.collision.init_collision_debug();
+    }
     // Remove entity completely (from all systems)
     // pub fn remove_entity_completely(&mut self, entity_id: u32) {
     //     self.entities.remove_entity(entity_id);
