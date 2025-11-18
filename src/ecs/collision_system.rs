@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use cgmath::{InnerSpace, Quaternion, Rotation, Vector2, Vector3, Zero};
 use crate::ecs::physics::PhysicsSystem;
+use crate::graphics::gl_wrapper::ShaderProgram;
 use crate::model::transform::WorldCoords;
 use super::components::Velocity;
 use super::world::MovementSystem;
@@ -106,6 +107,11 @@ pub struct CollisionSystem {
     collision_events: Vec<CollisionEvent>,
     // Collision matrix - which layers can collide with which
     collision_matrix: HashMap<(u32, u32), bool>,
+    collision_shader: Option<ShaderProgram>,//todo here do I want to just use an ID and use SHADER_MANAGER or do I want to not do that... and have it store its self
+    //i wonder if there is a way i could structure shader manager so that it is bascially all static functions that dont use an object but all mutate a single list of shader programs or just
+    //shader program ideas
+    //todo 
+    //todo bc that might be really convientinet..... that might just be ecs though
 }
 
 impl CollisionSystem {
@@ -114,6 +120,7 @@ impl CollisionSystem {
             colliders: HashMap::new(),
             collision_events: Vec::new(),
             collision_matrix: HashMap::new(),
+            collision_shader: None,
         }
     }
     
@@ -141,6 +148,16 @@ impl CollisionSystem {
     
     fn can_collide(&self, layer_a: u32, layer_b: u32) -> bool {
         self.collision_matrix.get(&(layer_a, layer_b)).copied().unwrap_or(true)
+    }
+
+    pub fn init_collision_debug(&mut self){
+        let mut coll = ShaderProgram::new("shaders/vertex_debug.glsl", "shaders/fragment_shader.glsl");
+        coll.create_uniforms(vec![
+            "model",
+            "view",
+            "projection",
+        ]);
+        self.collision_shader = Some(coll);
     }
     
 
@@ -269,7 +286,68 @@ impl CollisionSystem {
         ]
     }
 
-    
+    // pub fn check_box_collision_with_rotation(
+    //     entity_a: u32,
+    //     pos_a: Vector3<f32>,
+    //     rot_a: Quaternion<f32>,
+    //     width_a: f32,
+    //     height_a: f32,
+    //     depth_a: f32,
+    //     entity_b: u32,
+    //     pos_b: Vector3<f32>,
+    //     rot_b: Quaternion<f32>,
+    //     width_b: f32,
+    //     height_b: f32,
+    //     depth_b: f32,
+    // ) -> Option<CollisionEvent> {
+    //     let obb_a = OBB::new(
+    //         Vector3::new(width_a / 2.0, height_a / 2.0, depth_a / 2.0),
+    //         rot_a,
+    //     );
+        
+    //     let obb_b = OBB::new(
+    //         Vector3::new(width_b / 2.0, height_b / 2.0, depth_b / 2.0),
+    //         rot_b,
+    //     );
+        
+    //     if let Some((normal, penetration)) = check_obb_collision(&obb_a, pos_a, &obb_b, pos_b) {
+    //         let collision_point = pos_b + normal * (penetration / 2.0);
+            
+    //         Some(CollisionEvent {
+    //             entity_a,
+    //             entity_b,
+    //             collision_point,
+    //             normal,
+    //             penetration,
+    //         })
+    //     } else {
+    //         None
+    //     }
+    // }
+
+    pub fn check_box_collision_with_rotation(
+        obb_a: &Collider,
+        obb_b: &Collider,
+        entity_a: u32,
+        pos_a: Vector3<f32>,
+        entity_b: u32,
+        pos_b: Vector3<f32>,
+    ) -> Option<CollisionEvent> {
+        if let Some((normal, penetration)) = Self::check_obb_collision(&obb_a, pos_a, &obb_b, pos_b) {
+            let collision_point = pos_b + normal * (penetration / 2.0);
+            
+            Some(CollisionEvent {
+                entity_a,
+                entity_b,
+                collision_point,
+                normal,
+                penetration,
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn update_no_physics(&mut self, movement_system: &mut MovementSystem, delta_time: f32) {
         self.collision_events.clear();
         
@@ -316,6 +394,44 @@ impl CollisionSystem {
         
         let mut entities_with_collision: Vec<(u32, Vector3<f32>, &Collider)> = Vec::new();
         
+        //this is where the position of the colliders is calculated btw
+        for (entity_id, collider) in &self.colliders {
+            if let Some(coords) = movement_system.get_coords(*entity_id) {
+                entities_with_collision.push((*entity_id, coords.position + collider.offset, collider));//no rotation or scaling yet
+                //todo add
+            }
+        }
+        
+        for i in 0..entities_with_collision.len() {
+            for j in (i + 1)..entities_with_collision.len() {
+                let (entity_a, pos_a, collider_a) = entities_with_collision[i];
+                let (entity_b, pos_b, collider_b) = entities_with_collision[j];
+                
+                if !self.can_collide(collider_a.layer, collider_b.layer) {
+                    continue;
+                }
+                
+                if let Some(collision) = self.check_collision(
+                    entity_a, pos_a, collider_a,
+                    entity_b, pos_b, collider_b
+                ) {
+                    self.collision_events.push(collision.clone());
+                    
+                    if !collider_a.is_trigger && !collider_b.is_trigger {
+                        // Use physics system for resolution
+                        physics_system.resolve_collision(movement_system, &collision);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn update_obb(&mut self, movement_system: &mut MovementSystem, physics_system: &mut PhysicsSystem, delta_time: f32) {
+        self.collision_events.clear();
+        
+        let mut entities_with_collision: Vec<(u32, Vector3<f32>, &Collider)> = Vec::new();
+        
+        //this is where the position of the colliders is calculated btw
         for (entity_id, collider) in &self.colliders {
             if let Some(coords) = movement_system.get_coords(*entity_id) {
                 entities_with_collision.push((*entity_id, coords.position + collider.offset, collider));//no rotation or scaling yet
@@ -675,6 +791,17 @@ impl CollisionSystem {
                     None
                 }
             },
+
+            (CollisionShape::OBB { .. }, CollisionShape::OBB { .. }) => {
+                Self::check_box_collision_with_rotation(
+                    collider_a,
+                    collider_b,
+                    entity_a,
+                    pos_a,
+                    entity_b,
+                    pos_b,
+                )
+            },
             
             // need to add all the mixed collision types later
             _ => None, // Unsupported collision pair
@@ -741,6 +868,15 @@ impl CollisionSystem {
                     crate::model::mesh::Mesh::new(&vertices, &indices)
                 })
             },
+            CollisionShape::OBB { half_extents, rotation } => {
+                let width = half_extents.x * 2.0;
+                let height = half_extents.y * 2.0;
+                let depth = half_extents.z * 2.0;
+                Some({
+                    let (vertices, indices) = crate::model::mesh::Mesh::create_box(width, height, depth, *coords.get_position()  + collider.offset);//16 was arbitrary choice for segments
+                    crate::model::mesh::Mesh::new(&vertices, &indices)
+                })
+            },
             _ => None, // I am not really sure how to go about 2d shapes as meshes if i would even want to do that well let me rephrase this bc duh ofc they are meshes what i mean actually is i am lazy and they would need a different renderer and idk how they should look
         }
     }
@@ -773,6 +909,29 @@ impl CollisionSystem {
                     collider_mesh.draw();
                 }
             }
+        }
+    }
+
+    pub fn draw_colliders_2(&mut self, movement_system: &MovementSystem, view_matrix: &cgmath::Matrix4<f32>, projection_matrix: &cgmath::Matrix4<f32>) {
+        if let Some(shader) = self.collision_shader.as_mut(){
+            shader.bind();
+            shader.set_matrix4fv_uniform("view", view_matrix);
+            shader.set_matrix4fv_uniform("projection", projection_matrix);
+            for (entity_id, _) in &self.colliders {
+                if let Some(coords) = movement_system.get_coords(*entity_id) {
+                    if let Some(collider_mesh) = self.get_collider_as_mesh(*entity_id, coords) {
+                    
+                        let model_matrix = coords.get_model_matrix();
+                        //let mvp_matrix = *projection_matrix * *view_matrix * model_matrix;
+                        
+                        shader.set_matrix4fv_uniform("model", &model_matrix);
+                        
+                        collider_mesh.draw();
+                    }
+                }
+            }
+        } else {
+            print!("No collision shader available for drawing colliders.\n");
         }
     }
 }

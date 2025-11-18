@@ -579,6 +579,18 @@ impl ShaderManager {
             .or_insert_with(|| Arc::new(Mutex::new(shader)));
     }
 
+    //lowkey todo
+    //todo lowkey use this instead of get_shader specifically in forward plus i think this could be used instead so that we dont have to do so much with binding and such idk
+    pub fn get_shader_id(&self, name: &str) -> Option<u32> {
+        let shaders = self.shaders.lock().unwrap();
+        if let Some(shader_mutex) = shaders.get(name) {
+            let shader = shader_mutex.lock().unwrap();
+            Some(*shader.get_program_handle())
+        } else {
+            None
+        }
+    }
+
     pub fn init_forward_plus(&mut self){
 
     //this is all like initializing debug stuff
@@ -643,6 +655,16 @@ impl ShaderManager {
         self.add_shader("light", initialize_light_shader_debug());
     }
 
+    pub fn init_collision_debug(&mut self){
+        let mut coll = ShaderProgram::new("shaders/vertex_debug.glsl", "shaders/fragment_shader.glsl");
+        coll.create_uniforms(vec![
+            "model",
+            "view",
+            "projection",
+        ]);
+        self.add_shader("collision_debug", coll);
+    }
+
     // pub fn enable_backface_culling(&mut self, name: &str){
     //     self.get_shader(name).expect("CANNOT FIND SHADER").lock().unwrap().enable_backface_culling();
     // }
@@ -650,6 +672,20 @@ impl ShaderManager {
     // pub fn enable_depth(&mut self, name: &str){
     //     self.get_shader(name).expect("CANNOT FIND SHADER").lock().unwrap().enable_depth();
     // }
+
+
+    //dude this is the problem with arc mutex lowkey
+    pub fn bind_shader(&self, name: &str){
+        self.get_shader(name).expect("CANNOT FIND SHADER").lock().unwrap().bind();
+    }
+
+    //todo see this is better then getting the whole shader to bind lowkey and using mutex and such
+    //see how it doesnt require SELF thats huge now if something holds its own shader and wants to bind it, it doesnt have to go through as many steps
+    pub fn bind_shader_id(id: u32){
+        unsafe {
+            gl::UseProgram(id);
+        }
+    }
 
     pub fn enable_backface_culling(){
         ShaderProgram::enable_backface_culling();

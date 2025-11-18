@@ -1,6 +1,6 @@
 #version 330 core
 
-in vec3 FragPos;
+in vec3 FragPos;//lol do we even need this
 in vec3 Normal;
 in vec2 TexCoord;
 
