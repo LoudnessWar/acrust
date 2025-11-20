@@ -477,14 +477,24 @@ impl PhysicsSystem {
         let velocity_along_normal = relative_velocity.dot(collision.normal);
         
         // Don't resolve if velocities are separating
-        if velocity_along_normal > 0.01 || collision.penetration < 0.01 {
-            println!(">>> SKIPPING: Objects separating (vel_along_normal > 0.01)");
+        // if velocity_along_normal > 0.01 || collision.penetration < 0.01 {
+        //     println!(">>> SKIPPING: Objects separating (vel_along_normal > 0.01)");
+        //     return;
+        // }
+
+        // if velocity_along_normal > 0.0 {
+        //     println!(">>> SKIPPING: Objects separating (vel_along_normal > 0)");
+        //     return;
+        // }
+
+        if velocity_along_normal > 0.1 {  // Increased threshold
+            println!(">>> SKIPPING: Objects separating");
             return;
         }
 
-        if velocity_along_normal > 0.0 {
-            println!(">>> SKIPPING: Objects separating (vel_along_normal > 0)");
-            return;
+        // Always resolve if penetration is significant
+        if collision.penetration < 0.001 {
+            return; // Too shallow, ignore
         }
         
         //im using the average restitution here so that uuuh like if the ground is bouncy or if the object is bouncy they will bounce if hit 
@@ -511,6 +521,11 @@ impl PhysicsSystem {
                 } else {
                     vel.direction = Vector3::new(0.0, 0.0, 0.0);
                     vel.speed = 0.0;
+                }
+
+                if vel.speed < 0.01 {
+                    vel.speed = 0.0;
+                    vel.direction = Vector3::new(0.0, 0.0, 0.0);
                 }
             }
         }

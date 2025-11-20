@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use cgmath::{InnerSpace, Quaternion, Rotation, Vector2, Vector3, Zero};
+use cgmath::{InnerSpace, Matrix4, Quaternion, Rotation, Vector2, Vector3, Zero};
 use crate::ecs::physics::PhysicsSystem;
 use crate::graphics::gl_wrapper::ShaderProgram;
 use crate::model::transform::WorldCoords;
@@ -63,7 +63,7 @@ impl Collider {
 
     pub fn obb(half_extents: Vector3<f32>, rotation: Quaternion<f32>) -> Self {
         Self {
-            shape: CollisionShape::OBB {half_extents, rotation },
+            shape: CollisionShape::OBB {half_extents, rotation: rotation },
             is_trigger: false,
             layer: 0,
             offset: Vector3::new(0.0, 0.0, 0.0),
@@ -189,17 +189,16 @@ impl CollisionSystem {
         center_b: Vector3<f32>,
     ) -> Option<(Vector3<f32>, f32)> {
 
-    let (obb_data_a, obb_data_b) = match (&obb_a.shape, &obb_b.shape) {
-        (CollisionShape::OBB { half_extents: half_a, rotation: rot_a }, 
-         CollisionShape::OBB { half_extents: half_b, rotation: rot_b }) => {
-            ((half_a, rot_a), (half_b, rot_b))
-        },
-        _ => return None,
-    };
-    
-
+        let (obb_data_a, obb_data_b) = match (&obb_a.shape, &obb_b.shape) {
+            (CollisionShape::OBB { half_extents: half_a, rotation: rot_a }, 
+            CollisionShape::OBB { half_extents: half_b, rotation: rot_b }) => {
+                ((half_a, rot_a), (half_b, rot_b))
+            },
+            _ => return None,
+        };
+        
         let axes_a = Self::get_axes(obb_data_a.1);
-        let axes_b = Self::get_axes( obb_data_b.1);
+        let axes_b = Self::get_axes(obb_data_b.1);
         
         let mut min_penetration = f32::MAX;
         let mut collision_normal = Vector3::zero();
@@ -217,40 +216,22 @@ impl CollisionSystem {
             }
         }
         
-        // for axis in test_axes {
-        //     let (min_a, max_a) = Self::project_obb_onto_axis(obb_data_a, center_a, axis);
-        //     let (min_b, max_b) = Self::project_obb_onto_axis(obb_data_b, center_b, axis);
-            
-        //     match Self::ranges_overlap(min_a, max_a, min_b, max_b) {
-        //         None => return None,
-        //         Some(penetration) => {
-        //             if penetration < min_penetration {
-        //                 min_penetration = penetration;
-        //                 collision_normal = axis;
-                        
-        //                 let center_diff = center_b - center_a;
-        //                 if collision_normal.dot(center_diff) < 0.0 {
-        //                     collision_normal = -collision_normal;
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
-
+        // Direction from A to B (used for consistent normal orientation)
+        let center_diff = center_b - center_a;
+        
         for axis in test_axes {
             let (min_a, max_a) = Self::project_obb_onto_axis(obb_data_a, center_a, axis);
             let (min_b, max_b) = Self::project_obb_onto_axis(obb_data_b, center_b, axis);
             
             match Self::ranges_overlap(min_a, max_a, min_b, max_b) {
-                None => return None,
+                None => return None, // Separating axis found - no collision
                 Some(penetration) => {
                     if penetration < min_penetration {
                         min_penetration = penetration;
                         
-                        // IMPORTANT: Determine which direction of the axis to use
-                        // The normal should point from A toward B
-                        let center_diff = center_b - center_a;
-                        collision_normal = if axis.dot(center_diff) > 0.0 {
+                        // KEY FIX: Ensure normal ALWAYS points from A toward B
+                        // This prevents normal flipping between frames
+                        collision_normal = if axis.dot(center_diff) >= 0.0 {
                             axis
                         } else {
                             -axis
@@ -260,16 +241,74 @@ impl CollisionSystem {
             }
         }
         
-        Some((collision_normal, min_penetration))
+        // Additional safety check: verify the normal makes sense
+        // If objects are deeply interpenetrating, ensure normal points outward
+        if min_penetration > 0.0 && collision_normal.magnitude2() > 0.0001 {
+            Some((collision_normal.normalize(), min_penetration))
+        } else {
+            None
+        }
+    }
+
+    pub fn debug_obb_collision(
+        obb_a: &Collider,
+        center_a: Vector3<f32>,
+        obb_b: &Collider,
+        center_b: Vector3<f32>,
+    ) {
+        let (obb_data_a, obb_data_b) = match (&obb_a.shape, &obb_b.shape) {
+            (CollisionShape::OBB { half_extents: half_a, rotation: rot_a }, 
+            CollisionShape::OBB { half_extents: half_b, rotation: rot_b }) => {
+                ((half_a, rot_a), (half_b, rot_b))
+            },
+            _ => return,
+        };
+        
+        println!("=== OBB DEBUG ===");
+        println!("Center A: {:?}, Half extents: {:?}", center_a, obb_data_a.0);
+        println!("Center B: {:?}, Half extents: {:?}", center_b, obb_data_b.0);
+        println!("Rotation A: {:?}", obb_data_a.1);
+        println!("Rotation B: {:?}", obb_data_b.1);
+        
+        let axes_a = Self::get_axes(obb_data_a.1);
+        let axes_b = Self::get_axes(obb_data_b.1);
+        
+        println!("Axes A: {:?}", axes_a);
+        println!("Axes B: {:?}", axes_b);
+        
+        // Check for degenerate cases
+        for i in 0..3 {
+            if axes_a[i].magnitude() < 0.99 || axes_a[i].magnitude() > 1.01 {
+                println!("WARNING: Axis A[{}] not normalized! Magnitude: {}", i, axes_a[i].magnitude());
+            }
+            if axes_b[i].magnitude() < 0.99 || axes_b[i].magnitude() > 1.01 {
+                println!("WARNING: Axis B[{}] not normalized! Magnitude: {}", i, axes_b[i].magnitude());
+            }
+        }
+        
+        // Check if boxes are actually overlapping in world space
+        let distance = (center_b - center_a).magnitude();
+        let max_extent_a = obb_data_a.0.x.max(obb_data_a.0.y).max(obb_data_a.0.z);
+        let max_extent_b = obb_data_b.0.x.max(obb_data_b.0.y).max(obb_data_b.0.z);
+        println!("Distance between centers: {}", distance);
+        println!("Max possible separation: {}", max_extent_a + max_extent_b);
+        
+        if distance > (max_extent_a + max_extent_b) * 2.0 {
+            println!("WARNING: Boxes too far apart for collision!");
+        }
+        
+        println!("=================\n");
     }
 
     fn ranges_overlap(min1: f32, max1: f32, min2: f32, max2: f32) -> Option<f32> {
+        // No overlap?
         if max1 < min2 || max2 < min1 {
-            None
-        } else {
-            let overlap = (max1 - min2).min(max2 - min1);
-            Some(overlap)
+            return None;
         }
+
+        // Overlap is the intersection length
+        let overlap = f32::min(max1, max2) - f32::max(min1, min2);
+        Some(overlap)
     }
 
     fn project_obb_onto_axis(data: (&Vector3<f32>, &Quaternion<f32>), center: Vector3<f32>, axis: Vector3<f32>) -> (f32, f32) {
@@ -356,6 +395,7 @@ impl CollisionSystem {
         entity_b: u32,
         pos_b: Vector3<f32>,
     ) -> Option<CollisionEvent> {
+         Self::debug_obb_collision(&obb_a, pos_a, &obb_b, pos_b);
         if let Some((normal, penetration)) = Self::check_obb_collision(&obb_a, pos_a, &obb_b, pos_b) {
             let collision_point = pos_b + normal * (penetration / 2.0);
             
@@ -953,11 +993,27 @@ impl CollisionSystem {
             if let Some(coords) = movement_system.get_coords(*entity_id) {
                 if let Some(collider_mesh) = self.get_collider_as_mesh(*entity_id, coords) {
                     let model_matrix = coords.get_model_matrix();
-                    
-                    // Get shader again for each iteration
-                    if let Some(shader) = self.collision_shader.as_mut() {
-                        shader.set_matrix4fv_uniform("model", &model_matrix);
+
+                    if let CollisionShape::OBB { rotation, .. } = &self.colliders.get(entity_id).unwrap().shape {
+                        // Apply rotation to model matrix
+                        let rotation_matrix = Matrix4::from(*rotation);
+                        let model_matrix = model_matrix * rotation_matrix;
+                        
+                        // Get shader again for each iteration
+                        if let Some(shader) = self.collision_shader.as_mut() {
+                            shader.set_matrix4fv_uniform("model", &model_matrix);
+                        }
+                    } else {
+                        // Get shader again for each iteration
+                        if let Some(shader) = self.collision_shader.as_mut() {
+                            shader.set_matrix4fv_uniform("model", &model_matrix);
+                        }
                     }
+                    
+                    // // Get shader again for each iteration
+                    // if let Some(shader) = self.collision_shader.as_mut() {
+                    //     shader.set_matrix4fv_uniform("model", &model_matrix);
+                    // }
                     
                     collider_mesh.draw();
                 }
