@@ -217,6 +217,26 @@ impl CollisionSystem {
             }
         }
         
+        // for axis in test_axes {
+        //     let (min_a, max_a) = Self::project_obb_onto_axis(obb_data_a, center_a, axis);
+        //     let (min_b, max_b) = Self::project_obb_onto_axis(obb_data_b, center_b, axis);
+            
+        //     match Self::ranges_overlap(min_a, max_a, min_b, max_b) {
+        //         None => return None,
+        //         Some(penetration) => {
+        //             if penetration < min_penetration {
+        //                 min_penetration = penetration;
+        //                 collision_normal = axis;
+                        
+        //                 let center_diff = center_b - center_a;
+        //                 if collision_normal.dot(center_diff) < 0.0 {
+        //                     collision_normal = -collision_normal;
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+
         for axis in test_axes {
             let (min_a, max_a) = Self::project_obb_onto_axis(obb_data_a, center_a, axis);
             let (min_b, max_b) = Self::project_obb_onto_axis(obb_data_b, center_b, axis);
@@ -226,12 +246,15 @@ impl CollisionSystem {
                 Some(penetration) => {
                     if penetration < min_penetration {
                         min_penetration = penetration;
-                        collision_normal = axis;
                         
+                        // IMPORTANT: Determine which direction of the axis to use
+                        // The normal should point from A toward B
                         let center_diff = center_b - center_a;
-                        if collision_normal.dot(center_diff) < 0.0 {
-                            collision_normal = -collision_normal;
-                        }
+                        collision_normal = if axis.dot(center_diff) > 0.0 {
+                            axis
+                        } else {
+                            -axis
+                        };
                     }
                 }
             }

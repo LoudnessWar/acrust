@@ -400,6 +400,12 @@ impl PhysicsSystem {
         movement_system: &mut MovementSystem,
         collision: &CollisionEvent,
     ) {
+
+        println!( ">>> Resolving collision between entities {} and {}", collision.entity_a, collision.entity_b);
+        println!("Collision normal: {:?}, penetration: {}\n", collision.normal, collision.penetration);
+        println!("Collision point: {:?}", collision.collision_point);
+        println!("----------------------------------------");
+        
         let rb_a = self.rigidbodies.get(collision.entity_a);
         let rb_b = self.rigidbodies.get(collision.entity_b);
         
@@ -409,6 +415,7 @@ impl PhysicsSystem {
             self.simple_position_resolution(movement_system, collision);
             return;
         }
+
         
         // Get rigidbody data
         let (inv_mass_a, rest_a, fric_a, is_static_a) = if let Some(rb) = rb_a {
@@ -470,8 +477,13 @@ impl PhysicsSystem {
         let velocity_along_normal = relative_velocity.dot(collision.normal);
         
         // Don't resolve if velocities are separating
-        if velocity_along_normal > 0.01 && collision.penetration < 0.01 {
+        if velocity_along_normal > 0.01 || collision.penetration < 0.01 {
             println!(">>> SKIPPING: Objects separating (vel_along_normal > 0.01)");
+            return;
+        }
+
+        if velocity_along_normal > 0.0 {
+            println!(">>> SKIPPING: Objects separating (vel_along_normal > 0)");
             return;
         }
         
