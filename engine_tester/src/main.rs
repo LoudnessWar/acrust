@@ -275,7 +275,7 @@ fn main() {
     });
     world.collision.add_collider(
         ground.id,
-        Collider::obb(Vector3::new(25.0, 5.0, 25.0), Quaternion::new(0.0, 0.0, 0.0, 0.0)).with_layer(1).with_offset(Vector3::new(25.0, 2.5, 25.0))
+        Collider::obb(Vector3::new(25.0, 5.0, 25.0), Quaternion::new(1.0, 0.0, 0.0, 0.0)).with_layer(1).with_offset(Vector3::new(25.0, 2.5, 25.0))
         //Collider::bounding_box(50.0, 5.0, 50.0).with_layer(3).with_offset(Vector3::new(25.0, 2.5, 25.0))
     );
 
@@ -306,7 +306,7 @@ fn main() {
     });
     world.collision.add_collider(
         drop_test.id,
-        Collider::obb(Vector3::new(2.5, 2.5, 2.5), Quaternion::new(0.0, 0.0, 0.0, 0.0)).with_layer(1).with_offset(Vector3::new(2.5, 2.5, 2.5))
+        Collider::obb(Vector3::new(2.5, 2.5, 2.5), Quaternion::new(1.0, 0.0, 0.0, 0.0)).with_layer(1).with_offset(Vector3::new(2.5, 2.5, 2.5))
         //Collider::sphere(2.5).with_layer(1).with_offset(Vector3::new(2.5, 2.5, 2.5))
         //Collider::bounding_box(5.0, 5.0, 5.0).with_layer(3).with_offset(Vector3::new(2.5, 2.5, 2.5))
     );
