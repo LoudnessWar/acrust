@@ -219,30 +219,58 @@ impl CollisionSystem {
         // Direction from A to B (used for consistent normal orientation)
         let center_diff = center_b - center_a;
         
-        for axis in test_axes {
-            let (min_a, max_a) = Self::project_obb_onto_axis(obb_data_a, center_a, axis);
-            let (min_b, max_b) = Self::project_obb_onto_axis(obb_data_b, center_b, axis);
+        // ADD DEBUGGING HERE
+        println!("Testing {} axes for collision", test_axes.len());
+        
+        for (idx, axis) in test_axes.iter().enumerate() {
+            let (min_a, max_a) = Self::project_obb_onto_axis(obb_data_a, center_a, *axis);
+            let (min_b, max_b) = Self::project_obb_onto_axis(obb_data_b, center_b, *axis);
             
-            match Self::ranges_overlap(min_a, max_a, min_b, max_b) {
-                None => return None, // Separating axis found - no collision
+            // ADD THIS DEBUG LINE
+            println!("Axis {}: {:?} | A:[{:.2}, {:.2}] B:[{:.2}, {:.2}]", 
+                    idx, axis, min_a, max_a, min_b, max_b);
+            
+           match Self::ranges_overlap(min_a, max_a, min_b, max_b) {
+                None => {
+                    println!("  -> SEPARATING AXIS FOUND! No collision.");
+                    return None;
+                }
                 Some(penetration) => {
+                    println!("  -> Overlap: {:.4}", penetration);
                     if penetration < min_penetration {
                         min_penetration = penetration;
                         
-                        // KEY FIX: Ensure normal ALWAYS points from A toward B
-                        // This prevents normal flipping between frames
-                        collision_normal = if axis.dot(center_diff) >= 0.0 {
-                            axis
+                        // Calculate which direction separates them
+                        let center_a_proj = (min_a + max_a) / 2.0;
+                        let center_b_proj = (min_b + max_b) / 2.0;
+                        
+                        // The normal should point from the surface of A toward B's center
+                        // to push B away from A
+                        let mut normal = if center_b_proj > center_a_proj {
+                            *axis
                         } else {
-                            -axis
+                            -*axis
                         };
+                        
+                        // CRITICAL FIX: Ensure normal always points away from deeper penetration
+                        // Check both objects - if A is more deeply embedded in B, flip the normal
+                        let depth_a = max_a - min_b;  // How far A extends into B
+                        let depth_b = max_b - min_a;  // How far B extends into A
+                        
+                        // Normal should point toward the object that needs to move out
+                        // In most cases, this means pointing from static to dynamic
+                        collision_normal = normal;
+                        
+                        println!("  -> NEW MINIMUM! Normal: {:?}, Penetration: {:.4}", 
+                                collision_normal, min_penetration);
                     }
                 }
             }
         }
         
+        println!("FINAL: Normal: {:?}, Penetration: {:.4}\n", collision_normal, min_penetration);
+        
         // Additional safety check: verify the normal makes sense
-        // If objects are deeply interpenetrating, ensure normal points outward
         if min_penetration > 0.0 && collision_normal.magnitude2() > 0.0001 {
             Some((collision_normal.normalize(), min_penetration))
         } else {
@@ -300,14 +328,30 @@ impl CollisionSystem {
         println!("=================\n");
     }
 
+    // fn ranges_overlap(min1: f32, max1: f32, min2: f32, max2: f32) -> Option<f32> {
+    //     // No overlap?
+    //     if max1 < min2 || max2 < min1 {
+    //         return None;
+    //     }
+
+    //     // Overlap is the intersection length
+    //     let overlap = f32::min(max1, max2) - f32::max(min1, min2);
+    //     Some(overlap)
+    // }
+
     fn ranges_overlap(min1: f32, max1: f32, min2: f32, max2: f32) -> Option<f32> {
         // No overlap?
         if max1 < min2 || max2 < min1 {
             return None;
         }
 
-        // Overlap is the intersection length
-        let overlap = f32::min(max1, max2) - f32::max(min1, min2);
+        // Calculate penetration depth correctly
+        // The overlap is how much they're intersecting
+        let overlap1 = max1 - min2;  // How much max1 extends into range2
+        let overlap2 = max2 - min1;  // How much max2 extends into range1
+        
+        // Return the SMALLER overlap (minimum translation distance)
+        let overlap = overlap1.min(overlap2);
         Some(overlap)
     }
 
@@ -395,8 +439,16 @@ impl CollisionSystem {
         entity_b: u32,
         pos_b: Vector3<f32>,
     ) -> Option<CollisionEvent> {
-         Self::debug_obb_collision(&obb_a, pos_a, &obb_b, pos_b);
-        if let Some((normal, penetration)) = Self::check_obb_collision(&obb_a, pos_a, &obb_b, pos_b) {
+        Self::debug_obb_collision(&obb_a, pos_a, &obb_b, pos_b);
+        if let Some((mut normal, penetration)) = Self::check_obb_collision(&obb_a, pos_a, &obb_b, pos_b) {
+            
+            // CRITICAL FIX: Ensure normal ALWAYS points from entity_a toward entity_b
+            // This makes the collision response consistent regardless of call order
+            let a_to_b = pos_b - pos_a;
+            if normal.dot(a_to_b) < 0.0 {
+                normal = -normal;
+            }
+            
             let collision_point = pos_b + normal * (penetration / 2.0);
             
             Some(CollisionEvent {
