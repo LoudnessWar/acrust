@@ -487,15 +487,36 @@ impl PhysicsSystem {
         //     return;
         // }
 
-        if velocity_along_normal > 0.1 {  // Increased threshold
-            println!(">>> SKIPPING: Objects separating");
-            return;
+        // if velocity_along_normal > 0.1 {  // Increased threshold
+        //     println!(">>> SKIPPING: Objects separating");
+        //     return;
+        // }
+
+        // // Always resolve if penetration is significant
+        // if collision.penetration < 0.001 {
+        //     return; // Too shallow, ignore
+        // }
+
+        if velocity_along_normal.abs() < 0.01 && collision.penetration < 0.05 {
+        // They're resting - project velocities to be parallel to contact
+            if inv_mass_a > 0.0 {
+                if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
+                    let current_vel = vel.direction * vel.speed;
+                    let tangent_vel = current_vel - collision.normal * current_vel.dot(collision.normal);
+                    let speed = tangent_vel.magnitude();
+                    if speed > 0.001 {
+                        vel.direction = tangent_vel.normalize();
+                        vel.speed = speed;
+                    } else {
+                        vel.speed = 0.0;
+                    }
+                }
+            }
         }
 
-        // Always resolve if penetration is significant
-        if collision.penetration < 0.001 {
-            return; // Too shallow, ignore
-        }
+        println!("Vel A: {:?}, Vel B: {:?}", vel_a, vel_b);
+        println!("Relative velocity: {:?}", relative_velocity);
+        println!("Velocity along normal: {}", velocity_along_normal);
         
         //im using the average restitution here so that uuuh like if the ground is bouncy or if the object is bouncy they will bounce if hit 
         let restitution = (rest_a + rest_b) / 2.0;
