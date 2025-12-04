@@ -240,26 +240,20 @@ impl CollisionSystem {
                     if penetration < min_penetration {
                         min_penetration = penetration;
                         
-                        // Calculate which direction separates them
-                        let center_a_proj = (min_a + max_a) / 2.0;
-                        let center_b_proj = (min_b + max_b) / 2.0;
+                        // We need to separate A and B along this axis
+                        // The normal should point in the direction that moves B away from A
+                        // This is the direction from A's surface to B's center
                         
-                        // The normal should point from the surface of A toward B's center
-                        // to push B away from A
-                        let mut normal = if center_b_proj > center_a_proj {
+                        // Project centers onto the axis
+                        let center_a_proj = center_a.dot(*axis);
+                        let center_b_proj = center_b.dot(*axis);
+                        
+                        // Normal points from A toward B
+                        collision_normal = if center_b_proj > center_a_proj {
                             *axis
                         } else {
                             -*axis
                         };
-                        
-                        // CRITICAL FIX: Ensure normal always points away from deeper penetration
-                        // Check both objects - if A is more deeply embedded in B, flip the normal
-                        let depth_a = max_a - min_b;  // How far A extends into B
-                        let depth_b = max_b - min_a;  // How far B extends into A
-                        
-                        // Normal should point toward the object that needs to move out
-                        // In most cases, this means pointing from static to dynamic
-                        collision_normal = normal;
                         
                         println!("  -> NEW MINIMUM! Normal: {:?}, Penetration: {:.4}", 
                                 collision_normal, min_penetration);
@@ -440,14 +434,22 @@ impl CollisionSystem {
         pos_b: Vector3<f32>,
     ) -> Option<CollisionEvent> {
         Self::debug_obb_collision(&obb_a, pos_a, &obb_b, pos_b);
+        
         if let Some((mut normal, penetration)) = Self::check_obb_collision(&obb_a, pos_a, &obb_b, pos_b) {
             
+            println!("BEFORE FIX - Normal: {:?}", normal);
+            
             // CRITICAL FIX: Ensure normal ALWAYS points from entity_a toward entity_b
-            // This makes the collision response consistent regardless of call order
             let a_to_b = pos_b - pos_a;
+            println!("A to B vector: {:?}", a_to_b);
+            println!("Dot product: {}", normal.dot(a_to_b));
+            
             if normal.dot(a_to_b) < 0.0 {
+                println!("FLIPPING NORMAL!");
                 normal = -normal;
             }
+            
+            println!("AFTER FIX - Normal: {:?}\n", normal);
             
             let collision_point = pos_b + normal * (penetration / 2.0);
             
@@ -464,6 +466,8 @@ impl CollisionSystem {
     }
 
     pub fn update_no_physics(&mut self, movement_system: &mut MovementSystem, delta_time: f32) {
+
+        return;
         self.collision_events.clear();
         
         // Get all entities with both colliders and positions
@@ -505,6 +509,7 @@ impl CollisionSystem {
     }
 
     pub fn update(&mut self, movement_system: &mut MovementSystem, physics_system: &mut PhysicsSystem, delta_time: f32) {
+        
         self.collision_events.clear();
         
         let mut entities_with_collision: Vec<(u32, Vector3<f32>, &Collider)> = Vec::new();
@@ -542,6 +547,8 @@ impl CollisionSystem {
     }
 
     pub fn update_obb(&mut self, movement_system: &mut MovementSystem, physics_system: &mut PhysicsSystem, delta_time: f32) {
+
+        return;
         self.collision_events.clear();
         
         let mut entities_with_collision: Vec<(u32, Vector3<f32>, &Collider)> = Vec::new();

@@ -416,7 +416,12 @@ impl PhysicsSystem {
             return;
         }
 
-        
+        // if(rb_a.is_some() && rb_a.unwrap().is_kinematic) && (rb_b.is_some() && rb_b.unwrap().is_kinematic) {
+        //     print!("both objects kinematic - using simple collision resolution\n");
+        //     self.simple_position_resolution(movement_system, collision);
+        //     return;
+        // }
+
         // Get rigidbody data
         let (inv_mass_a, rest_a, fric_a, is_static_a) = if let Some(rb) = rb_a {
             (rb.inverse_mass, rb.restitution, rb.friction, rb.is_static())
@@ -431,6 +436,13 @@ impl PhysicsSystem {
             print!("object B has no rigidbody\n");
             (0.0, 0.0, 0.5, true)
         };
+
+        let mut normal = collision.normal;
+        if is_static_b{
+            println!("Flipping normal because A is dynamic and B is static");
+            normal = -normal;
+        }
+
         
         // Both static/kinematic - just separate positions
         if inv_mass_a == 0.0 && inv_mass_b == 0.0 {
@@ -446,7 +458,7 @@ impl PhysicsSystem {
             let slop = 0.01; // Allowed penetration (prevents jitter)
             
             let correction_magnitude = (collision.penetration - slop).max(0.0) / total_inv_mass * correction_percent;
-            let correction = collision.normal * correction_magnitude;
+            let correction = normal * correction_magnitude;
             
             if inv_mass_a > 0.0 {
                 if let Some(coords) = movement_system.get_coords_mut(collision.entity_a) {
@@ -474,7 +486,7 @@ impl PhysicsSystem {
 
         // Relative velocity
         let relative_velocity = vel_a - vel_b;
-        let velocity_along_normal = relative_velocity.dot(collision.normal);
+        let velocity_along_normal = relative_velocity.dot(normal);
         
         // Don't resolve if velocities are separating
         // if velocity_along_normal > 0.01 || collision.penetration < 0.01 {
@@ -502,7 +514,7 @@ impl PhysicsSystem {
             if inv_mass_a > 0.0 {
                 if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
                     let current_vel = vel.direction * vel.speed;
-                    let tangent_vel = current_vel - collision.normal * current_vel.dot(collision.normal);
+                    let tangent_vel = current_vel - normal * current_vel.dot(normal);
                     let speed = tangent_vel.magnitude();
                     if speed > 0.001 {
                         vel.direction = tangent_vel.normalize();
@@ -524,7 +536,7 @@ impl PhysicsSystem {
         
         // Calculate impulse scalar
         let impulse_scalar = -(1.0 + restitution) * velocity_along_normal / total_inv_mass;
-        let impulse = collision.normal * impulse_scalar;
+        let impulse = normal * impulse_scalar;
 
         
         // Apply impulses to BOTH entities
@@ -584,7 +596,7 @@ impl PhysicsSystem {
             let relative_velocity = vel_a - vel_b;
             
             // Get tangent (perpendicular to normal)
-            let tangent = relative_velocity - collision.normal * relative_velocity.dot(collision.normal);
+            let tangent = relative_velocity - normal * relative_velocity.dot(normal);
             
             if tangent.magnitude() > 0.001 {
                 let tangent = tangent.normalize();
