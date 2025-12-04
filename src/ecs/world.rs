@@ -106,6 +106,22 @@ impl EntityRegistry {
     pub fn all_entities(&self) -> impl Iterator<Item = &Entity> {
         self.entities.values()
     }
+
+    pub fn get_entity_count(&self) -> usize {
+        self.entities.len()
+    }
+
+    //todo this is rather inefficent, values creates an iterator over all the values in the hashmap
+    //but that includes empty ones
+    //find just looks through an iterator until it finds the value that is is looking for
+    //also value is an iterator of only the values btw so i am not getting the hashmaps id
+    //I could if I wanted this to be faster have a separate hashmap that maps names to entity ids
+    //and i dont think that that is a terrible idea simply because like it doesnt take up that much space
+    //my real reservation is the fact that you would have to have unique names yk... or wait no im stupid you wouldnt nvm wait you would nvm the nvm bc the name would be the key not the value if used
+    //like this
+    pub fn get_entity_by_name(&self, name: &str) -> Option<&Entity> {
+        self.entities.values().find(|e| e.name == name)
+    }
 }
 
 // OK SO LIKE... PLAYER... coolio needs to be like implinebted into this better...
@@ -966,6 +982,23 @@ impl World {
     /// Set gravity for the entire world
     pub fn set_gravity(&mut self, gravity: Vector3<f32>) {
         self.physics.gravity = gravity;
+    }
+
+    pub fn set_position_directly(&mut self, entity_id: u32, new_position: Vector3<f32>) {
+        if let Some(coords) = self.movement.get_coords_mut(entity_id) {
+            coords.position = new_position;
+        }
+    }
+
+    pub fn set_entity_velocity_directly(&mut self, entity_id: u32, new_velocity: Vector3<f32>) {
+        if let Some(velocity) = self.movement.get_velocity_mut(entity_id) {
+            velocity.direction = new_velocity.normalize();
+            velocity.speed = new_velocity.magnitude();
+        }
+    }
+
+    pub fn get_entity_id_by_name(&self, name: &str) -> Option<u32> {
+        self.entities.get_entity_by_name(name).map(|e| e.id)
     }
 
     pub fn init_collision_shader(&mut self) {

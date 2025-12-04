@@ -588,6 +588,9 @@ fn main() {
                         println!("UI active - mouse input handled by UI system");
                     } else {
                         println!("pewpew: {:#?}", player.get_position());
+                        let name = world.get_entity_id_by_name("drop_test").unwrap();//lol this is what crashed cloud flair
+
+                        world.set_position_directly(name, Vector3::new(10.0, 30.0, 10.0));
                     }
                 }
                 _ => {}

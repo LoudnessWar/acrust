@@ -443,6 +443,21 @@ impl PhysicsSystem {
             normal = -normal;
         }
 
+        // if is_static_a && !is_static_b {
+        //     // A is static, B is dynamic - normal should point A→B (correct as-is)
+        // } else if !is_static_a && is_static_b {
+        //     // A is dynamic, B is static - flip so normal points B→A
+        //     normal = -normal;
+        // } else if inv_mass_a > 0.0 && inv_mass_b > 0.0 {
+        //     // Both dynamic - orient based on mass (heavier is "more static")
+        //     if inv_mass_a < inv_mass_b {
+        //         // A is heavier, treat like static - normal should point A→B (correct)
+        //     } else {
+        //         // B is heavier - flip
+        //         normal = -normal;
+        //     }
+        // }
+
         
         // Both static/kinematic - just separate positions
         if inv_mass_a == 0.0 && inv_mass_b == 0.0 {
