@@ -444,7 +444,7 @@ impl CollisionSystem {
             println!("A to B vector: {:?}", a_to_b);
             println!("Dot product: {}", normal.dot(a_to_b));
             
-            if normal.dot(a_to_b) < 0.0 {
+            if normal.dot(a_to_b) > 0.0 {
                 println!("FLIPPING NORMAL!");
                 normal = -normal;
             }

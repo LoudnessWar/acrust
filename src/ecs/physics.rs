@@ -439,9 +439,10 @@ impl PhysicsSystem {
 
 
         //lol this is lowkey bogus lol
+        //todo fix this
         let mut normal = collision.normal;
         normal = normal.normalize();
-        normal = -normal;
+        // normal = -normal;
         // if is_static_b{
         //     println!("Flipping normal because A is dynamic and B is static");
         //     normal = -normal;
