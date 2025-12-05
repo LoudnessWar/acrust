@@ -546,6 +546,11 @@ impl World {
         self.collision.update(&mut self.movement,  &mut self.physics, delta_time);
         //self.collision.update_no_physics(&mut self.movement, delta_time);
         self.render.update_transforms(&self.movement);
+
+        print!("Entity names and IDs:\n");
+        for entity in self.entities.all_entities() {
+            print!("  ID: {}, Name: {}\n", entity.id, entity.name);
+        }
         
         // Update regular UI input
         let mouse_pos = input_system.get_mouse_position();

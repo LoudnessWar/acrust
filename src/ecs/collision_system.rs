@@ -220,23 +220,23 @@ impl CollisionSystem {
         let center_diff = center_b - center_a;
         
         // ADD DEBUGGING HERE
-        println!("Testing {} axes for collision", test_axes.len());
+        //println!("Testing {} axes for collision", test_axes.len());
         
         for (idx, axis) in test_axes.iter().enumerate() {
             let (min_a, max_a) = Self::project_obb_onto_axis(obb_data_a, center_a, *axis);
             let (min_b, max_b) = Self::project_obb_onto_axis(obb_data_b, center_b, *axis);
             
             // ADD THIS DEBUG LINE
-            println!("Axis {}: {:?} | A:[{:.2}, {:.2}] B:[{:.2}, {:.2}]", 
-                    idx, axis, min_a, max_a, min_b, max_b);
+            // println!("Axis {}: {:?} | A:[{:.2}, {:.2}] B:[{:.2}, {:.2}]", 
+            //         idx, axis, min_a, max_a, min_b, max_b);
             
            match Self::ranges_overlap(min_a, max_a, min_b, max_b) {
                 None => {
-                    println!("  -> SEPARATING AXIS FOUND! No collision.");
+                    //println!("  -> SEPARATING AXIS FOUND! No collision.");
                     return None;
                 }
                 Some(penetration) => {
-                    println!("  -> Overlap: {:.4}", penetration);
+                    //println!("  -> Overlap: {:.4}", penetration);
                     if penetration < min_penetration {
                         min_penetration = penetration;
                         
@@ -255,8 +255,8 @@ impl CollisionSystem {
                             -*axis
                         };
                         
-                        println!("  -> NEW MINIMUM! Normal: {:?}, Penetration: {:.4}", 
-                                collision_normal, min_penetration);
+                        // println!("  -> NEW MINIMUM! Normal: {:?}, Penetration: {:.4}", 
+                        //         collision_normal, min_penetration);
                     }
                 }
             }
@@ -286,17 +286,17 @@ impl CollisionSystem {
             _ => return,
         };
         
-        println!("=== OBB DEBUG ===");
-        println!("Center A: {:?}, Half extents: {:?}", center_a, obb_data_a.0);
-        println!("Center B: {:?}, Half extents: {:?}", center_b, obb_data_b.0);
-        println!("Rotation A: {:?}", obb_data_a.1);
-        println!("Rotation B: {:?}", obb_data_b.1);
+        // println!("=== OBB DEBUG ===");
+        // println!("Center A: {:?}, Half extents: {:?}", center_a, obb_data_a.0);
+        // println!("Center B: {:?}, Half extents: {:?}", center_b, obb_data_b.0);
+        // println!("Rotation A: {:?}", obb_data_a.1);
+        // println!("Rotation B: {:?}", obb_data_b.1);
         
         let axes_a = Self::get_axes(obb_data_a.1);
         let axes_b = Self::get_axes(obb_data_b.1);
         
-        println!("Axes A: {:?}", axes_a);
-        println!("Axes B: {:?}", axes_b);
+        // println!("Axes A: {:?}", axes_a);
+        // println!("Axes B: {:?}", axes_b);
         
         // Check for degenerate cases
         for i in 0..3 {
@@ -312,14 +312,14 @@ impl CollisionSystem {
         let distance = (center_b - center_a).magnitude();
         let max_extent_a = obb_data_a.0.x.max(obb_data_a.0.y).max(obb_data_a.0.z);
         let max_extent_b = obb_data_b.0.x.max(obb_data_b.0.y).max(obb_data_b.0.z);
-        println!("Distance between centers: {}", distance);
-        println!("Max possible separation: {}", max_extent_a + max_extent_b);
+        // println!("Distance between centers: {}", distance);
+        // println!("Max possible separation: {}", max_extent_a + max_extent_b);
         
         if distance > (max_extent_a + max_extent_b) * 2.0 {
             println!("WARNING: Boxes too far apart for collision!");
         }
         
-        println!("=================\n");
+        //println!("=================\n");
     }
 
     // fn ranges_overlap(min1: f32, max1: f32, min2: f32, max2: f32) -> Option<f32> {
@@ -437,20 +437,20 @@ impl CollisionSystem {
         
         if let Some((mut normal, penetration)) = Self::check_obb_collision(&obb_a, pos_a, &obb_b, pos_b) {
             
-            println!("BEFORE FIX - Normal: {:?}", normal);
+            //println!("BEFORE FIX - Normal: {:?}", normal);
             
             //LOL so here this is uuuh bogus but like basically im just making sure that the ground doesnt do the normal on the box because then it will be inverted... I could just like... make sure the normal isnt negative btw
             //todo fix properly
             let a_to_b = pos_b - pos_a;
-            println!("A to B vector: {:?}", a_to_b);
-            println!("Dot product: {}", normal.dot(a_to_b));
+            // println!("A to B vector: {:?}", a_to_b);
+            // println!("Dot product: {}", normal.dot(a_to_b));
             
             if normal.dot(a_to_b) > 0.0 {
-                println!("FLIPPING NORMAL!");
+                //println!("FLIPPING NORMAL!");
                 normal = -normal;
             }
             
-            println!("AFTER FIX - Normal: {:?}\n", normal);
+            //println!("AFTER FIX - Normal: {:?}\n", normal);
             
             let collision_point = pos_b + normal * (penetration / 2.0);
             
@@ -1012,35 +1012,57 @@ impl CollisionSystem {
                 }
             },
 
-            (CollisionShape::OBB { .. }, CollisionShape::OBB { .. }) => {
+            (CollisionShape::OBB { half_extents, rotation: _ }, CollisionShape::OBB { .. }) => {
+                // Create temporary colliders with world-space rotations
+                let world_collider_a = Collider {
+                    shape: CollisionShape::OBB {
+                        half_extents: *half_extents,
+                        rotation: rot_a,  // Use entity rotation, not collider rotation
+                    },
+                    ..*collider_a
+                };
+                
+                let world_collider_b = if let CollisionShape::OBB { half_extents: hb, .. } = &collider_b.shape {
+                    Collider {
+                        shape: CollisionShape::OBB {
+                            half_extents: *hb,
+                            rotation: rot_b,
+                        },
+                        ..*collider_b
+                    }
+                } else {
+                    unreachable!()
+                };
+                
                 Self::check_box_collision_with_rotation(
-                    collider_a,
-                    collider_b,
+                    &world_collider_a,
+                    &world_collider_b,
                     entity_a,
                     pos_a,
                     entity_b,
                     pos_b,
                 )
             },
-
-            (CollisionShape::OBB { .. }, CollisionShape::Box { width, height, depth }) => {
-                                println!("Checking Box-OBB collision between Entity {} and Entity {}", entity_a, entity_b);
-
-                // its rather simple im just like pretending the box is an obb that just has no rotation because it is lol
-                // println!("Checking Box-OBB collision between Entity {} and Entity {}", entity_a, entity_b);
-                // print!("Rotation of OBB: {:?}\n", rot_b);
-                // print!("Rotation of Box (identity): {:?}\n", Quaternion::new(1.0, 0.0, 0.0, 0.0));
+            
+            (CollisionShape::OBB { half_extents, .. }, CollisionShape::Box { width, height, depth }) => {
+                let world_collider_a = Collider {
+                    shape: CollisionShape::OBB {
+                        half_extents: *half_extents,
+                        rotation: rot_a,  // Use entity rotation
+                    },
+                    ..*collider_a
+                };
+                
                 let box_as_obb = Collider {
                     shape: CollisionShape::OBB {
                         half_extents: Vector3::new(*width / 2.0, *height / 2.0, *depth / 2.0),
-                        rotation: rot_b
-                        //rotation: Quaternion::new(1.0, 0.0, 0.0, 0.0),//doesnt need to be 1 but 1 makes sure that there are not like div by 0 or nothing weird im pretty sure
+                        rotation: rot_b,  // Boxes can also rotate now!
                     },
                     ..*collider_b
                 };
                 
                 Self::check_box_collision_with_rotation(
-                    collider_a,
+                    &world_collider_a,
                     &box_as_obb,
                     entity_a,
                     pos_a,
@@ -1048,34 +1070,45 @@ impl CollisionSystem {
                     pos_b,
                 )
             },
-
-            (CollisionShape::Box { width, height, depth }, CollisionShape::OBB { .. }) => {
-                // its rather simple im just like pretending the box is an obb that just has no rotation because it is lol
-                // println!("Checking Box-OBB collision between Entity {} and Entity {}", entity_a, entity_b);
-                // print!("Rotation of OBB: {:?}\n", rot_a);
-                // print!("Rotation of Box (identity): {:?}\n", Quaternion::new(1.0, 0.0, 0.0, 0.0));
+            
+            (CollisionShape::Box { width, height, depth }, CollisionShape::OBB { half_extents, .. }) => {
                 let box_as_obb = Collider {
                     shape: CollisionShape::OBB {
                         half_extents: Vector3::new(*width / 2.0, *height / 2.0, *depth / 2.0),
-                        rotation: rot_a
-                        //rotation: Quaternion::new(1.0, 0.0, 0.0, 0.0),//doesnt need to be 1 but 1 makes sure that there are not like div by 0 or nothing weird im pretty sure
+                        rotation: rot_a,
+                    },
+                    ..*collider_a
+                };
+                
+                let world_collider_b = Collider {
+                    shape: CollisionShape::OBB {
+                        half_extents: *half_extents,
+                        rotation: rot_b,
                     },
                     ..*collider_b
                 };
                 
                 Self::check_box_collision_with_rotation(
-                    collider_a,
                     &box_as_obb,
+                    &world_collider_b,
                     entity_a,
                     pos_a,
                     entity_b,
                     pos_b,
                 )
             },
-
-            (CollisionShape::OBB { .. }, CollisionShape::Sphere { radius }) => {
+            
+            (CollisionShape::OBB { half_extents, .. }, CollisionShape::Sphere { radius }) => {
+                let world_collider_a = Collider {
+                    shape: CollisionShape::OBB {
+                        half_extents: *half_extents,
+                        rotation: rot_a,
+                    },
+                    ..*collider_a
+                };
+                
                 if let Some((normal, penetration)) = Self::check_obb_sphere_collision(
-                    collider_a,
+                    &world_collider_a,
                     pos_a,
                     *radius,
                     pos_b,
@@ -1091,10 +1124,18 @@ impl CollisionSystem {
                     None
                 }
             },
-
-            (CollisionShape::Sphere { radius }, CollisionShape::OBB { .. }) => {
+            
+            (CollisionShape::Sphere { radius }, CollisionShape::OBB { half_extents, .. }) => {
+                let world_collider_b = Collider {
+                    shape: CollisionShape::OBB {
+                        half_extents: *half_extents,
+                        rotation: rot_b,
+                    },
+                    ..*collider_b
+                };
+                
                 if let Some((normal, penetration)) = Self::check_obb_sphere_collision(
-                    collider_b,
+                    &world_collider_b,
                     pos_b,
                     *radius,
                     pos_a,
@@ -1103,7 +1144,7 @@ impl CollisionSystem {
                         entity_a,
                         entity_b,
                         collision_point: pos_a + normal * (radius - penetration / 2.0),
-                        normal: -normal, // Flip normal since sphere is entity_a
+                        normal: -normal,
                         penetration,
                     })
                 } else {
