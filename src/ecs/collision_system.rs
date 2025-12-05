@@ -439,7 +439,8 @@ impl CollisionSystem {
             
             println!("BEFORE FIX - Normal: {:?}", normal);
             
-            // CRITICAL FIX: Ensure normal ALWAYS points from entity_a toward entity_b
+            //LOL so here this is uuuh bogus but like basically im just making sure that the ground doesnt do the normal on the box because then it will be inverted... I could just like... make sure the normal isnt negative btw
+            //todo fix properly
             let a_to_b = pos_b - pos_a;
             println!("A to B vector: {:?}", a_to_b);
             println!("Dot product: {}", normal.dot(a_to_b));
@@ -460,6 +461,89 @@ impl CollisionSystem {
                 normal,
                 penetration,
             })
+        } else {
+            None
+        }
+    }
+
+    fn check_obb_sphere_collision(
+        obb: &Collider,
+        obb_pos: Vector3<f32>,
+        sphere_radius: f32,
+        sphere_pos: Vector3<f32>,
+    ) -> Option<(Vector3<f32>, f32)> {
+
+        //ok so how does this work? lets break it down
+
+        //first boring stuff getting the half extents and rotation
+        let (half_extents, rotation) = match &obb.shape {
+            CollisionShape::OBB { half_extents, rotation } => (half_extents, rotation),
+            _ => return None,
+        };
+        
+        //ok then we get the distace from the sphere to the obb
+        //this is both of there centers
+
+        let sphere_to_obb = sphere_pos - obb_pos;
+
+        //getting the axies from the quatration rotation
+        let axes = Self::get_axes(rotation);
+        
+        //we then rotate the sphere into the same way that we do the obb, this is
+        //because when we rotate the obb we are moving it so we need to keep them relative
+        let local_sphere: Vector3<f32> = Vector3::new(
+            sphere_to_obb.dot(axes[0]),
+            sphere_to_obb.dot(axes[1]),
+            sphere_to_obb.dot(axes[2]),
+        );
+        
+
+        //clamping the sphere to the obb so that we can find the closest point on the obb to the sphere
+        let closest_local = Vector3::new(
+            local_sphere.x.clamp(-half_extents.x, half_extents.x),
+            local_sphere.y.clamp(-half_extents.y, half_extents.y),
+            local_sphere.z.clamp(-half_extents.z, half_extents.z),
+        );
+        
+        //now we put it back into world space
+        let closest_world = obb_pos + 
+            axes[0] * closest_local.x + 
+            axes[1] * closest_local.y + 
+            axes[2] * closest_local.z;
+        
+        //so this the distance from the spheres center to the closest point on the obb
+        //basically all that this is really doing and what the heart of this is is that we are checking if
+        //the distance from the sphere to the closest point on the obb is less than the radius of the sphere
+        let diff = sphere_pos - closest_world;
+        let distance_squared = diff.magnitude2();
+        let radius_squared = sphere_radius * sphere_radius;
+        
+        //here is the heart of it again repeating if the distance from the sphere to the closest point on the obb is less than the radius of the sphere
+        if distance_squared < radius_squared {
+            let distance = distance_squared.sqrt();
+            let penetration = sphere_radius - distance;
+            
+            let normal = if distance > 0.0001 {
+                diff.normalize()
+            } else {
+
+                //yeah lol idk get his math i cant even lie
+                let distances = [
+                    (half_extents.x - local_sphere.x.abs(), axes[0] * local_sphere.x.signum()),
+                    (half_extents.y - local_sphere.y.abs(), axes[1] * local_sphere.y.signum()),
+                    (half_extents.z - local_sphere.z.abs(), axes[2] * local_sphere.z.signum()),
+                ];
+                
+                distances.iter()
+                    .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
+                    .map(|(_, axis)| *axis)
+                    .unwrap_or(Vector3::new(0.0, 1.0, 0.0))
+            };
+            
+            //todo this is very lazy
+            //:3 idk why all my normals are flipped but i just live with it
+            //i mean I have a hunch that its because of the order that the collisions are coming in as but it doesnt really matter rn
+            Some((-normal, penetration))
         } else {
             None
         }
@@ -924,7 +1008,85 @@ impl CollisionSystem {
                     pos_b,
                 )
             },
-            
+
+            (CollisionShape::OBB { .. }, CollisionShape::Box { width, height, depth }) => {
+                // its rather simple im just like pretending the box is an obb that just has no rotation because it is lol
+                let box_as_obb = Collider {
+                    shape: CollisionShape::OBB {
+                        half_extents: Vector3::new(*width / 2.0, *height / 2.0, *depth / 2.0),
+                        rotation: Quaternion::new(1.0, 0.0, 0.0, 0.0),//doesnt need to be 1 but 1 makes sure that there are not like div by 0 or nothing weird im pretty sure
+                    },
+                    ..*collider_b
+                };
+                
+                Self::check_box_collision_with_rotation(
+                    collider_a,
+                    &box_as_obb,
+                    entity_a,
+                    pos_a,
+                    entity_b,
+                    pos_b,
+                )
+            },
+
+            (CollisionShape::Box { width, height, depth }, CollisionShape::OBB { .. }) => {
+                // its rather simple im just like pretending the box is an obb that just has no rotation because it is lol
+                let box_as_obb = Collider {
+                    shape: CollisionShape::OBB {
+                        half_extents: Vector3::new(*width / 2.0, *height / 2.0, *depth / 2.0),
+                        rotation: Quaternion::new(1.0, 0.0, 0.0, 0.0),//doesnt need to be 1 but 1 makes sure that there are not like div by 0 or nothing weird im pretty sure
+                    },
+                    ..*collider_b
+                };
+                
+                Self::check_box_collision_with_rotation(
+                    collider_a,
+                    &box_as_obb,
+                    entity_a,
+                    pos_a,
+                    entity_b,
+                    pos_b,
+                )
+            },
+
+            (CollisionShape::OBB { .. }, CollisionShape::Sphere { radius }) => {
+                if let Some((normal, penetration)) = Self::check_obb_sphere_collision(
+                    collider_a,
+                    pos_a,
+                    *radius,
+                    pos_b,
+                ) {
+                    Some(CollisionEvent {
+                        entity_a,
+                        entity_b,
+                        collision_point: pos_b - normal * (radius - penetration / 2.0),
+                        normal,
+                        penetration,
+                    })
+                } else {
+                    None
+                }
+            },
+
+            (CollisionShape::Sphere { radius }, CollisionShape::OBB { .. }) => {
+                if let Some((normal, penetration)) = Self::check_obb_sphere_collision(
+                    collider_b,
+                    pos_b,
+                    *radius,
+                    pos_a,
+                ) {
+                    Some(CollisionEvent {
+                        entity_a,
+                        entity_b,
+                        collision_point: pos_a + normal * (radius - penetration / 2.0),
+                        normal: -normal, // Flip normal since sphere is entity_a
+                        penetration,
+                    })
+                } else {
+                    None
+                }
+            },
+                        
             // need to add all the mixed collision types later
             _ => None, // Unsupported collision pair
         }
