@@ -1,4 +1,4 @@
-use cgmath::{Vector3, InnerSpace};
+use cgmath::{InnerSpace, Quaternion, Rotation3, Vector3, Zero};
 // use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 
@@ -195,6 +195,16 @@ pub struct PhysicsEntity {
     
     // Linear damping (air resistance)
     pub linear_damping: f32, // 0.0 = no damping, 1.0 = full damping
+
+    // Angular motion
+    pub angular_velocity: Vector3<f32>,  // Rotation speed (radians/sec) around each axis
+    pub torque: Vector3<f32>,            // Accumulated rotational force
+    pub angular_impulse: Vector3<f32>,   // Instant angular velocity changes
+    pub angular_damping: f32,            // Rotational drag (0.0 = no damping, 1.0 = full)
+    
+    // Inertia (resistance to rotation)
+    pub inertia_tensor: Vector3<f32>,    // Diagonal inertia tensor (simplified)
+    pub inverse_inertia: Vector3<f32>,   // Cached inverse for performance
     
     // Constraints
     pub is_kinematic: bool, // Moves but not affected by forces
@@ -212,6 +222,85 @@ impl PhysicsEntity {
             force: Vector3::new(0.0, 0.0, 0.0),
             impulse: Vector3::new(0.0, 0.0, 0.0),
             linear_damping: 0.01,
+            angular_velocity: Vector3::zero(),
+            torque: Vector3::zero(),
+            angular_impulse: Vector3::zero(),
+            angular_damping: 0.05,
+            inertia_tensor: Vector3::new(1.0, 1.0, 1.0),
+            inverse_inertia: Vector3::new(1.0, 1.0, 1.0),
+            is_kinematic: false,
+            lock_rotation: false,
+            lock_axis: Vector3::new(false, false, false),
+        }
+    }
+
+    pub fn sphere(mass: f32, radius: f32) -> Self {
+        let inverse_mass = if mass > 0.0 { 1.0 / mass } else { 0.0 };
+        
+        // Moment of inertia for solid sphere: I = (2/5) * m * r²
+        let inertia = (2.0 / 5.0) * mass * radius * radius;
+        let inertia_tensor = Vector3::new(inertia, inertia, inertia);
+        let inverse_inertia = if mass > 0.0 {
+            Vector3::new(1.0 / inertia, 1.0 / inertia, 1.0 / inertia)
+        } else {
+            Vector3::zero()
+        };
+        
+        Self {
+            mass,
+            inverse_mass,
+            restitution: 0.3,
+            friction: 0.6,
+            force: Vector3::zero(),
+            impulse: Vector3::zero(),
+            linear_damping: 0.01,
+            
+            angular_velocity: Vector3::zero(),
+            torque: Vector3::zero(),
+            angular_impulse: Vector3::zero(),
+            angular_damping: 0.05,
+            
+            inertia_tensor,
+            inverse_inertia,
+            
+            is_kinematic: false,
+            lock_rotation: false,
+            lock_axis: Vector3::new(false, false, false),
+        }
+    }
+
+    pub fn box_shape(mass: f32, width: f32, height: f32, depth: f32) -> Self {
+        let inverse_mass = if mass > 0.0 { 1.0 / mass } else { 0.0 };
+        
+        // Moment of inertia for box: I_x = (1/12) * m * (h² + d²), etc.
+        let inertia_x = (1.0 / 12.0) * mass * (height * height + depth * depth);
+        let inertia_y = (1.0 / 12.0) * mass * (width * width + depth * depth);
+        let inertia_z = (1.0 / 12.0) * mass * (width * width + height * height);
+        
+        let inertia_tensor = Vector3::new(inertia_x, inertia_y, inertia_z);
+        let inverse_inertia = if mass > 0.0 {
+            Vector3::new(1.0 / inertia_x, 1.0 / inertia_y, 1.0 / inertia_z)
+        } else {
+            Vector3::zero()
+        };
+        
+        Self {
+            mass,
+            inverse_mass,
+            restitution: 0.4,
+            friction: 0.5,
+            force: Vector3::zero(),
+            impulse: Vector3::zero(),
+            linear_damping: 0.01,
+            
+            angular_velocity: Vector3::zero(),
+            torque: Vector3::zero(),
+            angular_impulse: Vector3::zero(),
+            angular_damping: 0.05,
+            
+            inertia_tensor,
+            inverse_inertia,
+            
             is_kinematic: false,
             lock_rotation: false,
             lock_axis: Vector3::new(false, false, false),
@@ -227,6 +316,12 @@ impl PhysicsEntity {
             force: Vector3::new(0.0, 0.0, 0.0),
             impulse: Vector3::new(0.0, 0.0, 0.0),
             linear_damping: 0.0,
+            angular_velocity: Vector3::zero(),
+            torque: Vector3::zero(),
+            angular_impulse: Vector3::zero(),
+            angular_damping: 0.05,
+            inertia_tensor: Vector3::new(1.0, 1.0, 1.0),
+            inverse_inertia: Vector3::new(1.0, 1.0, 1.0),
             is_kinematic: false,
             lock_rotation: true,
             lock_axis: Vector3::new(false, false, false),
@@ -242,6 +337,12 @@ impl PhysicsEntity {
             force: Vector3::new(0.0, 0.0, 0.0),
             impulse: Vector3::new(0.0, 0.0, 0.0),
             linear_damping: 0.0,
+            angular_velocity: Vector3::zero(),
+            torque: Vector3::zero(),
+            angular_impulse: Vector3::zero(),
+            angular_damping: 0.05,
+            inertia_tensor: Vector3::new(1.0, 1.0, 1.0),
+            inverse_inertia: Vector3::new(1.0, 1.0, 1.0),
             is_kinematic: true,
             lock_rotation: true,
             lock_axis: Vector3::new(false, false, false),
@@ -293,6 +394,18 @@ impl PhysicsEntity {
     pub fn is_static(&self) -> bool {
         !self.is_kinematic && self.inverse_mass == 0.0
     }
+
+    pub fn apply_torque(&mut self, torque: Vector3<f32>) {
+        if !self.lock_rotation && !self.is_kinematic {
+            self.torque += torque;
+        }
+    }
+    
+    pub fn apply_angular_impulse(&mut self, impulse: Vector3<f32>) {
+        if !self.lock_rotation && !self.is_kinematic {
+            self.angular_impulse += impulse;
+        }
+    }
 }
 
 
@@ -333,18 +446,13 @@ impl PhysicsSystem {
     
     /// Main physics update - applies forces and integrates velocity
     pub fn update(&mut self, movement_system: &mut MovementSystem, delta_time: f32) {
-
-        //print!("Physics Update Start\n");
         for (entity_id, rigidbody) in self.rigidbodies.iter_mut() {
-
-            //println!("Updating rigidbody for entity {}: {:?}", entity_id, rigidbody);
             if rigidbody.is_static() {
-                //print!("Skipping static rigidbody for entity {}\n", entity_id);
                 continue;
             }
             
-            // Get velocity component (create if doesn't exist for dynamic bodies)
-            let velocity = movement_system.get_velocity_mut(*entity_id);//todo mmee eeh mee heeheh jh he like i dont like gettign mut here... 
+            // === LINEAR PHYSICS ===
+            let velocity = movement_system.get_velocity_mut(*entity_id);
             if velocity.is_none() {
                 print!("No velocity component for entity {}, skipping physics update\n", entity_id);
                 continue;
@@ -355,12 +463,11 @@ impl PhysicsSystem {
             let mut new_velocity = current_velocity;
             
             if !rigidbody.is_kinematic {
-                //print!("Applying physics to entity {}\n", entity_id);
-                // Apply gravity when the grav is tea..... lowkey doe we need a floor dont we so things dont just fall forever
+                // Apply gravity
                 let gravity_force = self.gravity * rigidbody.mass;
                 rigidbody.apply_force(gravity_force);
                 
-                // Calculate acceleration from forces (F = ma -> a = F/m) boring doe
+                // Calculate acceleration from forces (F = ma -> a = F/m)
                 let acceleration = rigidbody.force * rigidbody.inverse_mass;
                 
                 // Integrate velocity (v = v0 + a*dt)
@@ -384,13 +491,53 @@ impl PhysicsSystem {
                 velocity.direction = new_velocity.normalize();
                 velocity.speed = speed;
             } else {
-                velocity.direction = Vector3::new(0.0, 0.0, 0.0);
+                velocity.direction = Vector3::zero();
                 velocity.speed = 0.0;
             }
             
             // Clear force and impulse accumulators
-            rigidbody.force = Vector3::new(0.0, 0.0, 0.0);
-            rigidbody.impulse = Vector3::new(0.0, 0.0, 0.0);
+            rigidbody.force = Vector3::zero();
+            rigidbody.impulse = Vector3::zero();
+            
+            // === ANGULAR PHYSICS (NEW) ===
+            if !rigidbody.is_kinematic && !rigidbody.lock_rotation {
+                // Apply angular impulses (instant angular velocity changes)
+                rigidbody.angular_velocity += Vector3::new(
+                    rigidbody.angular_impulse.x * rigidbody.inverse_inertia.x,
+                    rigidbody.angular_impulse.y * rigidbody.inverse_inertia.y,
+                    rigidbody.angular_impulse.z * rigidbody.inverse_inertia.z,
+                );
+                rigidbody.angular_impulse = Vector3::zero();
+                
+                // Apply torques (T = I * α -> α = T / I)
+                let angular_acceleration = Vector3::new(
+                    rigidbody.torque.x * rigidbody.inverse_inertia.x,
+                    rigidbody.torque.y * rigidbody.inverse_inertia.y,
+                    rigidbody.torque.z * rigidbody.inverse_inertia.z,
+                );
+                rigidbody.angular_velocity += angular_acceleration * delta_time;
+                rigidbody.torque = Vector3::zero();
+                
+                // Apply angular damping
+                rigidbody.angular_velocity *= 1.0 - rigidbody.angular_damping;
+                
+                // Integrate rotation (update the actual rotation)
+                if rigidbody.angular_velocity.magnitude2() > 0.0001 {
+                    if let Some(coords) = movement_system.get_coords_mut(*entity_id) {
+                        let angle = rigidbody.angular_velocity.magnitude() * delta_time;
+                        if angle > 0.0001 {
+                            let axis = rigidbody.angular_velocity.normalize();
+                            let rotation_delta = Quaternion::from_axis_angle(axis, cgmath::Rad(angle));
+                            coords.set_rotation_from_quaternion(coords.rotation * rotation_delta);
+                        }
+                    }
+                }
+            } else if rigidbody.lock_rotation {
+                // Clear angular motion if rotation is locked
+                rigidbody.angular_velocity = Vector3::zero();
+                rigidbody.torque = Vector3::zero();
+                rigidbody.angular_impulse = Vector3::zero();
+            }
         }
     }
     
@@ -416,12 +563,6 @@ impl PhysicsSystem {
             return;
         }
 
-        // if(rb_a.is_some() && rb_a.unwrap().is_kinematic) && (rb_b.is_some() && rb_b.unwrap().is_kinematic) {
-        //     print!("both objects kinematic - using simple collision resolution\n");
-        //     self.simple_position_resolution(movement_system, collision);
-        //     return;
-        // }
-
         // Get rigidbody data
         let (inv_mass_a, rest_a, fric_a, is_static_a) = if let Some(rb) = rb_a {
             (rb.inverse_mass, rb.restitution, rb.friction, rb.is_static())
@@ -442,28 +583,7 @@ impl PhysicsSystem {
         //todo fix this
         let mut normal = collision.normal;
         normal = normal.normalize();
-        // normal = -normal;
-        // if is_static_b{
-        //     println!("Flipping normal because A is dynamic and B is static");
-        //     normal = -normal;
-        // }
 
-        // if is_static_a && !is_static_b {
-        //     // A is static, B is dynamic - normal should point A→B (correct as-is)
-        // } else if !is_static_a && is_static_b {
-        //     // A is dynamic, B is static - flip so normal points B→A
-        //     normal = -normal;
-        // } else if inv_mass_a > 0.0 && inv_mass_b > 0.0 {
-        //     // Both dynamic - orient based on mass (heavier is "more static")
-        //     if inv_mass_a < inv_mass_b {
-        //         // A is heavier, treat like static - normal should point A→B (correct)
-        //     } else {
-        //         // B is heavier - flip
-        //         normal = -normal;
-        //     }
-        // }
-
-        
         // Both static/kinematic - just separate positions
         if inv_mass_a == 0.0 && inv_mass_b == 0.0 {
             print!("both objects static - using simple collision resolution\n");
@@ -508,26 +628,6 @@ impl PhysicsSystem {
         let relative_velocity = vel_a - vel_b;
         let velocity_along_normal = relative_velocity.dot(normal);
         
-        // Don't resolve if velocities are separating
-        // if velocity_along_normal > 0.01 || collision.penetration < 0.01 {
-        //     println!(">>> SKIPPING: Objects separating (vel_along_normal > 0.01)");
-        //     return;
-        // }
-
-        // if velocity_along_normal > 0.0 {
-        //     println!(">>> SKIPPING: Objects separating (vel_along_normal > 0)");
-        //     return;
-        // }
-
-        // if velocity_along_normal > 0.1 {  // Increased threshold
-        //     println!(">>> SKIPPING: Objects separating");
-        //     return;
-        // }
-
-        // // Always resolve if penetration is significant
-        // if collision.penetration < 0.001 {
-        //     return; // Too shallow, ignore
-        // }
 
         if velocity_along_normal.abs() < 0.01 && collision.penetration < 0.05 {
         // They're resting - project velocities to be parallel to contact
@@ -604,58 +704,137 @@ impl PhysicsSystem {
         let friction = (fric_a + fric_b) / 2.0;
 
         if friction > 0.001 {
-            // Recalculate relative velocity after impulse
+            // Get positions for contact point calculation
+            let pos_a = movement_system.get_coords(collision.entity_a)
+                .map(|c| c.position)
+                .unwrap_or(Vector3::zero());
+            let pos_b = movement_system.get_coords(collision.entity_b)
+                .map(|c| c.position)
+                .unwrap_or(Vector3::zero());
+            
+            // Recalculate velocities after normal impulse
             let vel_a = movement_system.get_velocity_mut(collision.entity_a)
                 .map(|v| v.direction * v.speed)
-                .unwrap_or(Vector3::new(0.0, 0.0, 0.0));
+                .unwrap_or(Vector3::zero());
                 
             let vel_b = movement_system.get_velocity_mut(collision.entity_b)
                 .map(|v| v.direction * v.speed)
-                .unwrap_or(Vector3::new(0.0, 0.0, 0.0));
+                .unwrap_or(Vector3::zero());
             
-            let relative_velocity = vel_a - vel_b;
+            // Get contact point relative to centers (r vectors)
+            let r_a = collision.collision_point - pos_a;
+            let r_b = collision.collision_point - pos_b;
             
-            // Get tangent (perpendicular to normal)
+            // Get angular velocities and inertia from rigidbodies
+            let (angular_vel_a, inv_inertia_a) = self.rigidbodies.get(collision.entity_a)
+                .map(|rb| (rb.angular_velocity, rb.inverse_inertia))
+                .unwrap_or((Vector3::zero(), Vector3::zero()));
+            
+            let (angular_vel_b, inv_inertia_b) = self.rigidbodies.get(collision.entity_b)
+                .map(|rb| (rb.angular_velocity, rb.inverse_inertia))
+                .unwrap_or((Vector3::zero(), Vector3::zero()));
+            
+            // Calculate velocity at contact point (linear + rotational contribution)
+            // v_contact = v_linear + ω × r
+            let contact_vel_a = vel_a + angular_vel_a.cross(r_a);
+            let contact_vel_b = vel_b + angular_vel_b.cross(r_b);
+            
+            let relative_velocity = contact_vel_a - contact_vel_b;
+            
+            // Get tangent (perpendicular to normal, in the plane of contact)
             let tangent = relative_velocity - normal * relative_velocity.dot(normal);
             
             if tangent.magnitude() > 0.001 {
                 let tangent = tangent.normalize();
                 
-                // Calculate friction impulse
-                let friction_impulse_scalar = -relative_velocity.dot(tangent) / total_inv_mass;
-                let friction_impulse = tangent * friction_impulse_scalar * friction;
+                // Calculate effective mass for friction (includes rotational inertia)
+                // This accounts for how rotation affects the contact point motion
+                let r_a_cross_t = r_a.cross(tangent);
+                let r_b_cross_t = r_b.cross(tangent);
                 
-                // Apply friction impulses DIRECTLY to velocity
-                if inv_mass_a > 0.0 {
-                    if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
-                        let velocity_change = friction_impulse * inv_mass_a;
-                        let current_vel = vel.direction * vel.speed;
-                        let new_vel = current_vel + velocity_change;
-                        
-                        let speed = new_vel.magnitude();
-                        if speed > 0.001 {
-                            vel.direction = new_vel.normalize();
-                            vel.speed = speed;
+                // Angular contribution: (r × t)ᵀ · I⁻¹ · (r × t)
+                let angular_term_a = r_a_cross_t.dot(Vector3::new(
+                    inv_inertia_a.x * r_a_cross_t.x,
+                    inv_inertia_a.y * r_a_cross_t.y,
+                    inv_inertia_a.z * r_a_cross_t.z,
+                ));
+                
+                let angular_term_b = r_b_cross_t.dot(Vector3::new(
+                    inv_inertia_b.x * r_b_cross_t.x,
+                    inv_inertia_b.y * r_b_cross_t.y,
+                    inv_inertia_b.z * r_b_cross_t.z,
+                ));
+                
+                let effective_mass = inv_mass_a + inv_mass_b + angular_term_a + angular_term_b;
+                
+                if effective_mass > 0.0001 {
+                    // Calculate friction impulse magnitude
+                    let friction_impulse_scalar = -relative_velocity.dot(tangent) / effective_mass;
+                    let friction_impulse = tangent * friction_impulse_scalar * friction;
+                    
+                    // Apply LINEAR friction impulses
+                    if inv_mass_a > 0.0 {
+                        if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
+                            let velocity_change = friction_impulse * inv_mass_a;
+                            let current_vel = vel.direction * vel.speed;
+                            let new_vel = current_vel + velocity_change;
+                            
+                            let speed = new_vel.magnitude();
+                            if speed > 0.001 {
+                                vel.direction = new_vel.normalize();
+                                vel.speed = speed;
+                            } else {
+                                vel.direction = Vector3::zero();
+                                vel.speed = 0.0;
+                            }
                         }
                     }
-                }
-                
-                if inv_mass_b > 0.0 {
-                    if let Some(vel) = movement_system.get_velocity_mut(collision.entity_b) {
-                        let velocity_change = -friction_impulse * inv_mass_b;
-                        let current_vel = vel.direction * vel.speed;
-                        let new_vel = current_vel + velocity_change;
-                        
-                        let speed = new_vel.magnitude();
-                        if speed > 0.001 {
-                            vel.direction = new_vel.normalize();
-                            vel.speed = speed;
+                    
+                    if inv_mass_b > 0.0 {
+                        if let Some(vel) = movement_system.get_velocity_mut(collision.entity_b) {
+                            let velocity_change = -friction_impulse * inv_mass_b;
+                            let current_vel = vel.direction * vel.speed;
+                            let new_vel = current_vel + velocity_change;
+                            
+                            let speed = new_vel.magnitude();
+                            if speed > 0.001 {
+                                vel.direction = new_vel.normalize();
+                                vel.speed = speed;
+                            } else {
+                                vel.direction = Vector3::zero();
+                                vel.speed = 0.0;
+                            }
+                        }
+                    }
+                    
+                    // Apply ANGULAR friction impulses (THIS CREATES THE ROLLING!)
+                    // Torque = r × F, and angular impulse follows the same pattern
+                    if let Some(rb_a) = self.rigidbodies.get_mut(collision.entity_a) {
+                        if !rb_a.lock_rotation && rb_a.inverse_mass > 0.0 {
+                            let angular_impulse = r_a.cross(friction_impulse);
+                            // Apply through inverse inertia tensor
+                            rb_a.angular_velocity += Vector3::new(
+                                angular_impulse.x * inv_inertia_a.x,
+                                angular_impulse.y * inv_inertia_a.y,
+                                angular_impulse.z * inv_inertia_a.z,
+                            );
+                        }
+                    }
+                    
+                    if let Some(rb_b) = self.rigidbodies.get_mut(collision.entity_b) {
+                        if !rb_b.lock_rotation && rb_b.inverse_mass > 0.0 {
+                            let angular_impulse = r_b.cross(-friction_impulse); // Negative because opposite direction
+                            rb_b.angular_velocity += Vector3::new(
+                                angular_impulse.x * inv_inertia_b.x,
+                                angular_impulse.y * inv_inertia_b.y,
+                                angular_impulse.z * inv_inertia_b.z,
+                            );
                         }
                     }
                 }
             }
+            }
         }
-    }
     
     /// Simple position-based resolution (fallback for objects without rigidbodies)
     fn simple_position_resolution(&self, movement_system: &mut MovementSystem, collision: &CollisionEvent) {

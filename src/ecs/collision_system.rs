@@ -549,80 +549,94 @@ impl CollisionSystem {
         }
     }
 
-    pub fn update_no_physics(&mut self, movement_system: &mut MovementSystem, delta_time: f32) {
+    // pub fn update_no_physics(&mut self, movement_system: &mut MovementSystem, delta_time: f32) {
 
-        return;
-        self.collision_events.clear();
+    //     return;
+    //     self.collision_events.clear();
         
-        // Get all entities with both colliders and positions
-        let mut entities_with_collision: Vec<(u32, Vector3<f32>, &Collider)> = Vec::new();
+    //     // Get all entities with both colliders and positions
+    //     let mut entities_with_collision: Vec<(u32, Vector3<f32>, &Collider)> = Vec::new();
         
-        for (entity_id, collider) in &self.colliders {
-            if let Some(coords) = movement_system.get_coords(*entity_id) {
-                entities_with_collision.push((*entity_id, coords.position + collider.offset, collider));
-            }
-        }
+    //     for (entity_id, collider) in &self.colliders {
+    //         if let Some(coords) = movement_system.get_coords(*entity_id) {
+    //             entities_with_collision.push((*entity_id, coords.position + collider.offset, collider));
+    //         }
+    //     }
         
-        // Check all pairs for collision
-        for i in 0..entities_with_collision.len() {
-            for j in (i + 1)..entities_with_collision.len() {
-                let (entity_a, pos_a, collider_a) = entities_with_collision[i];
-                let (entity_b, pos_b, collider_b) = entities_with_collision[j];
+    //     // Check all pairs for collision
+    //     for i in 0..entities_with_collision.len() {
+    //         for j in (i + 1)..entities_with_collision.len() {
+    //             let (entity_a, pos_a, collider_a) = entities_with_collision[i];
+    //             let (entity_b, pos_b, collider_b) = entities_with_collision[j];
                 
 
-                print!("comparing {} and {}\n", entity_a, entity_b);
-                print!("positions: {:?} and {:?}\n", pos_a, pos_b);
-                // Check if these layers can collide
-                if !self.can_collide(collider_a.layer, collider_b.layer) {
-                    continue;
-                }
+    //             print!("comparing {} and {}\n", entity_a, entity_b);
+    //             print!("positions: {:?} and {:?}\n", pos_a, pos_b);
+    //             // Check if these layers can collide
+    //             if !self.can_collide(collider_a.layer, collider_b.layer) {
+    //                 continue;
+    //             }
                 
-                if let Some(collision) = self.check_collision(
-                    entity_a, pos_a, collider_a,
-                    entity_b, pos_b, collider_b
-                ) {
-                    self.collision_events.push(collision.clone());
+    //             if let Some(collision) = self.check_collision(
+    //                 entity_a, pos_a, collider_a,
+    //                 entity_b, pos_b, collider_b
+    //             ) {
+    //                 self.collision_events.push(collision.clone());
                     
-                    // Only resolve collision if neither is a trigger
-                    if !collider_a.is_trigger && !collider_b.is_trigger {
-                        self.resolve_collision(movement_system, &collision);
-                    }
-                }
-            }
-        }
-    }
+    //                 // Only resolve collision if neither is a trigger
+    //                 if !collider_a.is_trigger && !collider_b.is_trigger {
+    //                     self.resolve_collision(movement_system, &collision);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     pub fn update(&mut self, movement_system: &mut MovementSystem, physics_system: &mut PhysicsSystem, delta_time: f32) {
-        
         self.collision_events.clear();
         
-        let mut entities_with_collision: Vec<(u32, Vector3<f32>, &Collider)> = Vec::new();
+        let mut entities_with_collision: Vec<(u32, Vector3<f32>, Quaternion<f32>, &Collider)> = Vec::new();
         
-        //this is where the position of the colliders is calculated btw
         for (entity_id, collider) in &self.colliders {
             if let Some(coords) = movement_system.get_coords(*entity_id) {
-                entities_with_collision.push((*entity_id, coords.position + collider.offset, collider));//no rotation or scaling yet
-                //todo add
+                // put the rotation of the two together I have it like this if
+                // you want rotation of collider offset from the entity rotation
+                let world_rotation = match &collider.shape {
+                    CollisionShape::OBB { rotation, .. } => {
+                        coords.rotation * rotation  // Combine rotations
+                    },
+                    _ => coords.rotation,
+                };
+                
+                // Apply offset with rotation
+                let rotated_offset = coords.rotation.rotate_vector(collider.offset);
+                let collider_pos = coords.position + rotated_offset;
+                
+                entities_with_collision.push((
+                    *entity_id, 
+                    collider_pos,
+                    world_rotation,  // This is now world_rotation for OBB
+                    collider
+                ));
             }
         }
         
         for i in 0..entities_with_collision.len() {
             for j in (i + 1)..entities_with_collision.len() {
-                let (entity_a, pos_a, collider_a) = entities_with_collision[i];
-                let (entity_b, pos_b, collider_b) = entities_with_collision[j];
+                let (entity_a, pos_a, rot_a, collider_a) = entities_with_collision[i];
+                let (entity_b, pos_b, rot_b, collider_b) = entities_with_collision[j];
                 
                 if !self.can_collide(collider_a.layer, collider_b.layer) {
                     continue;
                 }
                 
                 if let Some(collision) = self.check_collision(
-                    entity_a, pos_a, collider_a,
-                    entity_b, pos_b, collider_b
+                    entity_a, pos_a, collider_a, rot_a, 
+                    entity_b, pos_b, collider_b, rot_b
                 ) {
                     self.collision_events.push(collision.clone());
                     
                     if !collider_a.is_trigger && !collider_b.is_trigger {
-                        // Use physics system for resolution
                         physics_system.resolve_collision(movement_system, &collision);
                     }
                 }
@@ -630,51 +644,51 @@ impl CollisionSystem {
         }
     }
 
-    pub fn update_obb(&mut self, movement_system: &mut MovementSystem, physics_system: &mut PhysicsSystem, delta_time: f32) {
+    // pub fn update_obb(&mut self, movement_system: &mut MovementSystem, physics_system: &mut PhysicsSystem, delta_time: f32) {
 
-        return;
-        self.collision_events.clear();
+    //     return;
+    //     self.collision_events.clear();
         
-        let mut entities_with_collision: Vec<(u32, Vector3<f32>, &Collider)> = Vec::new();
+    //     let mut entities_with_collision: Vec<(u32, Vector3<f32>, &Collider)> = Vec::new();
         
-        //this is where the position of the colliders is calculated btw
-        for (entity_id, collider) in &self.colliders {
-            if let Some(coords) = movement_system.get_coords(*entity_id) {
-                entities_with_collision.push((*entity_id, coords.position + collider.offset, collider));//no rotation or scaling yet
-                //todo add
-            }
-        }
+    //     //this is where the position of the colliders is calculated btw
+    //     for (entity_id, collider) in &self.colliders {
+    //         if let Some(coords) = movement_system.get_coords(*entity_id) {
+    //             entities_with_collision.push((*entity_id, coords.position + collider.offset, collider));//no rotation or scaling yet
+    //             //todo add
+    //         }
+    //     }
         
-        for i in 0..entities_with_collision.len() {
-            for j in (i + 1)..entities_with_collision.len() {
-                let (entity_a, pos_a, collider_a) = entities_with_collision[i];
-                let (entity_b, pos_b, collider_b) = entities_with_collision[j];
+    //     for i in 0..entities_with_collision.len() {
+    //         for j in (i + 1)..entities_with_collision.len() {
+    //             let (entity_a, pos_a, collider_a) = entities_with_collision[i];
+    //             let (entity_b, pos_b, collider_b) = entities_with_collision[j];
                 
-                if !self.can_collide(collider_a.layer, collider_b.layer) {
-                    continue;
-                }
+    //             if !self.can_collide(collider_a.layer, collider_b.layer) {
+    //                 continue;
+    //             }
                 
-                if let Some(collision) = self.check_collision(
-                    entity_a, pos_a, collider_a,
-                    entity_b, pos_b, collider_b
-                ) {
-                    self.collision_events.push(collision.clone());
+    //             if let Some(collision) = self.check_collision(
+    //                 entity_a, pos_a, collider_a,
+    //                 entity_b, pos_b, collider_b
+    //             ) {
+    //                 self.collision_events.push(collision.clone());
                     
-                    if !collider_a.is_trigger && !collider_b.is_trigger {
-                        // Use physics system for resolution
-                        physics_system.resolve_collision(movement_system, &collision);
-                    }
-                }
-            }
-        }
-    }
+    //                 if !collider_a.is_trigger && !collider_b.is_trigger {
+    //                     // Use physics system for resolution
+    //                     physics_system.resolve_collision(movement_system, &collision);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
     
     //really im going to be honest, i have like no memory of how to do collision so i hope that this is correct
     //btw it was not and it was really wrong... its fixed now but yeah
     fn check_collision(
         &self,
-        entity_a: u32, pos_a: Vector3<f32>, collider_a: &Collider,
-        entity_b: u32, pos_b: Vector3<f32>, collider_b: &Collider
+        entity_a: u32, pos_a: Vector3<f32>, collider_a: &Collider, rot_a: Quaternion<f32>,
+        entity_b: u32, pos_b: Vector3<f32>, collider_b: &Collider, rot_b: Quaternion<f32>
     ) -> Option<CollisionEvent> {
         match (&collider_a.shape, &collider_b.shape) {
             // Circle vs Circle (2D)
@@ -1010,11 +1024,17 @@ impl CollisionSystem {
             },
 
             (CollisionShape::OBB { .. }, CollisionShape::Box { width, height, depth }) => {
+                                println!("Checking Box-OBB collision between Entity {} and Entity {}", entity_a, entity_b);
+
                 // its rather simple im just like pretending the box is an obb that just has no rotation because it is lol
+                // println!("Checking Box-OBB collision between Entity {} and Entity {}", entity_a, entity_b);
+                // print!("Rotation of OBB: {:?}\n", rot_b);
+                // print!("Rotation of Box (identity): {:?}\n", Quaternion::new(1.0, 0.0, 0.0, 0.0));
                 let box_as_obb = Collider {
                     shape: CollisionShape::OBB {
                         half_extents: Vector3::new(*width / 2.0, *height / 2.0, *depth / 2.0),
-                        rotation: Quaternion::new(1.0, 0.0, 0.0, 0.0),//doesnt need to be 1 but 1 makes sure that there are not like div by 0 or nothing weird im pretty sure
+                        rotation: rot_b
+                        //rotation: Quaternion::new(1.0, 0.0, 0.0, 0.0),//doesnt need to be 1 but 1 makes sure that there are not like div by 0 or nothing weird im pretty sure
                     },
                     ..*collider_b
                 };
@@ -1031,10 +1051,14 @@ impl CollisionSystem {
 
             (CollisionShape::Box { width, height, depth }, CollisionShape::OBB { .. }) => {
                 // its rather simple im just like pretending the box is an obb that just has no rotation because it is lol
+                // println!("Checking Box-OBB collision between Entity {} and Entity {}", entity_a, entity_b);
+                // print!("Rotation of OBB: {:?}\n", rot_a);
+                // print!("Rotation of Box (identity): {:?}\n", Quaternion::new(1.0, 0.0, 0.0, 0.0));
                 let box_as_obb = Collider {
                     shape: CollisionShape::OBB {
                         half_extents: Vector3::new(*width / 2.0, *height / 2.0, *depth / 2.0),
-                        rotation: Quaternion::new(1.0, 0.0, 0.0, 0.0),//doesnt need to be 1 but 1 makes sure that there are not like div by 0 or nothing weird im pretty sure
+                        rotation: rot_a
+                        //rotation: Quaternion::new(1.0, 0.0, 0.0, 0.0),//doesnt need to be 1 but 1 makes sure that there are not like div by 0 or nothing weird im pretty sure
                     },
                     ..*collider_b
                 };

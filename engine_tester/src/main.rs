@@ -275,13 +275,13 @@ fn main() {
     });
     world.collision.add_collider(
         ground.id,
-        Collider::obb(Vector3::new(25.0, 5.0, 25.0), Quaternion::new(1.0, 0.1, 0.0, 0.0)).with_layer(1).with_offset(Vector3::new(25.0, 2.5, 25.0))
+        Collider::obb(Vector3::new(25.0, 5.0, 25.0), Quaternion::new(1.0, 0.0, 0.0, 0.0)).with_layer(1).with_offset(Vector3::new(25.0, 2.5, 25.0))
         //Collider::bounding_box(50.0, 5.0, 50.0).with_layer(3).with_offset(Vector3::new(25.0, 2.5, 25.0))
     );
 
     world.physics.add_rigidbody(
         ground.id,
-        PhysicsEntity::static_body()
+        PhysicsEntity::static_body().with_friction(0.8)
     );
 
 
@@ -306,14 +306,15 @@ fn main() {
     });
     world.collision.add_collider(
         drop_test.id,
-        //Collider::obb(Vector3::new(2.5, 2.5, 2.5), Quaternion::new(1.0, 0.0, 0.0, 0.0)).with_layer(1).with_offset(Vector3::new(2.5, 2.5, 2.5))
-        Collider::sphere(2.5).with_layer(1).with_offset(Vector3::new(2.5, 2.5, 2.5))
-        //Collider::bounding_box(5.0, 5.0, 5.0).with_layer(1).with_offset(Vector3::new(2.5, 2.5, 2.5))
+        Collider::obb(Vector3::new(2.5, 2.5, 2.5), Quaternion::new(1.0, 0.0, 0.0, 0.0)).with_layer(1).with_offset(Vector3::new(2.5, 2.5, 2.5))
+        //Collider::sphere(2.5).with_layer(1).with_offset(Vector3::new(2.5, 2.5, 2.5))
+        //Collider::bounding_box(5.0, 5.0, 5.0).with_layer(3).with_offset(Vector3::new(2.5, 2.5, 2.5))
     );
 
     world.physics.add_rigidbody(
         drop_test.id,
-        PhysicsEntity::new(30.0).with_restitution(0.8).with_friction(0.3)
+        PhysicsEntity::new(30.0).with_friction(0.8)
+        //PhysicsEntity::box_shape(30.0, 2.5, 2.5 , 2.5).with_restitution(0.8).with_friction(0.8)
     );
 
     world.physics.gravity = Vector3::new(0.0, -30.0, 0.0);
@@ -591,6 +592,7 @@ fn main() {
                         let name = world.get_entity_id_by_name("drop_test").unwrap();//lol this is what crashed cloud flair
 
                         world.set_position_directly(name, Vector3::new(10.0, 30.0, 10.0));
+                        world.set_rotation_directly(name, Quaternion::new(1.0, 0.0, 0.0, 0.0));
                     }
                 }
                 _ => {}

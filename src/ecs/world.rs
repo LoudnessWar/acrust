@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::any::{Any};
-use cgmath::{InnerSpace, Vector2, Vector3, Vector4};
+use cgmath::{InnerSpace, Quaternion, Vector2, Vector3, Vector4};
 
 use crate::ecs::physics::{PhysicsEntityData, PhysicsSystem, PhysicsType, PhysicsEntity};
 use crate::graphics::camera::Camera;
@@ -987,6 +987,12 @@ impl World {
     pub fn set_position_directly(&mut self, entity_id: u32, new_position: Vector3<f32>) {
         if let Some(coords) = self.movement.get_coords_mut(entity_id) {
             coords.position = new_position;
+        }
+    }
+
+    pub fn set_rotation_directly(&mut self, entity_id: u32, new_rotation: Quaternion<f32>) {
+        if let Some(coords) = self.movement.get_coords_mut(entity_id) {
+            coords.rotation = new_rotation;
         }
     }
 
