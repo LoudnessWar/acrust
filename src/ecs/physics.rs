@@ -437,11 +437,15 @@ impl PhysicsSystem {
             (0.0, 0.0, 0.5, true)
         };
 
+
+        //lol this is lowkey bogus lol
         let mut normal = collision.normal;
-        if is_static_b{
-            println!("Flipping normal because A is dynamic and B is static");
-            normal = -normal;
-        }
+        normal = normal.normalize();
+        normal = -normal;
+        // if is_static_b{
+        //     println!("Flipping normal because A is dynamic and B is static");
+        //     normal = -normal;
+        // }
 
         // if is_static_a && !is_static_b {
         //     // A is static, B is dynamic - normal should point A→B (correct as-is)
