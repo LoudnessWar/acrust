@@ -453,6 +453,7 @@ impl CollisionSystem {
             //println!("AFTER FIX - Normal: {:?}\n", normal);
             
             let collision_point = pos_b + normal * (penetration / 2.0);
+            print!("Collision Point: {:?}\n", collision_point);
             
             Some(CollisionEvent {
                 entity_a,
