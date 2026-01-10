@@ -547,179 +547,118 @@ impl PhysicsSystem {
     }
     
     /// Resolve collision with proper physics (called by collision system)
-    pub fn resolve_collision(
-        &mut self,
-        movement_system: &mut MovementSystem,
-        collision: &CollisionEvent,
-    ) {
+pub fn resolve_collision(
+    &mut self,
+    movement_system: &mut MovementSystem,
+    collision: &CollisionEvent,
+) {
+    let rb_a = self.rigidbodies.get(collision.entity_a);
+    let rb_b = self.rigidbodies.get(collision.entity_b);
+    
+    if rb_a.is_none() && rb_b.is_none() {
+        self.simple_position_resolution(movement_system, collision);
+        return;
+    }
 
-        println!( ">>> Resolving collision between entities {} and {}", collision.entity_a, collision.entity_b);
-        // println!("Collision normal: {:?}, penetration: {}\n", collision.normal, collision.penetration);
-        // println!("Collision point: {:?}", collision.collision_point);
-        // println!("----------------------------------------");
-        
-        let rb_a = self.rigidbodies.get(collision.entity_a);
-        let rb_b = self.rigidbodies.get(collision.entity_b);
-        
-        // If neither has a rigidbody, use simple position separation
-        if rb_a.is_none() && rb_b.is_none() {
-            print!("using simple collision resolution\n");
-            self.simple_position_resolution(movement_system, collision);
-            return;
-        }
+    let (inv_mass_a, rest_a, fric_a, is_static_a) = if let Some(rb) = rb_a {
+        (rb.inverse_mass, rb.restitution, rb.friction, rb.is_static())
+    } else {
+        (0.0, 0.0, 0.5, true)
+    };
+    
+    let (inv_mass_b, rest_b, fric_b, is_static_b) = if let Some(rb) = rb_b {
+        (rb.inverse_mass, rb.restitution, rb.friction, rb.is_static())
+    } else {
+        (0.0, 0.0, 0.5, true)
+    };
 
-        // Get rigidbody data
-        let (inv_mass_a, rest_a, fric_a, is_static_a) = if let Some(rb) = rb_a {
-            (rb.inverse_mass, rb.restitution, rb.friction, rb.is_static())
-        } else {
-            print!("object A has no rigidbody\n");
-            (0.0, 0.0, 0.5, true) // No rigidbody = static
-        };
-        
-        let (inv_mass_b, rest_b, fric_b, is_static_b) = if let Some(rb) = rb_b {
-            (rb.inverse_mass, rb.restitution, rb.friction, rb.is_static())
-        } else {
-            print!("object B has no rigidbody\n");
-            (0.0, 0.0, 0.5, true)
-        };
+    let mut normal = collision.normal.normalize();
 
-
-        //lol this is lowkey bogus lol
-        //todo fix this
-        let mut normal = collision.normal;
-        normal = normal.normalize();
-
-        // Both static/kinematic - just separate positions
-        if inv_mass_a == 0.0 && inv_mass_b == 0.0 {
-            print!("both objects static - using simple collision resolution\n");
-            self.simple_position_resolution(movement_system, collision);
-            return;
-        }
+    if inv_mass_a == 0.0 && inv_mass_b == 0.0 {
+        self.simple_position_resolution(movement_system, collision);
+        return;
+    }
+    
+    // === POSITION CORRECTION ===
+    let total_inv_mass = inv_mass_a + inv_mass_b;
+    if total_inv_mass > 0.0 {
+        let correction_percent = 0.8;
+        let slop = 0.01;
         
-        // === POSITION CORRECTION (prevent sinking) ===
-        let total_inv_mass = inv_mass_a + inv_mass_b;
-        if total_inv_mass > 0.0 {
-            let correction_percent = 1.0; // How much to correct (0-1)
-            let slop = 0.01; // Allowed penetration (prevents jitter)
-            
-            let correction_magnitude = (collision.penetration - slop).max(0.0) / total_inv_mass * correction_percent;
-            let correction = normal * correction_magnitude;
-            
-            if inv_mass_a > 0.0 {
-                if let Some(coords) = movement_system.get_coords_mut(collision.entity_a) {
-                    coords.position += correction * inv_mass_a;
-                }
-            }
-            
-            if inv_mass_b > 0.0 {
-                if let Some(coords) = movement_system.get_coords_mut(collision.entity_b) {
-                    coords.position -= correction * inv_mass_b;
-                }
-            }
-        }
+        let correction_magnitude = (collision.penetration - slop).max(0.0) / total_inv_mass * correction_percent;
+        let correction = normal * correction_magnitude;
         
-        // === VELOCITY RESOLUTION (impulse-based) ===
-        
-        // Get velocities
-        let vel_a = movement_system.get_velocity_mut(collision.entity_a)
-            .map(|v| v.direction * v.speed)
-            .unwrap_or(Vector3::new(0.0, 0.0, 0.0));
-            
-        let vel_b = movement_system.get_velocity_mut(collision.entity_b)
-            .map(|v| v.direction * v.speed)
-            .unwrap_or(Vector3::new(0.0, 0.0, 0.0));
-
-        // Relative velocity
-        let relative_velocity = vel_a - vel_b;
-        let velocity_along_normal = relative_velocity.dot(normal);
-        
-
-        if velocity_along_normal.abs() < 0.01 && collision.penetration < 0.05 {
-        // They're resting - project velocities to be parallel to contact
-            if inv_mass_a > 0.0 {
-                if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
-                    let current_vel = vel.direction * vel.speed;
-                    let tangent_vel = current_vel - normal * current_vel.dot(normal);
-                    let speed = tangent_vel.magnitude();
-                    if speed > 0.001 {
-                        vel.direction = tangent_vel.normalize();
-                        vel.speed = speed;
-                    } else {
-                        vel.speed = 0.0;
-                    }
-                }
-            }
-        }
-
-        // println!("Vel A: {:?}, Vel B: {:?}", vel_a, vel_b);
-        // println!("Relative velocity: {:?}", relative_velocity);
-        // println!("Velocity along normal: {}", velocity_along_normal);
-        
-        //im using the average restitution here so that uuuh like if the ground is bouncy or if the object is bouncy they will bounce if hit 
-        let restitution = (rest_a + rest_b) / 2.0;
-
-        
-        // Calculate impulse scalar
-        let impulse_scalar = -(1.0 + restitution) * velocity_along_normal / total_inv_mass;
-        let impulse = normal * impulse_scalar;
-
-        
-        // Apply impulses to BOTH entities
         if inv_mass_a > 0.0 {
-            if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
-                let velocity_change = impulse * inv_mass_a;
-                
-                let current_vel = vel.direction * vel.speed;
-                let new_vel = current_vel + velocity_change;
-                
-                let speed = new_vel.magnitude();
-                if speed > 0.001 {
-                    vel.direction = new_vel.normalize();
-                    vel.speed = speed;
-                } else {
-                    vel.direction = Vector3::new(0.0, 0.0, 0.0);
-                    vel.speed = 0.0;
-                }
-
-                if vel.speed < 0.01 {
-                    vel.speed = 0.0;
-                    vel.direction = Vector3::new(0.0, 0.0, 0.0);
-                }
+            if let Some(coords) = movement_system.get_coords_mut(collision.entity_a) {
+                coords.position += correction * inv_mass_a;
             }
         }
         
         if inv_mass_b > 0.0 {
-            if let Some(vel) = movement_system.get_velocity_mut(collision.entity_b) {
-                let velocity_change = -impulse * inv_mass_b;  // NEGATIVE impulse for entity B
-                let current_vel = vel.direction * vel.speed;
-                let new_vel = current_vel + velocity_change;
-                
-                let speed = new_vel.magnitude();
-                if speed > 0.001 {
-                    vel.direction = new_vel.normalize();
-                    vel.speed = speed;
-                } else {
-                    vel.direction = Vector3::new(0.0, 0.0, 0.0);
-                    vel.speed = 0.0;
-                }
+            if let Some(coords) = movement_system.get_coords_mut(collision.entity_b) {
+                coords.position -= correction * inv_mass_b;
             }
         }
+    }
+    
+    // === VELOCITY RESOLUTION ===
+    let vel_a = movement_system.get_velocity_mut(collision.entity_a)
+        .map(|v| v.direction * v.speed)
+        .unwrap_or(Vector3::zero());
         
-        // === FRICTION ===
-let friction = (fric_a + fric_b) / 2.0;
+    let vel_b = movement_system.get_velocity_mut(collision.entity_b)
+        .map(|v| v.direction * v.speed)
+        .unwrap_or(Vector3::zero());
 
-if friction > 0.001 {
-    println!(">>> FRICTION SECTION");
+    let relative_velocity = vel_a - vel_b;
+    let velocity_along_normal = relative_velocity.dot(normal);
     
-    // Get positions for contact point calculation
-    let pos_a = movement_system.get_coords(collision.entity_a)
-        .map(|c| c.position)
-        .unwrap_or(Vector3::zero());
-    let pos_b = movement_system.get_coords(collision.entity_b)
-        .map(|c| c.position)
-        .unwrap_or(Vector3::zero());
+    // Don't resolve if objects are separating
+    if velocity_along_normal > 0.0 {
+        return;
+    }
     
-    // Recalculate velocities after normal impulse
+    let restitution = (rest_a + rest_b) / 2.0;
+    let impulse_scalar = -(1.0 + restitution) * velocity_along_normal / total_inv_mass;
+    let impulse = normal * impulse_scalar;
+    
+    // Apply normal impulse
+    if inv_mass_a > 0.0 {
+        if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
+            let new_vel = vel.direction * vel.speed + impulse * inv_mass_a;
+            let speed = new_vel.magnitude();
+            if speed > 0.001 {
+                vel.direction = new_vel.normalize();
+                vel.speed = speed;
+            } else {
+                vel.speed = 0.0;
+                vel.direction = Vector3::zero();
+            }
+        }
+    }
+    
+    if inv_mass_b > 0.0 {
+        if let Some(vel) = movement_system.get_velocity_mut(collision.entity_b) {
+            let new_vel = vel.direction * vel.speed - impulse * inv_mass_b;
+            let speed = new_vel.magnitude();
+            if speed > 0.001 {
+                vel.direction = new_vel.normalize();
+                vel.speed = speed;
+            } else {
+                vel.speed = 0.0;
+                vel.direction = Vector3::zero();
+            }
+        }
+    }
+    
+    // === FRICTION (SIMPLIFIED FOR ROLLING) ===
+    let friction = (fric_a + fric_b) / 2.0;
+    
+    if friction < 0.001 {
+        return;
+    }
+    
+    // Get updated velocities after normal impulse
     let vel_a = movement_system.get_velocity_mut(collision.entity_a)
         .map(|v| v.direction * v.speed)
         .unwrap_or(Vector3::zero());
@@ -728,199 +667,198 @@ if friction > 0.001 {
         .map(|v| v.direction * v.speed)
         .unwrap_or(Vector3::zero());
     
-    // Get contact point relative to centers (r vectors)
-    // IMPORTANT: For a sphere, r should point FROM center TO contact point
+    // Get positions AT THE TIME OF COLLISION
+    // CRITICAL: The collision_point was calculated using old positions
+    // We need to recalculate r vectors based on CURRENT positions
+    let pos_a = movement_system.get_coords(collision.entity_a)
+        .map(|c| c.position)
+        .unwrap_or(Vector3::zero());
+    let pos_b = movement_system.get_coords(collision.entity_b)
+        .map(|c| c.position)
+        .unwrap_or(Vector3::zero());
+    
+    // OPTION 1: Recalculate contact point based on current positions
+    // Assume entity B is the sphere (you should check this properly)
+    // For now, let's use whichever gives us a reasonable radius
     let r_a = collision.collision_point - pos_a;
     let r_b = collision.collision_point - pos_b;
     
-    // Get angular velocities and inertia from rigidbodies
-    let (angular_vel_a, inv_inertia_a, can_rotate_a) = 
+    // Determine which is the sphere based on which r vector is closer to a reasonable radius
+    let (sphere_entity, sphere_pos, sphere_r, obb_entity, obb_pos, obb_r) = 
+        if r_b.magnitude() < 5.0 && r_b.magnitude() > 1.0 {
+            // B is probably the sphere
+            (collision.entity_b, pos_b, r_b, collision.entity_a, pos_a, r_a)
+        } else if r_a.magnitude() < 5.0 && r_a.magnitude() > 1.0 {
+            // A is probably the sphere
+            (collision.entity_a, pos_a, r_a, collision.entity_b, pos_b, r_b)
+        } else {
+            // Can't determine, use as-is
+            (collision.entity_a, pos_a, r_a, collision.entity_b, pos_b, r_b)
+        };
+    
+    // Recalculate contact point on sphere surface using CURRENT position
+    let sphere_radius = sphere_r.magnitude();
+    let contact_point_corrected = sphere_pos - normal * sphere_radius;
+    let r_sphere = contact_point_corrected - sphere_pos;
+    let r_obb = contact_point_corrected - obb_pos;
+    
+    println!("DEBUG: pos_a: {:?}, pos_b: {:?}", pos_a, pos_b);
+    println!("DEBUG: old collision_point: {:?}", collision.collision_point);
+    println!("DEBUG: corrected contact_point: {:?}", contact_point_corrected);
+    println!("DEBUG: sphere_pos: {:?}, sphere_radius: {}", sphere_pos, sphere_radius);
+    println!("DEBUG: r_sphere magnitude: {}", r_sphere.magnitude());
+    
+    // Use corrected values
+    let (r_a_final, r_b_final) = if sphere_entity == collision.entity_a {
+        (r_sphere, r_obb)
+    } else {
+        (r_obb, r_sphere)
+    };
+    
+    // Get angular data - use corrected entity IDs
+    let (angular_vel_a, inv_inertia_a, can_rotate_a, is_sphere_a) = 
         if inv_mass_a > 0.0 {
             self.rigidbodies.get(collision.entity_a)
-                .map(|rb| (rb.angular_velocity, rb.inverse_inertia, !rb.lock_rotation))
-                .unwrap_or((Vector3::zero(), Vector3::zero(), false))
+                .map(|rb| {
+                    let is_sphere = sphere_entity == collision.entity_a;
+                    (rb.angular_velocity, rb.inverse_inertia, !rb.lock_rotation, is_sphere)
+                })
+                .unwrap_or((Vector3::zero(), Vector3::zero(), false, false))
         } else {
-            (Vector3::zero(), Vector3::zero(), false)
+            (Vector3::zero(), Vector3::zero(), false, false)
         };
     
-    let (angular_vel_b, inv_inertia_b, can_rotate_b) = 
+    let (angular_vel_b, inv_inertia_b, can_rotate_b, is_sphere_b) = 
         if inv_mass_b > 0.0 {
             self.rigidbodies.get(collision.entity_b)
-                .map(|rb| (rb.angular_velocity, rb.inverse_inertia, !rb.lock_rotation))
-                .unwrap_or((Vector3::zero(), Vector3::zero(), false))
+                .map(|rb| {
+                    let is_sphere = sphere_entity == collision.entity_b;
+                    (rb.angular_velocity, rb.inverse_inertia, !rb.lock_rotation, is_sphere)
+                })
+                .unwrap_or((Vector3::zero(), Vector3::zero(), false, false))
         } else {
-            (Vector3::zero(), Vector3::zero(), false)
+            (Vector3::zero(), Vector3::zero(), false, false)
         };
     
-    println!("pos_a: {:?}, pos_b: {:?}", pos_a, pos_b);
-    println!("vel_a: {:?}, vel_b: {:?}", vel_a, vel_b);
-    println!("r_a: {:?}, r_b: {:?}", r_a, r_b);
-    println!("angular_vel_a: {:?}", angular_vel_a);
+    // Use corrected r vectors
+    let r_a = r_a_final;
+    let r_b = r_b_final;
     
-    // Calculate velocity at contact point (linear + rotational contribution)
+    // Calculate velocity at contact point
     let contact_vel_a = if can_rotate_a {
-        let rotational_vel = angular_vel_a.cross(r_a);
-        println!("Rotational velocity contribution A: {:?}", rotational_vel);
-        vel_a + rotational_vel
+        vel_a + angular_vel_a.cross(r_a)
     } else {
         vel_a
     };
     
     let contact_vel_b = if can_rotate_b {
-        let rotational_vel = angular_vel_b.cross(r_b);
-        println!("Rotational velocity contribution B: {:?}", rotational_vel);
-        vel_b + rotational_vel
+        vel_b + angular_vel_b.cross(r_b)
     } else {
         vel_b
     };
     
-    println!("Contact vel_a: {:?}", contact_vel_a);
-    println!("Contact vel_b: {:?}", contact_vel_b);
+    let relative_contact_vel = contact_vel_a - contact_vel_b;
     
-    let relative_velocity = contact_vel_a - contact_vel_b;
-    println!("Relative velocity at contact: {:?}", relative_velocity);
+    // Get tangent (perpendicular to normal)
+    let tangent_vel = relative_contact_vel - normal * relative_contact_vel.dot(normal);
     
-    // Get tangent (perpendicular to normal, in the plane of contact)
-    let tangent = relative_velocity - normal * relative_velocity.dot(normal);
-    println!("Tangent (before normalize): {:?}, magnitude: {}", tangent, tangent.magnitude());
-    
-    if tangent.magnitude() > 0.001 {
-        let tangent = tangent.normalize();
-        println!("Tangent (normalized): {:?}", tangent);
-        println!("Normal: {:?}", normal);
-        
-        // Calculate effective mass for friction
-        let mut effective_mass = inv_mass_a + inv_mass_b;
-        
-        // Add angular terms ONLY for objects that can rotate
-        if can_rotate_a {
-            let r_a_cross_t = r_a.cross(tangent);
-            let angular_term_a = r_a_cross_t.dot(Vector3::new(
-                inv_inertia_a.x * r_a_cross_t.x,
-                inv_inertia_a.y * r_a_cross_t.y,
-                inv_inertia_a.z * r_a_cross_t.z,
-            ));
-            effective_mass += angular_term_a;
-        }
-        
-        if can_rotate_b {
-            let r_b_cross_t = r_b.cross(tangent);
-            let angular_term_b = r_b_cross_t.dot(Vector3::new(
-                inv_inertia_b.x * r_b_cross_t.x,
-                inv_inertia_b.y * r_b_cross_t.y,
-                inv_inertia_b.z * r_b_cross_t.z,
-            ));
-            effective_mass += angular_term_b;
-        }
-        
-        println!("Effective mass: {}", effective_mass);
-        
-        if effective_mass > 0.0001 {
-            // Calculate friction impulse magnitude
-            // This impulse opposes the sliding motion
-            let friction_impulse_scalar = -relative_velocity.dot(tangent) / effective_mass;
-            
-            // Clamp friction to Coulomb friction limit (optional but realistic)
-            // let max_friction = impulse_scalar.abs() * friction;
-            // let friction_impulse_scalar = friction_impulse_scalar.clamp(-max_friction, max_friction);
-            
-            let friction_impulse = tangent * friction_impulse_scalar * friction;
-            
-            println!("Friction impulse scalar: {}", friction_impulse_scalar);
-            println!("Friction impulse: {:?}", friction_impulse);
-            
-            // Apply LINEAR friction impulses
-            if inv_mass_a > 0.0 {
-                if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
-                    let velocity_change = friction_impulse * inv_mass_a;
-                    println!("Linear velocity change for A: {:?}", velocity_change);
-                    
-                    let current_vel = vel.direction * vel.speed;
-                    let new_vel = current_vel + velocity_change;
-                    
-                    let speed = new_vel.magnitude();
-                    if speed > 0.001 {
-                        vel.direction = new_vel.normalize();
-                        vel.speed = speed;
-                    } else {
-                        vel.direction = Vector3::zero();
-                        vel.speed = 0.0;
-                    }
-                    
-                    println!("New linear velocity A: {:?}", vel.direction * vel.speed);
-                }
-            }
-            
-            if inv_mass_b > 0.0 {
-                if let Some(vel) = movement_system.get_velocity_mut(collision.entity_b) {
-                    let velocity_change = -friction_impulse * inv_mass_b;
-                    
-                    let current_vel = vel.direction * vel.speed;
-                    let new_vel = current_vel + velocity_change;
-                    
-                    let speed = new_vel.magnitude();
-                    if speed > 0.001 {
-                        vel.direction = new_vel.normalize();
-                        vel.speed = speed;
-                    } else {
-                        vel.direction = Vector3::zero();
-                        vel.speed = 0.0;
-                    }
-                }
-            }
-            
-            // Apply ANGULAR friction impulses
-            // The torque is τ = r × F
-            // CRITICAL: The cross product order matters!
-            // For object A, friction acts at contact point in direction of friction_impulse
-            if can_rotate_a {
-                if let Some(rb_a) = self.rigidbodies.get_mut(collision.entity_a) {
-                    // Torque = r × F
-                    // r points from center to contact
-                    // F is the friction force
-                    let angular_impulse = r_a.cross(friction_impulse);
-                    println!("Angular impulse for A: {:?}", angular_impulse);
-                    
-                    let angular_change = Vector3::new(
-                        angular_impulse.x * inv_inertia_a.x,
-                        angular_impulse.y * inv_inertia_a.y,
-                        angular_impulse.z * inv_inertia_a.z,
-                    );
-                    println!("Angular velocity change for A: {:?}", angular_change);
-                    println!("Old angular velocity A: {:?}", rb_a.angular_velocity);
-                    
-                    rb_a.angular_velocity += angular_change;
-                    
-                    println!("New angular velocity A: {:?}", rb_a.angular_velocity);
-                    
-                    // Debug: Check if we're moving toward rolling condition
-                    let target_angular_vel = -vel_a.cross(r_a.normalize()) / r_a.magnitude();
-                    println!("Target angular velocity for rolling: {:?}", target_angular_vel);
-                }
-            }
-            
-            if can_rotate_b {
-                if let Some(rb_b) = self.rigidbodies.get_mut(collision.entity_b) {
-                    // Equal and opposite torque for B
-                    let angular_impulse = r_b.cross(-friction_impulse);
-                    
-                    let angular_change = Vector3::new(
-                        angular_impulse.x * inv_inertia_b.x,
-                        angular_impulse.y * inv_inertia_b.y,
-                        angular_impulse.z * inv_inertia_b.z,
-                    );
-                    
-                    rb_b.angular_velocity += angular_change;
-                }
-            }
-        }
-    } else {
-        println!("No sliding motion (tangent too small)");
+    if tangent_vel.magnitude() < 0.001 {
+        return; // No sliding
     }
     
-    println!(">>> END FRICTION SECTION\n");
+    let tangent = tangent_vel.normalize();
+    
+    // SIMPLIFIED: For sphere on plane, use basic friction model
+    // The friction impulse opposes sliding at the contact point
+    let friction_impulse_magnitude = -relative_contact_vel.dot(tangent);
+    
+    // Clamp to Coulomb friction limit
+    let max_friction = impulse_scalar.abs() * friction;
+    let friction_impulse_magnitude = friction_impulse_magnitude.clamp(-max_friction, max_friction);
+    
+    let friction_impulse = tangent * friction_impulse_magnitude;
+    
+    println!("=== FRICTION DEBUG ===");
+    println!("r_a: {:?}, magnitude: {}", r_a, r_a.magnitude());
+    println!("r_b: {:?}, magnitude: {}", r_b, r_b.magnitude());
+    println!("Contact velocity A: {:?}", contact_vel_a);
+    println!("Relative contact velocity: {:?}", relative_contact_vel);
+    println!("Tangent: {:?}", tangent);
+    println!("Friction impulse: {:?}", friction_impulse);
+    println!("r_a: {:?}, magnitude: {}", r_a, r_a.magnitude());
+    
+    // Apply linear friction
+    if inv_mass_a > 0.0 {
+        if let Some(vel) = movement_system.get_velocity_mut(collision.entity_a) {
+            let new_vel = vel.direction * vel.speed + friction_impulse * inv_mass_a;
+            let speed = new_vel.magnitude();
+            if speed > 0.001 {
+                vel.direction = new_vel.normalize();
+                vel.speed = speed;
+            } else {
+                vel.speed = 0.0;
+                vel.direction = Vector3::zero();
+            }
+            println!("New linear vel A: {:?}", vel.direction * vel.speed);
+        }
+    }
+    
+    if inv_mass_b > 0.0 {
+        if let Some(vel) = movement_system.get_velocity_mut(collision.entity_b) {
+            let new_vel = vel.direction * vel.speed - friction_impulse * inv_mass_b;
+            let speed = new_vel.magnitude();
+            if speed > 0.001 {
+                vel.direction = new_vel.normalize();
+                vel.speed = speed;
+            } else {
+                vel.speed = 0.0;
+                vel.direction = Vector3::zero();
+            }
+        }
+    }
+    
+    // Apply angular friction (creates rolling)
+    if can_rotate_a {
+        if let Some(rb_a) = self.rigidbodies.get_mut(collision.entity_a) {
+            let torque = r_a.cross(friction_impulse);
+            let angular_change = Vector3::new(
+                torque.x * inv_inertia_a.x,
+                torque.y * inv_inertia_a.y,
+                torque.z * inv_inertia_a.z,
+            );
+            
+            println!("Torque: {:?}", torque);
+            println!("Angular change: {:?}", angular_change);
+            println!("Old angular vel: {:?}", rb_a.angular_velocity);
+            
+            rb_a.angular_velocity += angular_change;
+            
+            println!("New angular vel: {:?}", rb_a.angular_velocity);
+            
+            // CRITICAL: For proper rolling, check the rolling condition
+            // For a sphere: v = ω × r, so ω = r × v / r²
+            if is_sphere_a {
+                let sphere_r_mag = r_a.magnitude();
+                let expected_angular_vel = r_a.cross(vel_a) / (sphere_r_mag * sphere_r_mag);
+                println!("Expected angular vel for rolling: {:?}", expected_angular_vel);
+            }
+        }
+    }
+    
+    if can_rotate_b {
+        if let Some(rb_b) = self.rigidbodies.get_mut(collision.entity_b) {
+            let torque = r_b.cross(-friction_impulse);
+            let angular_change = Vector3::new(
+                torque.x * inv_inertia_b.x,
+                torque.y * inv_inertia_b.y,
+                torque.z * inv_inertia_b.z,
+            );
+            rb_b.angular_velocity += angular_change;
+        }
+    }
+    
+    println!("=== END FRICTION ===\n");
 }
-    }
     
     /// Simple position-based resolution (fallback for objects without rigidbodies)
     fn simple_position_resolution(&self, movement_system: &mut MovementSystem, collision: &CollisionEvent) {

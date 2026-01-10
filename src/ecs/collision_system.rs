@@ -1099,59 +1099,76 @@ impl CollisionSystem {
                 )
             },
             
-            (CollisionShape::OBB { half_extents, .. }, CollisionShape::Sphere { radius }) => {
-                let world_collider_a = Collider {
-                    shape: CollisionShape::OBB {
-                        half_extents: *half_extents,
-                        rotation: rot_a,
-                    },
-                    ..*collider_a
-                };
-                
-                if let Some((normal, penetration)) = Self::check_obb_sphere_collision(
-                    &world_collider_a,
-                    pos_a,
-                    *radius,
-                    pos_b,
-                ) {
-                    Some(CollisionEvent {
-                        entity_a,
-                        entity_b,
-                        collision_point: pos_a + normal * (radius - penetration / 2.0),
-                        normal,
-                        penetration,
-                    })
-                } else {
-                    None
-                }
-            },
-            
-            (CollisionShape::Sphere { radius }, CollisionShape::OBB { half_extents, .. }) => {
-                let world_collider_b = Collider {
-                    shape: CollisionShape::OBB {
-                        half_extents: *half_extents,
-                        rotation: rot_b,
-                    },
-                    ..*collider_b
-                };
-                
-                if let Some((normal, penetration)) = Self::check_obb_sphere_collision(
-                    &world_collider_b,
-                    pos_b,
-                    *radius,
-                    pos_a,
-                ) {
-                    Some(CollisionEvent {
-                        entity_a,
-                        entity_b,
-                        collision_point: pos_b - normal * (radius - penetration / 2.0),
-                        normal: -normal,
-                        penetration,
-                    })
-                } else {
-                    None
-                }
-            },
+(CollisionShape::OBB { half_extents, .. }, CollisionShape::Sphere { radius }) => {
+    let world_collider_a = Collider {
+        shape: CollisionShape::OBB {
+            half_extents: *half_extents,
+            rotation: rot_a,
+        },
+        ..*collider_a
+    };
+    
+    if let Some((normal, penetration)) = Self::check_obb_sphere_collision(
+        &world_collider_a,
+        pos_a,      // OBB position
+        *radius,
+        pos_b,      // Sphere position
+    ) {
+        // CRITICAL: Contact point must be on sphere surface
+        // normal points FROM sphere TO OBB (after the flip in check_obb_sphere_collision)
+        // So: sphere_center - normal * radius = point on sphere surface toward OBB
+        let contact_point = pos_b - normal * *radius;
+        
+        println!("OBB-Sphere collision:");
+        println!("  OBB pos (A): {:?}", pos_a);
+        println!("  Sphere pos (B): {:?}", pos_b);
+        println!("  Normal: {:?}", normal);
+        println!("  Radius: {}", radius);
+        println!("  Contact point: {:?}", contact_point);
+        println!("  Distance from sphere center: {}", (contact_point - pos_b).magnitude());
+        
+        Some(CollisionEvent {
+            entity_a,
+            entity_b,
+            collision_point: contact_point,
+            normal,
+            penetration,
+        })
+    } else {
+        None
+    }
+},
+
+// Case 2: Sphere (A) vs OBB (B)
+(CollisionShape::Sphere { radius }, CollisionShape::OBB { half_extents, .. }) => {
+    let world_collider_b = Collider {
+        shape: CollisionShape::OBB {
+            half_extents: *half_extents,
+            rotation: rot_b,
+        },
+        ..*collider_b
+    };
+    
+    if let Some((normal, penetration)) = Self::check_obb_sphere_collision(
+        &world_collider_b,
+        pos_b,      // OBB position
+        *radius,
+        pos_a,      // Sphere position
+    ) {
+        // Normal points FROM OBB TO sphere (then gets flipped in your function)
+        // We flip it again so it points FROM sphere TO OBB (entity_a to entity_b)
+        // Contact point is on the sphere surface
+        Some(CollisionEvent {
+            entity_a,
+            entity_b,
+            collision_point: pos_a + normal * *radius,  // FIXED: Sphere pos + normal * radius
+            normal: -normal,  // Flip to maintain convention: A to B
+            penetration,
+        })
+    } else {
+        None
+    }
+},
                         
             // need to add all the mixed collision types later
             _ => None, // Unsupported collision pair
