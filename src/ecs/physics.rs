@@ -719,9 +719,6 @@ if friction > 0.001 {
         .map(|c| c.position)
         .unwrap_or(Vector3::zero());
     
-    println!("pos_a (A center): {:?}", pos_a);
-    println!("pos_b (B center): {:?}", pos_b);
-    
     // Recalculate velocities after normal impulse
     let vel_a = movement_system.get_velocity_mut(collision.entity_a)
         .map(|v| v.direction * v.speed)
@@ -731,18 +728,12 @@ if friction > 0.001 {
         .map(|v| v.direction * v.speed)
         .unwrap_or(Vector3::zero());
     
-    println!("Linear vel_a: {:?}, vel_b: {:?}", vel_a, vel_b);
-    
     // Get contact point relative to centers (r vectors)
+    // IMPORTANT: For a sphere, r should point FROM center TO contact point
     let r_a = collision.collision_point - pos_a;
     let r_b = collision.collision_point - pos_b;
     
-    println!("Contact point: {:?}", collision.collision_point);
-    println!("r_a (contact relative to A): {:?}", r_a);
-    println!("r_b (contact relative to B): {:?}", r_b);
-    
     // Get angular velocities and inertia from rigidbodies
-    // ONLY for non-static objects
     let (angular_vel_a, inv_inertia_a, can_rotate_a) = 
         if inv_mass_a > 0.0 {
             self.rigidbodies.get(collision.entity_a)
@@ -761,21 +752,24 @@ if friction > 0.001 {
             (Vector3::zero(), Vector3::zero(), false)
         };
     
-    println!("Angular vel_a: {:?}, inv_inertia_a: {:?}, can_rotate: {}", 
-             angular_vel_a, inv_inertia_a, can_rotate_a);
-    println!("Angular vel_b: {:?}, inv_inertia_b: {:?}, can_rotate: {}", 
-             angular_vel_b, inv_inertia_b, can_rotate_b);
+    println!("pos_a: {:?}, pos_b: {:?}", pos_a, pos_b);
+    println!("vel_a: {:?}, vel_b: {:?}", vel_a, vel_b);
+    println!("r_a: {:?}, r_b: {:?}", r_a, r_b);
+    println!("angular_vel_a: {:?}", angular_vel_a);
     
     // Calculate velocity at contact point (linear + rotational contribution)
-    // ONLY include angular contribution if object can rotate
     let contact_vel_a = if can_rotate_a {
-        vel_a + angular_vel_a.cross(r_a)
+        let rotational_vel = angular_vel_a.cross(r_a);
+        println!("Rotational velocity contribution A: {:?}", rotational_vel);
+        vel_a + rotational_vel
     } else {
         vel_a
     };
     
     let contact_vel_b = if can_rotate_b {
-        vel_b + angular_vel_b.cross(r_b)
+        let rotational_vel = angular_vel_b.cross(r_b);
+        println!("Rotational velocity contribution B: {:?}", rotational_vel);
+        vel_b + rotational_vel
     } else {
         vel_b
     };
@@ -806,7 +800,6 @@ if friction > 0.001 {
                 inv_inertia_a.y * r_a_cross_t.y,
                 inv_inertia_a.z * r_a_cross_t.z,
             ));
-            println!("r_a × tangent: {:?}, angular_term_a: {}", r_a_cross_t, angular_term_a);
             effective_mass += angular_term_a;
         }
         
@@ -817,7 +810,6 @@ if friction > 0.001 {
                 inv_inertia_b.y * r_b_cross_t.y,
                 inv_inertia_b.z * r_b_cross_t.z,
             ));
-            println!("r_b × tangent: {:?}, angular_term_b: {}", r_b_cross_t, angular_term_b);
             effective_mass += angular_term_b;
         }
         
@@ -825,11 +817,17 @@ if friction > 0.001 {
         
         if effective_mass > 0.0001 {
             // Calculate friction impulse magnitude
+            // This impulse opposes the sliding motion
             let friction_impulse_scalar = -relative_velocity.dot(tangent) / effective_mass;
+            
+            // Clamp friction to Coulomb friction limit (optional but realistic)
+            // let max_friction = impulse_scalar.abs() * friction;
+            // let friction_impulse_scalar = friction_impulse_scalar.clamp(-max_friction, max_friction);
+            
             let friction_impulse = tangent * friction_impulse_scalar * friction;
             
-            println!("Friction impulse scalar (before friction): {}", friction_impulse_scalar);
-            println!("Final friction impulse: {:?}, magnitude: {}", friction_impulse, friction_impulse.magnitude());
+            println!("Friction impulse scalar: {}", friction_impulse_scalar);
+            println!("Friction impulse: {:?}", friction_impulse);
             
             // Apply LINEAR friction impulses
             if inv_mass_a > 0.0 {
@@ -848,13 +846,14 @@ if friction > 0.001 {
                         vel.direction = Vector3::zero();
                         vel.speed = 0.0;
                     }
+                    
+                    println!("New linear velocity A: {:?}", vel.direction * vel.speed);
                 }
             }
             
             if inv_mass_b > 0.0 {
                 if let Some(vel) = movement_system.get_velocity_mut(collision.entity_b) {
                     let velocity_change = -friction_impulse * inv_mass_b;
-                    println!("Linear velocity change for B: {:?}", velocity_change);
                     
                     let current_vel = vel.direction * vel.speed;
                     let new_vel = current_vel + velocity_change;
@@ -870,12 +869,17 @@ if friction > 0.001 {
                 }
             }
             
-            // Apply ANGULAR friction impulses (THIS CREATES THE ROLLING!)
-            // ONLY apply to objects that can rotate
+            // Apply ANGULAR friction impulses
+            // The torque is τ = r × F
+            // CRITICAL: The cross product order matters!
+            // For object A, friction acts at contact point in direction of friction_impulse
             if can_rotate_a {
                 if let Some(rb_a) = self.rigidbodies.get_mut(collision.entity_a) {
+                    // Torque = r × F
+                    // r points from center to contact
+                    // F is the friction force
                     let angular_impulse = r_a.cross(friction_impulse);
-                    println!("Angular impulse for A (r × F): {:?}", angular_impulse);
+                    println!("Angular impulse for A: {:?}", angular_impulse);
                     
                     let angular_change = Vector3::new(
                         angular_impulse.x * inv_inertia_a.x,
@@ -888,32 +892,30 @@ if friction > 0.001 {
                     rb_a.angular_velocity += angular_change;
                     
                     println!("New angular velocity A: {:?}", rb_a.angular_velocity);
+                    
+                    // Debug: Check if we're moving toward rolling condition
+                    let target_angular_vel = -vel_a.cross(r_a.normalize()) / r_a.magnitude();
+                    println!("Target angular velocity for rolling: {:?}", target_angular_vel);
                 }
             }
             
             if can_rotate_b {
                 if let Some(rb_b) = self.rigidbodies.get_mut(collision.entity_b) {
+                    // Equal and opposite torque for B
                     let angular_impulse = r_b.cross(-friction_impulse);
-                    println!("Angular impulse for B (r × -F): {:?}", angular_impulse);
                     
                     let angular_change = Vector3::new(
                         angular_impulse.x * inv_inertia_b.x,
                         angular_impulse.y * inv_inertia_b.y,
                         angular_impulse.z * inv_inertia_b.z,
                     );
-                    println!("Angular velocity change for B: {:?}", angular_change);
-                    println!("Old angular velocity B: {:?}", rb_b.angular_velocity);
                     
                     rb_b.angular_velocity += angular_change;
-                    
-                    println!("New angular velocity B: {:?}", rb_b.angular_velocity);
                 }
             }
-        } else {
-            println!("Effective mass too small, skipping friction");
         }
     } else {
-        println!("Tangent magnitude too small ({}), no sliding motion", tangent.magnitude());
+        println!("No sliding motion (tangent too small)");
     }
     
     println!(">>> END FRICTION SECTION\n");

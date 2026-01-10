@@ -1117,7 +1117,7 @@ impl CollisionSystem {
                     Some(CollisionEvent {
                         entity_a,
                         entity_b,
-                        collision_point: pos_b - normal * (radius - penetration / 2.0),
+                        collision_point: pos_a + normal * (radius - penetration / 2.0),
                         normal,
                         penetration,
                     })
@@ -1144,7 +1144,7 @@ impl CollisionSystem {
                     Some(CollisionEvent {
                         entity_a,
                         entity_b,
-                        collision_point: pos_a + normal * (radius - penetration / 2.0),
+                        collision_point: pos_b - normal * (radius - penetration / 2.0),
                         normal: -normal,
                         penetration,
                     })
