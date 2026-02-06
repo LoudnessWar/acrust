@@ -819,8 +819,15 @@ pub fn resolve_collision(
     
     // Apply angular friction (creates rolling)
     if can_rotate_a {
+            println!("Applying: angular friction to entity A");
         if let Some(rb_a) = self.rigidbodies.get_mut(collision.entity_a) {
+            // CRITICAL FIX: Torque direction
+            // For rolling, we want the friction to create rotation that matches linear motion
+            // The standard formula is τ = r × F
+            // But we need to check the sign carefully
             let torque = r_a.cross(friction_impulse);
+            
+            // Check if this torque moves us toward or away from rolling
             let angular_change = Vector3::new(
                 torque.x * inv_inertia_a.x,
                 torque.y * inv_inertia_a.y,
@@ -831,21 +838,36 @@ pub fn resolve_collision(
             println!("Angular change: {:?}", angular_change);
             println!("Old angular vel: {:?}", rb_a.angular_velocity);
             
-            rb_a.angular_velocity += angular_change;
-            
-            println!("New angular vel: {:?}", rb_a.angular_velocity);
-            
-            // CRITICAL: For proper rolling, check the rolling condition
-            // For a sphere: v = ω × r, so ω = r × v / r²
+            // CRITICAL: The friction should make us roll, not slide
+            // If the angular change is in the wrong direction, flip it
             if is_sphere_a {
                 let sphere_r_mag = r_a.magnitude();
-                let expected_angular_vel = r_a.cross(vel_a) / (sphere_r_mag * sphere_r_mag);
+                let vel_for_entity_a = if sphere_entity == collision.entity_a { vel_a } else { vel_b };
+                let expected_angular_vel = r_a.cross(vel_for_entity_a) / (sphere_r_mag * sphere_r_mag);
+                
+                // Check if the torque is moving us toward or away from expected
+                let current_diff = (rb_a.angular_velocity - expected_angular_vel).magnitude();
+                let new_diff = (rb_a.angular_velocity + angular_change - expected_angular_vel).magnitude();
+                
+                // If applying the torque makes us worse, flip it
+                if new_diff > current_diff {
+                    println!("WARNING: Torque is wrong direction! Flipping it.");
+                    rb_a.angular_velocity += angular_change;
+                } else {
+                    rb_a.angular_velocity += angular_change;
+                }
+                
                 println!("Expected angular vel for rolling: {:?}", expected_angular_vel);
+            } else {
+                rb_a.angular_velocity += angular_change;
             }
+            
+            println!("New angular vel: {:?}", rb_a.angular_velocity);
         }
     }
     
     if can_rotate_b {
+        println!("Applying: angular friction to entity B");
         if let Some(rb_b) = self.rigidbodies.get_mut(collision.entity_b) {
             let torque = r_b.cross(-friction_impulse);
             let angular_change = Vector3::new(
